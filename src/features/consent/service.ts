@@ -1,7 +1,8 @@
 export interface Consent { version: number; preferences: boolean; recovery: boolean; analytics: boolean; updatedAt: string; }
 export type OptionalCategory = 'preferences' | 'recovery' | 'analytics';
 export type ConsentChoices = Pick<Consent, OptionalCategory>;
-const key = 'escalera:consent';
+export const CONSENT_STORAGE_KEY = 'escalera:consent';
+const key = CONSENT_STORAGE_KEY;
 const categories: OptionalCategory[] = ['preferences', 'recovery', 'analytics'];
 const defaults = (): Consent => ({ version: 1, preferences: false, recovery: false, analytics: false, updatedAt: '' });
 function parse(value: string | null): Consent {
@@ -44,7 +45,18 @@ export function createConsentService(local: () => Storage, session?: () => Stora
     cleanup(memory);
     for (const listener of listeners) listener();
   }
-  function synchronize() { cleanup(readConsent()); for (const listener of listeners) listener(); }
+  function synchronize() {
+    if (memoryOnly) {
+      try {
+        const shared = parse(local().getItem(key));
+        // Shared withdrawal may narrow a page-only choice. Never let a stale
+        // persisted grant undo a local withdrawal that could not be written.
+        for (const category of categories) memory[category] = memory[category] && shared[category];
+      } catch { /* Keep effective local withdrawal if shared storage is denied. */ }
+    }
+    cleanup(readConsent());
+    for (const listener of listeners) listener();
+  }
   return {
     readConsent, updateConsent, synchronize,
     registerCleanup(category: OptionalCategory, operation: () => void) {

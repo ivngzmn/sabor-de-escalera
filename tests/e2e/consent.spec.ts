@@ -79,3 +79,39 @@ test('privacy settings with a trailing slash mounts only one consent control', a
   await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
   await expect(page.getByRole('button', { name: 'Reject optional', exact: true })).toHaveCount(1);
 });
+
+test('a real storage event withdraws memory-only choices in another tab', async ({ page, context }) => {
+  await page.goto('/privacy');
+  await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+  const other = await context.newPage();
+  try {
+    await other.goto('/privacy');
+    await expect(other.locator('astro-island')).not.toHaveAttribute('ssr', '');
+    await page.evaluate(() => {
+      const original = Storage.prototype.setItem;
+      Storage.prototype.setItem = function(key, value) { if (key === 'escalera:consent') throw new DOMException('Quota reached', 'QuotaExceededError'); original.call(this, key, value); };
+    });
+    await page.getByRole('button', { name: 'Accept optional', exact: true }).click();
+    for (const name of ['Remember preferences', 'Local draft recovery', 'Usage analytics']) await expect(page.getByRole('checkbox', { name, exact: true })).toBeChecked();
+    await page.evaluate(async () => {
+      const modulePath = '/src/features/consent/service.ts';
+      const service = await import(modulePath);
+      for (const category of ['preferences', 'recovery', 'analytics']) {
+        sessionStorage.setItem(`escalera:${category}:fixture`, 'optional');
+        service.registerConsentCleanup(category, () => { document.body.setAttribute(`data-${category}-stopped`, String(!service.readConsent()[category])); });
+      }
+      sessionStorage.setItem('essential', 'retain');
+      window.addEventListener('storage', (event) => { if (event.key === 'unrelated-app') document.body.dataset.unrelatedStorageSeen = 'true'; });
+    });
+    await other.evaluate(() => localStorage.setItem('unrelated-app', 'retain'));
+    await expect(page.locator('body')).toHaveAttribute('data-unrelated-storage-seen', 'true');
+    for (const name of ['Remember preferences', 'Local draft recovery', 'Usage analytics']) await expect(page.getByRole('checkbox', { name, exact: true })).toBeChecked();
+    await other.getByRole('button', { name: 'Reject optional', exact: true }).click();
+    for (const name of ['Remember preferences', 'Local draft recovery', 'Usage analytics']) await expect(page.getByRole('checkbox', { name, exact: true })).not.toBeChecked();
+    for (const category of ['preferences', 'recovery', 'analytics']) {
+      await expect(page.locator('body')).toHaveAttribute(`data-${category}-stopped`, 'true');
+      expect(await page.evaluate((category) => sessionStorage.getItem(`escalera:${category}:fixture`), category)).toBeNull();
+    }
+    expect(await page.evaluate(() => sessionStorage.getItem('essential'))).toBe('retain');
+  } finally { await other.close(); }
+});

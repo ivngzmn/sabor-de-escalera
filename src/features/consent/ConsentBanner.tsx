@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { readConsent, subscribeConsent, synchronizeConsent, updateConsent, type ConsentChoices } from './service';
+import { CONSENT_STORAGE_KEY, readConsent, subscribeConsent, synchronizeConsent, updateConsent, type ConsentChoices } from './service';
 const dictionaries = {
   en: {
     title: 'Your privacy choices', intro: 'Essential services keep sign-in, security and your saved account drafts working. Optional choices start off and can be changed at any time in Privacy settings.',
@@ -28,7 +28,9 @@ export default function ConsentBanner({ language = 'en', settings = false }: { l
     const refresh = () => { const consent = readConsent(); setChoices(consent); setVisible(settings || !consent.updatedAt); };
     refresh(); synchronizeConsent(); setReady(true);
     const unsubscribe = subscribeConsent(refresh);
-    const sync = () => synchronizeConsent();
+    const sync = (event: StorageEvent) => {
+      if (event.storageArea === window.localStorage && (event.key === CONSENT_STORAGE_KEY || event.key === null)) synchronizeConsent();
+    };
     window.addEventListener('storage', sync);
     return () => { unsubscribe(); window.removeEventListener('storage', sync); };
   }, [settings]);
