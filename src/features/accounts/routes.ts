@@ -1,8 +1,9 @@
-import { accountConfiguration } from '../../server/clerk';
+import { accountConfiguration, ClerkResponseError } from '../../server/clerk';
 import { accounts, type createAccountService } from './service';
 import { AccountError, assertSameOriginWrite } from './permissions';
 export const privateHeaders = { 'Cache-Control': 'private, no-store' };
 export function accountFailure(error: unknown) {
+  if (error instanceof ClerkResponseError) return error.response;
   const status = error instanceof AccountError ? error.status : 503;
   return new Response(status === 400 ? 'Check the submitted account details.' : status === 401 ? 'Sign-in required.' : status === 403 ? 'Access denied.' : 'Account service is temporarily unavailable.', { status, headers: privateHeaders });
 }

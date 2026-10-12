@@ -7,6 +7,8 @@ import * as accountModule from '../../src/features/accounts/service';
 import * as permissionModule from '../../src/features/accounts/permissions';
 import { handleAdminWrite } from '../../src/features/accounts/routes';
 import { migrate } from '../../src/server/db';
+import * as clerkModule from '../../src/server/clerk';
+import { handleAccountRequest } from '../../src/server/account-request';
 import { accountConfiguration } from '../../src/server/clerk';
 import type { AuthIdentity } from '../../src/features/accounts/service';
 
@@ -147,7 +149,7 @@ test('pending invitations can be revoked only by owner and no longer grant admin
   await expect(accounts.listAdministrators(request('member', 'GET'))).rejects.toMatchObject({ status: 403 });
 });
 
-test('admin HTTP endpoint rejects guest, member, suspended admin and cross-origin owner before privileged mutation', async () => {
+test('owner-only admin HTTP mutation rejects guest, members and cross-origin requests independently of suspension', async () => {
   const accounts = service();
   identity('owner', 'owner@example.com'); identity('member'); identity('admin');
   await accounts.inviteAdmin(request('owner'), 'admin@example.com');
@@ -180,4 +182,77 @@ test('migration CLI applies the same tracked migrations to the isolated local sc
   const result = await promisify(execFile)(process.execPath, ['--experimental-strip-types', 'scripts/migrate.ts'], { env: { ...process.env, DATABASE_URL: databaseUrl, PGOPTIONS: `-c search_path=${schema}` } });
   expect(result.stdout).toContain('Database migrations applied.');
   expect((await pool.query('SELECT count(*)::int AS count FROM schema_migrations')).rows[0].count).toBe(1);
+});
+
+
+test('suspended staff retain role-based administration while all contributions remain denied', async () => {
+  const accounts = service();
+  identity('owner', 'owner@example.com'); identity('admin'); identity('member');
+  await accounts.inviteAdmin(request('owner'), 'admin@example.com');
+  const admin = await accounts.updateProfile(request('admin'), { displayName: 'Admin' });
+  const owner = await accounts.updateProfile(request('owner'), { displayName: 'Owner' });
+  const member = await accounts.updateProfile(request('member'), { displayName: 'Member' });
+  await pool.query('UPDATE members SET suspended=true WHERE id = ANY($1::uuid[])', [[owner.id, admin.id, member.id]]);
+  for (const [subject, adminAllowed, ownerAllowed] of [['owner', true, true], ['admin', true, false], ['member', false, false], ['', false, false]] as const) {
+    const outcomes = await Promise.allSettled([accounts.requireAdmin(request(subject, 'GET')), accounts.requireOwner(request(subject, 'GET'))]);
+    expect(outcomes.map((outcome) => outcome.status === 'fulfilled'), subject).toEqual([adminAllowed, ownerAllowed]);
+    if (subject) expect(permissionModule.canContribute(await accounts.requireActor(request(subject, 'GET')))).toBe(false);
+    await expect(accounts.requireOwnedContribution(request(subject), member.id)).rejects.toMatchObject({ status: subject ? 403 : 401 });
+  }
+  const invite = await accounts.inviteAdmin(request('owner'), 'later@example.com');
+  await accounts.revokeInvitation(request('owner'), invite.id);
+  expect((await accounts.readAudit(request('owner', 'GET'))).some((event) => event.action === 'invitation_revoked')).toBe(true);
+  const response = await handleAdminWrite(new Request(`${origin}/api/accounts/admin`, { method: 'POST', headers: { Authorization: 'owner', Origin: origin }, body: new URLSearchParams({ action: 'remove', target: admin.id }) }), accounts, origin);
+  expect(response.status).toBe(303);
+  await expect(accounts.requireAdmin(request('admin', 'GET'))).rejects.toMatchObject({ status: 403 });
+});
+
+test('Clerk handshake returns SDK redirect and separate cookies before protected routing, never a guest identity', async () => {
+  const headers = new Headers({ Location: 'https://clerk.example/handshake?return_url=https%3A%2F%2Frecipes.example%2Fonboarding' });
+  headers.append('Set-Cookie', '__session=refreshed; Path=/; HttpOnly; Secure; SameSite=Lax');
+  headers.append('Set-Cookie', '__client=client; Path=/; Expires=Thu, 01 Jan 2037 00:00:00 GMT; HttpOnly; Secure');
+  const adapter = clerkModule.createClerkAdapter({
+    authenticateRequest: async () => ({ status: 'handshake', headers, isAuthenticated: false, toAuth: () => ({ userId: null }) }),
+    getUser: async () => { throw new Error('Handshake must not look up or map a member'); },
+  });
+  const incoming = request('', 'GET');
+  const response = await handleAccountRequest(incoming, async () => new Response('Guest access denied', { status: 401 }), adapter);
+  expect(response.status).toBe(307);
+  expect(response.headers.get('Location')).toBe('https://clerk.example/handshake?return_url=https%3A%2F%2Frecipes.example%2Fonboarding');
+  expect(response.headers.getSetCookie()).toEqual(['__session=refreshed; Path=/; HttpOnly; Secure; SameSite=Lax', '__client=client; Path=/; Expires=Thu, 01 Jan 2037 00:00:00 GMT; HttpOnly; Secure']);
+  expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+  expect(await response.text()).toBe('');
+  await expect(adapter.verifyIdentity(incoming)).rejects.toMatchObject({ response: { status: 307 } });
+});
+
+test('signed-out Clerk state still denies protected access and retains refresh cookies', async () => {
+  const headers = new Headers();
+  headers.append('Set-Cookie', '__session=; Max-Age=0; Path=/; HttpOnly');
+  headers.append('Set-Cookie', '__client=refreshed; Path=/; HttpOnly');
+  const adapter = clerkModule.createClerkAdapter({
+    authenticateRequest: async () => ({ status: 'signed-out', headers, isAuthenticated: false, toAuth: () => ({ userId: null }) }),
+    getUser: async () => { throw new Error('Signed-out must not look up a user'); },
+  });
+  const accounts = accountModule.createAccountService({ pool, origin, verifyIdentity: adapter.verifyIdentity });
+  const incoming = request('', 'GET');
+  const response = await handleAccountRequest(incoming, async () => {
+    try { await accounts.requireActor(incoming); return new Response('Unexpected access'); }
+    catch (error) { return new Response('Sign-in required', { status: error instanceof permissionModule.AccountError ? error.status : 503 }); }
+  }, adapter);
+  expect(response.status).toBe(401);
+  expect(response.headers.getSetCookie()).toEqual(['__session=; Max-Age=0; Path=/; HttpOnly', '__client=refreshed; Path=/; HttpOnly']);
+  expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+  expect((await pool.query('SELECT count(*)::int AS count FROM members')).rows[0].count).toBe(0);
+});
+
+
+test('contribution suspension does not block an owner invitation granting the matching staff role', async () => {
+  const accounts = service();
+  identity('owner', 'owner@example.com'); identity('invited');
+  const invited = await accounts.updateProfile(request('invited'), { displayName: 'Invited staff' });
+  await pool.query('UPDATE members SET suspended=true WHERE id=$1', [invited.id]);
+  await accounts.inviteAdmin(request('owner'), 'invited@example.com');
+  const actor = await accounts.requireAdmin(request('invited', 'GET'));
+  expect(actor.role).toBe('admin');
+  expect(permissionModule.canContribute(actor)).toBe(false);
 });

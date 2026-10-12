@@ -35,7 +35,7 @@ export function createAccountService(options: Options) {
         await audit(client, row.id, 'owner_bootstrapped', row.id);
       }
     }
-    if (row.role === 'member' && !row.suspended) {
+    if (row.role === 'member') {
       const invite = await client.query(`UPDATE admin_invitations SET redeemed_by=$1, redeemed_at=now()
         WHERE id=(SELECT id FROM admin_invitations WHERE email=$2 AND redeemed_by IS NULL AND revoked_at IS NULL AND expires_at>now() ORDER BY created_at,id LIMIT 1 FOR UPDATE) RETURNING id,invited_by`, [row.id, email]);
       if (invite.rowCount) {

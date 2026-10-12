@@ -14,10 +14,10 @@ export class AccountError extends Error {
 }
 export function canContribute(actor: Actor): boolean { return actor.onboarded && !actor.suspended; }
 export function assertAdmin(actor: Actor) {
-  if (actor.suspended || !['admin', 'owner'].includes(actor.role)) throw new AccountError(403, 'Admin access required');
+  if (!['admin', 'owner'].includes(actor.role)) throw new AccountError(403, 'Admin access required');
 }
 export function assertOwner(actor: Actor) {
-  if (actor.suspended || actor.role !== 'owner') throw new AccountError(403, 'Owner access required');
+  if (actor.role !== 'owner') throw new AccountError(403, 'Owner access required');
 }
 export function assertSameOriginWrite(request: Request, origin: string) {
   if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method) || request.headers.get('Origin') !== origin || request.headers.get('Sec-Fetch-Site') === 'cross-site') {

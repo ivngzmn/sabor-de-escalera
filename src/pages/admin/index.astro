@@ -2,7 +2,7 @@
 import AppLayout from '../../layouts/AppLayout.astro';
 import { SignIn } from '@clerk/astro/components';
 import { accounts, type Actor } from '../../features/accounts/service';
-import { accountConfiguration } from '../../server/clerk';
+import { accountConfiguration, ClerkResponseError } from '../../server/clerk';
 import { AccountError, safeReturnTo } from '../../features/accounts/permissions';
 import { accountFailure } from '../../features/accounts/routes';
 const spanish = Astro.url.searchParams.get('lang') === 'es';
@@ -18,6 +18,7 @@ if (config) {
     if (!actor.onboarded) return Astro.redirect(`/onboarding?${new URLSearchParams({ returnTo: spanish ? '/admin?lang=es' : '/admin', ...(spanish ? { lang: 'es' } : {}) })}`, 303);
     if (actor.role === 'owner') { management = await service.listAdministrators(Astro.request); audit = await service.readAudit(Astro.request); }
   } catch (error) {
+    if (error instanceof ClerkResponseError) return error.response;
     if (error instanceof AccountError && error.status === 403) return accountFailure(error);
     if (!(error instanceof AccountError && error.status === 401)) available = false;
   }

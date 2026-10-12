@@ -1,7 +1,7 @@
 ---
 import AppLayout from '../layouts/AppLayout.astro';
 import { SignIn } from '@clerk/astro/components';
-import { accountConfiguration } from '../server/clerk';
+import { accountConfiguration, ClerkResponseError } from '../server/clerk';
 import { requireActor } from '../features/accounts/service';
 import { AccountError, safeReturnTo } from '../features/accounts/permissions';
 const spanish = Astro.url.searchParams.get('lang') === 'es';
@@ -13,7 +13,7 @@ if (config) {
   try {
     const actor = await requireActor(Astro.request);
     return Astro.redirect(actor.onboarded ? target : onboarding, 303);
-  } catch (error) { if (!(error instanceof AccountError && error.status === 401)) available = false; }
+  } catch (error) { if (error instanceof ClerkResponseError) return error.response; if (!(error instanceof AccountError && error.status === 401)) available = false; }
 }
 if (!available) Astro.response.status = 503;
 ---
