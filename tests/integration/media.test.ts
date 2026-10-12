@@ -159,3 +159,117 @@ test('long-lived saved references prevent cleanup and administrator roles cannot
   expect(await svc.readDerivative(actor, asset.id, 'gallery')).toMatchObject({ ok: false });
   expect(await svc.completeUpload(actor, intent.id)).toMatchObject({ ok: false, error: { status: 409 } });
 });
+
+function blockedProvider() {
+  let release!: () => void;
+  let entered!: () => void;
+  const arrived = new Promise<void>((resolve) => { entered = resolve; });
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  // Always release the external seam, even if an assertion/setup fails.
+  let released = false;
+  const finish = () => { released = true; release(); };
+  const timer = setTimeout(finish, 5000);
+  return { arrived, get released() { return released; }, release: () => { clearTimeout(timer); finish(); }, wait: async () => { entered(); await held; } };
+}
+async function within<T>(promise: Promise<T>, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try { return await Promise.race([promise, new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error(`${label} waited on provider I/O`)), 1500); })]); }
+  finally { clearTimeout(timer); }
+}
+
+for (const operation of ['complete', 'read'] as const) {
+  test(`${operation}: stalled provider permits same-member and unrelated-member authentication`, async () => {
+    const gate = blockedProvider();
+    const svc = service(); const intent = value(await svc.createUploadIntent(actor, input)); upload(intent);
+    const asset = operation === 'read' ? value(await svc.completeUpload(actor, intent.id)) : null;
+    const delayed = media.createMediaService({ pool, ready: true, provider: { ...provider,
+      inspect: async (path) => { await gate.wait(); return provider.inspect(path); },
+      derivative: async () => { await gate.wait(); return provider.derivative(); },
+    } });
+    const pending = operation === 'complete' ? delayed.completeUpload(actor, intent.id) : delayed.readDerivative(actor, asset!.id, 'gallery');
+    const accounts = createAccountService({ pool, origin: 'https://recipes.example', verifyIdentity: async (request) => ({ provider: 'clerk', subject: request.headers.get('Authorization')!, email: request.headers.get('Authorization') === 'member' ? 'a@example.com' : 'b@example.com', emailVerified: true }) });
+    let same: Promise<Actor> | undefined; let other: Promise<Actor> | undefined;
+    try {
+      await within(gate.arrived, 'provider entry');
+      same = accounts.requireActor(new Request('https://recipes.example/onboarding', { headers: { Authorization: 'member' } }));
+      // Start the same-member map first: it would hold the account global lock
+      // while blocked by the media row lock in the regression.
+      other = accounts.requireActor(new Request('https://recipes.example/onboarding', { headers: { Authorization: 'other' } }));
+      const actors = await within(Promise.all([same, other]), 'authentication');
+      expect(actors.map((member) => member.id)).toEqual([actor.id, foreign.id]);
+      expect(gate.released).toBe(false);
+    } finally { gate.release(); await Promise.allSettled([pending, same, other]); }
+    expect(await pending).toMatchObject({ ok: true });
+  });
+}
+
+for (const change of ['suspended', 'expired', 'ownership', 'path'] as const) {
+  test(`completion rechecks ${change} after asynchronous inspection`, async () => {
+    const gate = blockedProvider(); const svc = service(); const intent = value(await svc.createUploadIntent(actor, input)); upload(intent);
+    const delayed = media.createMediaService({ pool, ready: true, provider: { ...provider, inspect: async (path) => { await gate.wait(); return provider.inspect(path); } } });
+    const pending = delayed.completeUpload(actor, intent.id);
+    try {
+      await within(gate.arrived, 'provider entry');
+      const sql = change === 'suspended' ? 'UPDATE members SET suspended=true WHERE id=$1' : change === 'expired' ? "UPDATE upload_intents SET expires_at=now()-interval '1 second' WHERE id=$1" : change === 'ownership' ? 'UPDATE upload_intents SET owner_id=$2 WHERE id=$1' : "UPDATE upload_intents SET provider_path=provider_path||'.changed' WHERE id=$1";
+      const values = change === 'suspended' ? [actor.id] : change === 'ownership' ? [intent.id, foreign.id] : [intent.id];
+      await within(pool.query(sql, values), 'concurrent state change');
+    } finally { gate.release(); await pending; }
+    expect(await pending).toMatchObject({ ok: false, error: { status: change === 'suspended' || change === 'ownership' ? 403 : 409 } });
+    expect((await pool.query('SELECT * FROM media_assets')).rowCount).toBe(0);
+  });
+}
+
+test('concurrent owned completion returns one asset without another intent or reference', async () => {
+  const gate = blockedProvider(); const svc = service(); const intent = value(await svc.createUploadIntent(actor, input)); upload(intent);
+  const delayed = media.createMediaService({ pool, ready: true, provider: { ...provider, inspect: async (path) => { await gate.wait(); return provider.inspect(path); } } });
+  const pending = delayed.completeUpload(actor, intent.id);
+  let completed;
+  try { await within(gate.arrived, 'provider entry'); completed = value(await within(svc.completeUpload(actor, intent.id), 'concurrent completion')); }
+  finally { gate.release(); await pending; }
+  expect(value(await pending)).toEqual(completed);
+  expect((await pool.query('SELECT id FROM media_assets')).rows).toEqual([{ id: completed!.id }]);
+  expect((await pool.query('SELECT * FROM upload_intents')).rowCount).toBe(1);
+  expect((await pool.query('SELECT * FROM media_references')).rowCount).toBe(0);
+});
+
+test('avatar replacement during a derivative fetch revokes the old bytes before return', async () => {
+  const svc = service();
+  async function avatar() { const intent = value(await svc.createUploadIntent(actor, { ...input, purpose: 'avatar' })); upload(intent); return value(await svc.completeUpload(actor, intent.id)); }
+  const old = await avatar(); const next = await avatar(); value(await svc.setAvatar(actor, old.id));
+  const gate = blockedProvider();
+  const delayed = media.createMediaService({ pool, ready: true, provider: { ...provider, derivative: async () => { await gate.wait(); return provider.derivative(); } } });
+  const pending = delayed.readDerivative(actor, old.id, 'avatar');
+  try { await within(gate.arrived, 'provider entry'); expect(await within(svc.setAvatar(actor, next.id), 'avatar replacement')).toMatchObject({ ok: true }); }
+  finally { gate.release(); await pending; }
+  expect(await pending).toMatchObject({ ok: false, error: { status: 404 } });
+  expect((await pool.query('SELECT asset_id FROM media_references WHERE reference_id=$1', [actor.id])).rows).toEqual([{ asset_id: next.id }]);
+  expect(deleted).toHaveLength(1);
+});
+
+test('overlapping completion cannot acknowledge a different provider file saved by another request', async () => {
+  const gate = blockedProvider(); const svc = service(); const intent = value(await svc.createUploadIntent(actor, input)); upload(intent);
+  const delayed = media.createMediaService({ pool, ready: true, provider: { ...provider, inspect: async (path) => { const inspected = await provider.inspect(path); await gate.wait(); return inspected; } } });
+  const pending = delayed.completeUpload(actor, intent.id);
+  let completed;
+  try {
+    await within(gate.arrived, 'provider entry');
+    upload(intent); // A different provider identity at the same private path.
+    completed = value(await within(svc.completeUpload(actor, intent.id), 'concurrent completion'));
+  } finally { gate.release(); await pending; }
+  expect(await pending).toMatchObject({ ok: false, error: { status: 409 } });
+  expect((await pool.query('SELECT id FROM media_assets')).rows).toEqual([{ id: completed!.id }]);
+});
+
+for (const change of ['ownership', 'path'] as const) {
+  test(`private read rejects ${change} changes committed while fetching bytes`, async () => {
+    const svc = service(); const intent = value(await svc.createUploadIntent(actor, input)); upload(intent); const asset = value(await svc.completeUpload(actor, intent.id));
+    const gate = blockedProvider();
+    const delayed = media.createMediaService({ pool, ready: true, provider: { ...provider, derivative: async () => { await gate.wait(); return provider.derivative(); } } });
+    const pending = delayed.readDerivative(actor, asset.id, 'gallery');
+    try {
+      await within(gate.arrived, 'provider entry');
+      await within(pool.query(change === 'ownership' ? 'UPDATE media_assets SET owner_id=$2 WHERE id=$1' : 'UPDATE media_assets SET provider_path=$2 WHERE id=$1', [asset.id, change === 'ownership' ? foreign.id : '/private/changed.webp']), 'asset change');
+    } finally { gate.release(); await pending; }
+    expect(await pending).toMatchObject({ ok: false, error: { status: 404 } });
+  });
+}

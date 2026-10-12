@@ -35,6 +35,25 @@ export function createMediaService({ pool, provider, ready }: Options) {
     if (purpose && purpose !== 'avatar' && (member.suspended || !member.onboarded_at)) throw new MediaError(403, 'Contributions are currently unavailable for this account.');
     return member;
   }
+  async function completionState(client: PoolClient, actor: Actor | null, intentId: string) {
+    await authorize(client, actor);
+    const intent = (await client.query<IntentRow>('SELECT * FROM upload_intents WHERE id=$1 FOR UPDATE', [intentId])).rows[0];
+    if (!intent || intent.owner_id !== actor!.id) throw new MediaError(403, 'Upload access denied.');
+    await authorize(client, actor, intent.purpose);
+    if (intent.completed_at) {
+      const asset = (await client.query<AssetRow>("SELECT * FROM media_assets WHERE intent_id=$1 AND owner_id=$2 AND state='ready' FOR SHARE", [intent.id, actor!.id])).rows[0];
+      if (!asset || asset.provider_path !== intent.provider_path) throw new MediaError(409, 'This photo is no longer available.');
+      return { intent, asset };
+    }
+    if (intent.expires_at.getTime() <= Date.now()) throw new MediaError(409, 'Upload expired. Please retry your photo.');
+    return { intent, asset: null };
+  }
+  async function readableAsset(client: PoolClient, actor: Actor | null, assetId: string) {
+    await authorize(client, actor);
+    const asset = (await client.query<AssetRow>("SELECT * FROM media_assets WHERE id=$1 AND owner_id=$2 AND state='ready' FOR SHARE", [assetId, actor!.id])).rows[0];
+    if (!asset) throw new MediaError(404, 'Photo not found.');
+    return asset;
+  }
   async function disposeUnusedAsset(assetId: string): Promise<void> {
     if (!isId(assetId)) return;
     const pending = await transaction(pool, async (client) => {
@@ -78,23 +97,24 @@ export function createMediaService({ pool, provider, ready }: Options) {
       return result(async () => {
         available();
         if (!isId(intentId)) throw new MediaError(400, 'Invalid upload.');
+        const initial = await transaction(pool, (client) => completionState(client, actor, intentId));
+        if (initial.asset) return ref(initial.asset);
+        // The committed intent reserves the path. Provider latency and decoding
+        // hold no DB connection or member/intent lock. Concurrent inspection is
+        // safe: the final transaction serializes completion and reuses one asset.
+        const file = await provider.inspect(initial.intent.provider_path);
+        if (!file || file.filePath !== initial.intent.provider_path || file.isPrivateFile !== true || file.size !== file.bytes.length) throw new MediaError(400, 'Photo could not be verified. Please retry.');
+        let dimensions;
+        try { dimensions = await inspectStoredImage(file.bytes); } catch { throw new MediaError(400, 'Photo could not be processed safely. Please choose another photo.'); }
         return transaction(pool, async (client) => {
-          await authorize(client, actor);
-          const intent = (await client.query<IntentRow>('SELECT * FROM upload_intents WHERE id=$1 FOR UPDATE', [intentId])).rows[0];
-          if (!intent || intent.owner_id !== actor!.id) throw new MediaError(403, 'Upload access denied.');
-          await authorize(client, actor, intent.purpose);
-          if (intent.completed_at) {
-            const asset = (await client.query<AssetRow>("SELECT * FROM media_assets WHERE intent_id=$1 AND state='ready'", [intent.id])).rows[0];
-            if (!asset) throw new MediaError(409, 'This photo is no longer available.');
-            return ref(asset);
+          const current = await completionState(client, actor, intentId);
+          if (current.intent.provider_path !== initial.intent.provider_path || current.intent.purpose !== initial.intent.purpose) throw new MediaError(409, 'Upload changed. Please retry your photo.');
+          if (current.asset) {
+            if (current.asset.provider_file_id !== file.fileId) throw new MediaError(409, 'Upload changed. Please retry your photo.');
+            return ref(current.asset);
           }
-          if (intent.expires_at.getTime() <= Date.now()) throw new MediaError(409, 'Upload expired. Please retry your photo.');
-          const file = await provider.inspect(intent.provider_path);
-          if (!file || file.filePath !== intent.provider_path || file.isPrivateFile !== true || file.size !== file.bytes.length) throw new MediaError(400, 'Photo could not be verified. Please retry.');
-          let dimensions;
-          try { dimensions = await inspectStoredImage(file.bytes); } catch { throw new MediaError(400, 'Photo could not be processed safely. Please choose another photo.'); }
-          const asset = (await client.query<AssetRow>(`INSERT INTO media_assets(intent_id,owner_id,purpose,provider_file_id,provider_path,stored_bytes,width,height) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [intent.id, actor!.id, intent.purpose, file.fileId, file.filePath, file.bytes.length, dimensions.width, dimensions.height])).rows[0];
-          await client.query('UPDATE upload_intents SET completed_at=now() WHERE id=$1', [intent.id]);
+          const asset = (await client.query<AssetRow>(`INSERT INTO media_assets(intent_id,owner_id,purpose,provider_file_id,provider_path,stored_bytes,width,height) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [intentId, actor!.id, current.intent.purpose, file.fileId, file.filePath, file.bytes.length, dimensions.width, dimensions.height])).rows[0];
+          await client.query('UPDATE upload_intents SET completed_at=now() WHERE id=$1', [intentId]);
           return ref(asset);
         });
       });
@@ -123,12 +143,14 @@ export function createMediaService({ pool, provider, ready }: Options) {
         if (!isId(assetId) || !Object.hasOwn(variants, variant)) throw new MediaError(404, 'Photo not found.');
         // Public delivery will require an active, visible content reference; no
         // caller-supplied visibility bit or URL can authorize access here.
+        const initial = await transaction(pool, (client) => readableAsset(client, actor, assetId));
+        const bytes = await provider.derivative(initial.provider_path, variant as Variant);
+        await inspectStoredImage(bytes);
+        // Recheck immediately before releasing bytes: replacement, hiding,
+        // ownership changes or deletion may have committed during the fetch.
         return transaction(pool, async (client) => {
-          await authorize(client, actor);
-          const asset = (await client.query<AssetRow>("SELECT * FROM media_assets WHERE id=$1 AND owner_id=$2 AND state='ready' FOR SHARE", [assetId, actor!.id])).rows[0];
-          if (!asset) throw new MediaError(404, 'Photo not found.');
-          const bytes = await provider.derivative(asset.provider_path, variant as Variant);
-          await inspectStoredImage(bytes);
+          const current = await readableAsset(client, actor, assetId);
+          if (current.provider_file_id !== initial.provider_file_id || current.provider_path !== initial.provider_path) throw new MediaError(404, 'Photo not found.');
           return bytes;
         });
       });
