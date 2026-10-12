@@ -5,6 +5,7 @@ export interface Actor {
   onboarded: boolean;
   displayName: string | null;
   bio: string;
+  avatarAssetId?: string | null;
   avatarPreset: 'chile' | 'corn' | 'lime' | null;
   savedListPublic: boolean;
 }

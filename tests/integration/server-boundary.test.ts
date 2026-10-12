@@ -33,7 +33,7 @@ async function readAssets(directory: string): Promise<string[]> {
 test('production client assets contain no server secrets, even when configured at build', async () => {
   await exec(process.execPath, ['node_modules/astro/bin/astro.mjs', 'build'], {
     cwd: root,
-    env: { ...process.env, DATABASE_URL: 'server-secret-canary-database', RESEND_API_KEY: 'server-secret-canary-resend', CLERK_SECRET_KEY: 'server-secret-canary-clerk', PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_Y2xlcmsuZXhhbXBsZSQ=', APP_ORIGIN: 'https://recipes.example', CLERK_EMAIL_CODE_CONFIGURED: 'true', PUBLIC_CLERK_KEYLESS_DISABLED: 'true' },
+    env: { ...process.env, DATABASE_URL: 'server-secret-canary-database', RESEND_API_KEY: 'server-secret-canary-resend', IMAGEKIT_PRIVATE_KEY: 'server-secret-canary-imagekit', CLERK_SECRET_KEY: 'server-secret-canary-clerk', PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_Y2xlcmsuZXhhbXBsZSQ=', APP_ORIGIN: 'https://recipes.example', CLERK_EMAIL_CODE_CONFIGURED: 'true', PUBLIC_CLERK_KEYLESS_DISABLED: 'true' },
   });
   for (const asset of await readAssets(join(root, '.vercel/output/static'))) expect(asset).not.toContain('server-secret-canary');
 }, 60000);

@@ -8,9 +8,9 @@ export interface AuthIdentity { provider: 'clerk'; subject: string; email: strin
 interface Options { pool: Pool; origin: string; ownerBootstrapEmail?: string; verifyIdentity: (request: Request) => Promise<AuthIdentity | null>; }
 interface MemberRow {
   id: string; role: Actor['role']; suspended: boolean; display_name: string | null; bio: string;
-  avatar_preset: Actor['avatarPreset']; saved_list_public: boolean; onboarded_at: Date | null;
+  avatar_asset_id: string | null; avatar_preset: Actor['avatarPreset']; saved_list_public: boolean; onboarded_at: Date | null;
 }
-const actorFrom = (row: MemberRow): Actor => ({ id: row.id, role: row.role, suspended: row.suspended, displayName: row.display_name, bio: row.bio, avatarPreset: row.avatar_preset, savedListPublic: row.saved_list_public, onboarded: row.onboarded_at !== null });
+const actorFrom = (row: MemberRow): Actor => ({ id: row.id, role: row.role, suspended: row.suspended, displayName: row.display_name, bio: row.bio, avatarPreset: row.avatar_preset, avatarAssetId: row.avatar_asset_id, savedListPublic: row.saved_list_public, onboarded: row.onboarded_at !== null });
 function emailAddress(value: unknown) {
   if (typeof value !== 'string' || value.trim().length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) throw new AccountError(400, 'A valid email is required');
   return value.trim().toLowerCase();

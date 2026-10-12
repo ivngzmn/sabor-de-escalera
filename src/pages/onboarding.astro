@@ -1,4 +1,6 @@
 ---
+import ImageUploader from '../features/media/ImageUploader';
+import { mediaReadiness } from '../features/media/service';
 import AppLayout from '../layouts/AppLayout.astro';
 import { accountConfiguration } from '../server/clerk';
 import { accounts, type Actor } from '../features/accounts/service';
@@ -44,6 +46,7 @@ catch (error) {
       <option value="corn" selected={actor?.avatarPreset === 'corn'}>{spanish ? 'Maíz' : 'Corn'}</option>
       <option value="lime" selected={actor?.avatarPreset === 'lime'}>{spanish ? 'Lima' : 'Lime'}</option>
     </select>
+    <ImageUploader client:load purpose="avatar" available={mediaReadiness().enabled} spanish={spanish} currentAssetId={actor?.avatarAssetId} />
     <p id="favorites-privacy">{spanish ? 'Tus recetas guardadas son públicas por defecto. Elige Privadas para compartir solo tus recetas publicadas.' : 'Your saved recipes are public by default. Choose Private to share only your published recipes.'}</p>
     <label for="saved-list">{spanish ? 'Visibilidad de recetas guardadas' : 'Saved recipe visibility'}</label>
     <select id="saved-list" name="savedListPublic" aria-describedby="favorites-privacy"><option value="true" selected={actor?.savedListPublic !== false}>{spanish ? 'Públicas' : 'Public'}</option><option value="false" selected={actor?.savedListPublic === false}>{spanish ? 'Privadas' : 'Private'}</option></select>
