@@ -35,10 +35,11 @@ for (const [name, width, height] of [
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
     await page.getByRole('link', { name: 'Add Recipe', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Add Recipe' })).toBeVisible();
-    await expect(page.getByText('Recipe contributions will open when account sign-in is available.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+    expect(new URL(page.url()).searchParams.get('returnTo')).toBe('/add-recipe');
     await page.getByRole('link', { name: 'Favorites', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Favorites' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+    expect(new URL(page.url()).searchParams.get('returnTo')).toBe('/favorites');
     await page.getByRole('contentinfo').getByRole('link', { name: 'Privacy settings' }).click();
     await expect(page.getByRole('heading', { name: 'Privacy settings' })).toBeVisible();
   });

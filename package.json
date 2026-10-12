@@ -14,14 +14,17 @@
     "test": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:e2e": "playwright test",
-    "build": "astro build"
+    "build": "astro build",
+    "db:migrate": "node --experimental-strip-types scripts/migrate.ts"
   },
   "dependencies": {
     "@astrojs/react": "5.0.3",
     "@astrojs/vercel": "11.0.13",
+    "@clerk/astro": "4.1.12",
     "@fontsource/playfair-display": "5.3.0",
     "@fontsource/plus-jakarta-sans": "5.3.0",
     "astro": "7.3.4",
+    "pg": "8.23.1",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
@@ -31,6 +34,7 @@
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.63.0",
     "@types/node": "24.10.1",
+    "@types/pg": "8.23.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.2.5",
     "eslint": "10.10.0",

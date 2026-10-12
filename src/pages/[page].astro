@@ -1,13 +1,28 @@
 ---
 import AppLayout from '../layouts/AppLayout.astro';
+import { accountConfiguration } from '../server/clerk';
+import { requireActor } from '../features/accounts/service';
+import { AccountError, canContribute, signInHref } from '../features/accounts/permissions';
+import { accountFailure } from '../features/accounts/routes';
 const spanish = Astro.url.searchParams.get('lang') === 'es';
 const pages: Record<string, { en: [string, string]; es: [string, string] }> = {
   'about': { en: ['About', 'Sabor de Escalera is a place to share recipes and the stories behind them.'], es: ['Acerca de', 'Sabor de Escalera es un lugar para compartir recetas y sus historias.'] },
   'privacy': { en: ['Privacy settings', 'This preview uses no optional analytics or device storage. Language is selected for this visit using the page address.'], es: ['Configuración de privacidad', 'Esta vista previa no usa analíticas ni almacenamiento opcional. El idioma se selecciona para esta visita mediante la dirección de la página.'] },
-  'add-recipe': { en: ['Add Recipe', 'Recipe contributions will open when account sign-in is available.'], es: ['Añadir receta', 'Podrás compartir recetas cuando esté disponible el inicio de sesión.'] },
-  'favorites': { en: ['Favorites', 'Saving favorites will be available when account sign-in opens.'], es: ['Favoritos', 'Podrás guardar favoritos cuando esté disponible el inicio de sesión.'] },
+  'add-recipe': { en: ['Add Recipe', 'Your account is ready. Recipe creation is being prepared.'], es: ['Añadir receta', 'Tu cuenta está lista. Estamos preparando la creación de recetas.'] },
+  'favorites': { en: ['Favorites', 'Your account is ready. Saved recipes will appear here.'], es: ['Favoritos', 'Tu cuenta está lista. Tus recetas guardadas aparecerán aquí.'] },
 };
 const key = Astro.params.page ?? '';
+if (key === 'favorites' || key === 'add-recipe') {
+  const origin = accountConfiguration()?.origin ?? Astro.url.origin;
+  try {
+    const actor = await requireActor(Astro.request);
+    if (!actor.onboarded) return Astro.redirect(`/onboarding?${new URLSearchParams({ returnTo: `${Astro.url.pathname}${Astro.url.search}`, ...(spanish ? { lang: 'es' } : {}) })}`, 303);
+    if (key === 'add-recipe' && !canContribute(actor)) return new Response('Contribution access is suspended.', { status: 403, headers: { 'Cache-Control': 'private, no-store' } });
+  } catch (error) {
+    if (error instanceof AccountError && (error.status === 401 || error.status === 503)) return Astro.redirect(signInHref(`${Astro.url.pathname}${Astro.url.search}`, origin), 303);
+    return accountFailure(error);
+  }
+}
 const page = Object.hasOwn(pages, key) ? pages[key] : undefined;
 if (!page) Astro.response.status = 404;
 const [title, description] = page?.[spanish ? 'es' : 'en'] ?? (spanish ? ['Página no encontrada', 'Esta página no está disponible.'] : ['Page not found', 'This page is unavailable.']);

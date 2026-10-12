@@ -1,0 +1,24 @@
+---
+import AppLayout from '../layouts/AppLayout.astro';
+import { SignIn } from '@clerk/astro/components';
+import { accountConfiguration } from '../server/clerk';
+import { requireActor } from '../features/accounts/service';
+import { AccountError, safeReturnTo } from '../features/accounts/permissions';
+const spanish = Astro.url.searchParams.get('lang') === 'es';
+const config = accountConfiguration();
+const target = safeReturnTo(Astro.url.searchParams.get('returnTo'), config?.origin ?? Astro.url.origin);
+const onboarding = `/onboarding?${new URLSearchParams({ returnTo: target, ...(spanish ? { lang: 'es' } : {}) })}`;
+let available = Boolean(config);
+if (config) {
+  try {
+    const actor = await requireActor(Astro.request);
+    return Astro.redirect(actor.onboarded ? target : onboarding, 303);
+  } catch (error) { if (!(error instanceof AccountError && error.status === 401)) available = false; }
+}
+if (!available) Astro.response.status = 503;
+---
+<AppLayout title={spanish ? 'Iniciar sesión' : 'Sign in'}>
+  <h1>{spanish ? 'Iniciar sesión' : 'Sign in'}</h1>
+  <p class="intro">{spanish ? 'Usa tu correo electrónico y el código de verificación para compartir recetas y guardar favoritos.' : 'Use your email and verification code to share recipes and save favorites.'}</p>
+  {available ? <SignIn routing="hash" withSignUp={true} forceRedirectUrl={onboarding} signUpForceRedirectUrl={onboarding} /> : <p role="status">{spanish ? 'El inicio de sesión no está disponible temporalmente. Inténtalo más tarde.' : 'Sign-in is temporarily unavailable. Please try again later.'}</p>}
+</AppLayout>

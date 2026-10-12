@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { cp, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterAll, expect, test } from 'vitest';
@@ -9,7 +9,15 @@ const exec = promisify(execFile);
 const root = await mkdtemp(join(tmpdir(), 'escalera-foundation-build-'));
 await cp('src', join(root, 'src'), { recursive: true });
 for (const file of ['astro.config.mjs', 'package.json', 'tsconfig.json']) await cp(file, join(root, file));
-await symlink(resolve('node_modules'), join(root, 'node_modules'));
+await mkdir(join(root, 'node_modules'));
+// Astro source packages must resolve inside the fixture root: a whole-directory
+// symlink puts Clerk .astro virtual scripts outside Astro 7's metadata cache.
+for (const dependency of await readdir('node_modules')) {
+  const source = resolve('node_modules', dependency);
+  const target = join(root, 'node_modules', dependency);
+  if (dependency === '@clerk') await cp(source, target, { recursive: true });
+  else await symlink(source, target);
+}
 afterAll(() => rm(root, { recursive: true, force: true }));
 
 async function readAssets(directory: string): Promise<string[]> {
@@ -25,7 +33,7 @@ async function readAssets(directory: string): Promise<string[]> {
 test('production client assets contain no server secrets, even when configured at build', async () => {
   await exec(process.execPath, ['node_modules/astro/bin/astro.mjs', 'build'], {
     cwd: root,
-    env: { ...process.env, DATABASE_URL: 'server-secret-canary-database', RESEND_API_KEY: 'server-secret-canary-resend', CLERK_SECRET_KEY: 'server-secret-canary-clerk' },
+    env: { ...process.env, DATABASE_URL: 'server-secret-canary-database', RESEND_API_KEY: 'server-secret-canary-resend', CLERK_SECRET_KEY: 'server-secret-canary-clerk', PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_Y2xlcmsuZXhhbXBsZSQ=', APP_ORIGIN: 'https://recipes.example', CLERK_EMAIL_CODE_CONFIGURED: 'true', PUBLIC_CLERK_KEYLESS_DISABLED: 'true' },
   });
   for (const asset of await readAssets(join(root, '.vercel/output/static'))) expect(asset).not.toContain('server-secret-canary');
 }, 60000);
