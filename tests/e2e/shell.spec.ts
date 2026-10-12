@@ -1,6 +1,14 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
+test('unknown routes including inherited object names return HTTP 404', async ({ page }) => {
+  for (const path of ['/constructor', '/toString', '/__proto__', '/not-a-page']) {
+    const response = await page.goto(path);
+    expect(response?.status(), path).toBe(404);
+    await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  }
+});
+
 for (const [name, width, height] of [
   ['phone', 390, 844], ['tablet', 768, 1024], ['desktop', 1440, 900],
 ] as const) {

@@ -2,10 +2,11 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { cp, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { afterAll, expect, test } from 'vitest';
 
 const exec = promisify(execFile);
-const root = await mkdtemp(resolve('.superpowers/foundation-build-'));
+const root = await mkdtemp(join(tmpdir(), 'escalera-foundation-build-'));
 await cp('src', join(root, 'src'), { recursive: true });
 for (const file of ['astro.config.mjs', 'package.json', 'tsconfig.json']) await cp(file, join(root, file));
 await symlink(resolve('node_modules'), join(root, 'node_modules'));

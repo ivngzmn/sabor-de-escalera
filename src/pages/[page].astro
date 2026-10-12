@@ -7,7 +7,8 @@ const pages: Record<string, { en: [string, string]; es: [string, string] }> = {
   'add-recipe': { en: ['Add Recipe', 'Recipe contributions will open when account sign-in is available.'], es: ['Añadir receta', 'Podrás compartir recetas cuando esté disponible el inicio de sesión.'] },
   'favorites': { en: ['Favorites', 'Saving favorites will be available when account sign-in opens.'], es: ['Favoritos', 'Podrás guardar favoritos cuando esté disponible el inicio de sesión.'] },
 };
-const page = pages[Astro.params.page ?? ''];
+const key = Astro.params.page ?? '';
+const page = Object.hasOwn(pages, key) ? pages[key] : undefined;
 if (!page) Astro.response.status = 404;
 const [title, description] = page?.[spanish ? 'es' : 'en'] ?? (spanish ? ['Página no encontrada', 'Esta página no está disponible.'] : ['Page not found', 'This page is unavailable.']);
 ---
