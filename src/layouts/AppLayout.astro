@@ -1,8 +1,9 @@
 ---
 import '../styles/tokens.css';
+import ConsentBanner from '../features/consent/ConsentBanner';
 import { readServerConfig } from '../server/config';
 
-interface Props { title: string; }
+interface Props { title: string; privacySettings?: boolean; }
 const { title } = Astro.props;
 readServerConfig();
 const language = Astro.url.searchParams.get('lang') === 'es' ? 'es' : 'en';
@@ -43,6 +44,7 @@ Astro.response.headers.set('Cache-Control', 'private, no-store');
       </div>
     </header>
     <main id="main-content" tabindex="-1" class="container"><slot /></main>
+    {!Astro.props.privacySettings && <ConsentBanner client:load language={language} />}
     <footer>
       <div class="container footer-inner">
         <p class="footer-copy">{copy.footer}</p>

@@ -7,7 +7,6 @@ import { accountFailure } from '../features/accounts/routes';
 const spanish = Astro.url.searchParams.get('lang') === 'es';
 const pages: Record<string, { en: [string, string]; es: [string, string] }> = {
   'about': { en: ['About', 'Sabor de Escalera is a place to share recipes and the stories behind them.'], es: ['Acerca de', 'Sabor de Escalera es un lugar para compartir recetas y sus historias.'] },
-  'privacy': { en: ['Privacy settings', 'This preview uses no optional analytics or device storage. Language is selected for this visit using the page address.'], es: ['Configuración de privacidad', 'Esta vista previa no usa analíticas ni almacenamiento opcional. El idioma se selecciona para esta visita mediante la dirección de la página.'] },
   'add-recipe': { en: ['Add Recipe', 'Your account is ready. Recipe creation is being prepared.'], es: ['Añadir receta', 'Tu cuenta está lista. Estamos preparando la creación de recetas.'] },
   'favorites': { en: ['Favorites', 'Your account is ready. Saved recipes will appear here.'], es: ['Favoritos', 'Tu cuenta está lista. Tus recetas guardadas aparecerán aquí.'] },
 };
