@@ -1,0 +1,14 @@
+---
+import AppLayout from '../layouts/AppLayout.astro';
+const spanish = Astro.url.searchParams.get('lang') === 'es';
+const pages: Record<string, { en: [string, string]; es: [string, string] }> = {
+  'about': { en: ['About', 'Sabor de Escalera is a place to share recipes and the stories behind them.'], es: ['Acerca de', 'Sabor de Escalera es un lugar para compartir recetas y sus historias.'] },
+  'privacy': { en: ['Privacy settings', 'This preview uses no optional analytics or device storage. Language is selected for this visit using the page address.'], es: ['Configuración de privacidad', 'Esta vista previa no usa analíticas ni almacenamiento opcional. El idioma se selecciona para esta visita mediante la dirección de la página.'] },
+  'add-recipe': { en: ['Add Recipe', 'Recipe contributions will open when account sign-in is available.'], es: ['Añadir receta', 'Podrás compartir recetas cuando esté disponible el inicio de sesión.'] },
+  'favorites': { en: ['Favorites', 'Saving favorites will be available when account sign-in opens.'], es: ['Favoritos', 'Podrás guardar favoritos cuando esté disponible el inicio de sesión.'] },
+};
+const page = pages[Astro.params.page ?? ''];
+if (!page) Astro.response.status = 404;
+const [title, description] = page?.[spanish ? 'es' : 'en'] ?? (spanish ? ['Página no encontrada', 'Esta página no está disponible.'] : ['Page not found', 'This page is unavailable.']);
+---
+<AppLayout title={title}><h1>{title}</h1><p class="intro">{description}</p></AppLayout>

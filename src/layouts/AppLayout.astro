@@ -1,0 +1,56 @@
+---
+import '../styles/tokens.css';
+import { readServerConfig } from '../server/config';
+
+interface Props { title: string; }
+const { title } = Astro.props;
+readServerConfig();
+const language = Astro.url.searchParams.get('lang') === 'es' ? 'es' : 'en';
+const copy = language === 'es'
+  ? { skip: 'Saltar al contenido', discover: 'Descubrir', add: 'Añadir receta', favorites: 'Favoritos', about: 'Acerca de', privacy: 'Configuración de privacidad', footer: 'Recetas, historias y sabores para compartir.' }
+  : { skip: 'Skip to content', discover: 'Discover', add: 'Add Recipe', favorites: 'Favorites', about: 'About', privacy: 'Privacy settings', footer: 'Recipes, stories, and flavors to share.' };
+const href = (path: string) => language === 'es' ? `${path}?lang=es` : path;
+const languageHref = (value: string) => {
+  const params = new URLSearchParams(Astro.url.searchParams);
+  params.set('lang', value);
+  return `${Astro.url.pathname}?${params.toString()}`;
+};
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+---
+<!doctype html>
+<html lang={language}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={copy.footer} />
+    <meta name="theme-color" content="#fff8f5" />
+    <title>{title} · Sabor de Escalera</title>
+  </head>
+  <body>
+    <a href="#main-content" class="skip-link">{copy.skip}</a>
+    <header>
+      <div class="container header-inner">
+        <a class="brand" href={href('/')}>Sabor de Escalera</a>
+        <nav aria-label={language === 'es' ? 'Navegación principal' : 'Main navigation'}>
+          <a href={href('/')} aria-current={Astro.url.pathname === '/' ? 'page' : undefined}>{copy.discover}</a>
+          <a href={href('/add-recipe')}>{copy.add}</a>
+          <a href={href('/favorites')}>{copy.favorites}</a>
+        </nav>
+        <nav aria-label={language === 'es' ? 'Idioma' : 'Language'}>
+          <a href={languageHref('en')} lang="en" hreflang="en" aria-current={language === 'en' ? 'true' : undefined}>English</a>
+          <a href={languageHref('es')} lang="es" hreflang="es" aria-current={language === 'es' ? 'true' : undefined}>Español</a>
+        </nav>
+      </div>
+    </header>
+    <main id="main-content" tabindex="-1" class="container"><slot /></main>
+    <footer>
+      <div class="container footer-inner">
+        <p class="footer-copy">{copy.footer}</p>
+        <nav aria-label={language === 'es' ? 'Información' : 'Information'}>
+          <a href={href('/about')}>{copy.about}</a>
+          <a href={href('/privacy')}>{copy.privacy}</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>
