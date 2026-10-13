@@ -45,10 +45,10 @@ for (const [name, width, height] of [
   });
 }
 
-test('disabled providers and consent-free shell make no external calls or optional storage', async ({ page }) => {
+test('disabled providers and consent-free shell make no external calls or optional storage', async ({ page, baseURL }) => {
   const external: string[] = [];
   page.on('request', (request) => {
-    if (!request.url().startsWith('http://127.0.0.1:4321/')) external.push(request.url());
+    if (!request.url().startsWith(`${baseURL}/`)) external.push(request.url());
   });
   await page.goto('/');
   await expect(page.getByRole('main')).toBeVisible();

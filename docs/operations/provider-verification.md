@@ -38,7 +38,7 @@ Official npm metadata checked October 12, 2026, not inferred from old examples. 
 | ESLint / Astro plugin | ESLint 10.10.0 and eslint-plugin-astro 1.3.1 (declared ESLint >=8.57); newer Astro plugin 3.2.1 plus its jsx-a11y peer conflicts with ESLint 10, so no forced/legacy peer resolution |
 | Fontsource | Playfair Display / Plus Jakarta Sans 5.3.0, local Latin assets including Spanish accented characters |
 
-Use Node 24.16+ on the 24.x line and npm 11+ (lint tooling requires current 24.x). Server secrets never use `PUBLIC_` variables or island props. `src/server/` imports are rejected in browser builds; production asset tests use harmless secret canaries. `.env.example` contains names and disabled flags only.
+Use Node 24.16+ on the 24.x line and pnpm 11.2.2 (lint tooling requires current 24.x). Server secrets never use `PUBLIC_` variables or island props. `src/server/` imports are rejected in browser builds; production asset tests use harmless secret canaries. `.env.example` contains names and disabled flags only.
 
 No quota/eligibility/permission blocker is marked passed merely because a local build succeeds. Before any launch, record owner-account plan, dates, usage caps, evidence locations, and each live proof here without recording secrets.
 

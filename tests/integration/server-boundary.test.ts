@@ -1,23 +1,17 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { cp, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterAll, expect, test } from 'vitest';
+
+import { fixtureDependencies } from '../fixtures/dependencies';
 
 const exec = promisify(execFile);
 const root = await mkdtemp(join(tmpdir(), 'escalera-foundation-build-'));
 await cp('src', join(root, 'src'), { recursive: true });
 for (const file of ['astro.config.mjs', 'package.json', 'tsconfig.json']) await cp(file, join(root, file));
-await mkdir(join(root, 'node_modules'));
-// Astro source packages must resolve inside the fixture root: a whole-directory
-// symlink puts Clerk .astro virtual scripts outside Astro 7's metadata cache.
-for (const dependency of await readdir('node_modules')) {
-  const source = resolve('node_modules', dependency);
-  const target = join(root, 'node_modules', dependency);
-  if (dependency === '@clerk') await cp(source, target, { recursive: true });
-  else await symlink(source, target);
-}
+await fixtureDependencies(root, ['@clerk/astro']);
 afterAll(() => rm(root, { recursive: true, force: true }));
 
 async function readAssets(directory: string): Promise<string[]> {

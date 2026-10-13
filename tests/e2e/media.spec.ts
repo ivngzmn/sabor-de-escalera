@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { spawn } from 'node:child_process';
-import { cp, mkdir, mkdtemp, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { fixtureDependencies } from '../fixtures/dependencies';
 
 test('real Astro React island hydrates, validates, preserves the photo and retries completion without reuploading', async ({ page }) => {
   test.setTimeout(60000);
@@ -13,11 +14,7 @@ test('real Astro React island hydrates, validates, preserves the photo and retri
   await mkdir(join(root, 'src/pages'), { recursive: true });
   await mkdir(join(root, 'src/features/media'), { recursive: true });
   for (const file of ['ImageUploader.tsx', 'contracts.ts']) await cp(`src/features/media/${file}`, join(root, 'src/features/media', file));
-  await mkdir(join(root, 'node_modules'));
-  for (const name of await readdir('node_modules')) {
-    if (name === '@astrojs') await cp(resolve('node_modules', name), join(root, 'node_modules', name), { recursive: true });
-    else await symlink(resolve('node_modules', name), join(root, 'node_modules', name));
-  }
+  await fixtureDependencies(root, ['@astrojs/react']);
   await cp('package.json', join(root, 'package.json'));
   await writeFile(join(root, 'astro.config.mjs'), `import { defineConfig } from 'astro/config'; import react from '@astrojs/react'; export default defineConfig({ integrations: [react()], devToolbar: { enabled: false } });`);
   await writeFile(join(root, 'src/pages/index.astro'), `---\nimport ImageUploader from '../features/media/ImageUploader';\n---\n<html lang="en"><head><title>Media interaction fixture</title></head><body><main><h1>Profile photo</h1><ImageUploader client:load purpose="avatar" available={true} /></main></body></html>`);
@@ -56,9 +53,9 @@ test('real Astro React island hydrates, validates, preserves the photo and retri
   } catch (error) { console.error(output); throw error; } finally { child.kill('SIGTERM'); await new Promise<void>((done) => { if (child.exitCode !== null) done(); else child.once('exit', () => done()); }); await rm(root, { recursive: true, force: true }); }
 });
 
-test('unconfigured production media routes fail closed with private caching', async ({ request }) => {
+test('unconfigured production media routes fail closed with private caching', async ({ request, baseURL }) => {
   for (const path of ['/api/media/intents', '/api/media/complete', '/api/media/avatar']) {
-    const response = await request.post(path, { headers: { Origin: 'http://127.0.0.1:4321' }, data: {} });
+    const response = await request.post(path, { headers: { Origin: baseURL! }, data: {} });
     expect(response.status()).toBe(503); expect(response.headers()['cache-control']).toBe('private, no-store');
   }
   for (const path of ['/api/media/00000000-0000-0000-0000-000000000000', '/api/media/00000000-0000-0000-0000-000000000000?variant=original']) {

@@ -5,7 +5,7 @@
   "type": "module",
   "engines": {
     "node": ">=24.16.0 <25",
-    "npm": ">=11"
+    "pnpm": "11.2.2"
   },
   "scripts": {
     "dev": "astro dev",
@@ -42,11 +42,8 @@
     "eslint-plugin-astro": "2.1.1",
     "typescript": "6.0.2",
     "typescript-eslint": "8.71.1",
-    "vitest": "5.0.1"
+    "vitest": "5.0.1",
+    "vite": "8.3.4"
   },
-  "overrides": {
-    "@vercel/routing-utils": {
-      "path-to-regexp": "6.3.0"
-    }
-  }
+  "packageManager": "pnpm@11.2.2"
 }

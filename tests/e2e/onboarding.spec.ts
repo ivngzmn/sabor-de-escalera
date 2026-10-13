@@ -9,11 +9,11 @@ test('guest favorite intent survives sign-in and keeps Spanish', async ({ page }
   await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible();
 });
 
-test('unconfigured auth fails closed, blocks direct account mutations and admin access, while browsing works', async ({ page, request }) => {
+test('unconfigured auth fails closed, blocks direct account mutations and admin access, while browsing works', async ({ page, request, baseURL }) => {
   const response = await page.goto('/sign-in?returnTo=https://evil.example');
   expect(response?.status()).toBe(503);
   await expect(page.getByText('Sign-in is temporarily unavailable. Please try again later.')).toBeVisible();
-  expect((await request.post('/onboarding', { headers: { Origin: 'http://127.0.0.1:4321' }, form: { displayName: 'Intruder', role: 'owner' } })).status()).toBe(503);
+  expect((await request.post('/onboarding', { headers: { Origin: baseURL! }, form: { displayName: 'Intruder', role: 'owner' } })).status()).toBe(503);
   expect((await request.post('/api/accounts/admin', { headers: { Origin: 'https://evil.example' }, form: { action: 'invite', email: 'intruder@example.com' } })).status()).toBe(403);
   await page.goto('/admin');
   await expect(page.getByRole('heading', { name: 'Admin sign-in' })).toBeVisible();

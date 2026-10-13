@@ -25,16 +25,11 @@ pattern, and HTTP input does not supply route templates. However, the generated
 Vercel function imports routing utilities and ships the affected package; its
 presence cannot be dismissed as exclusively a development or build concern.
 
-The manifest applies an exact override only to `@vercel/routing-utils`:
+The pnpm workspace applies an exact override only to `@vercel/routing-utils`:
 
-```json
-{
-  "overrides": {
-    "@vercel/routing-utils": {
-      "path-to-regexp": "6.3.0"
-    }
-  }
-}
+```yaml
+overrides:
+  '@vercel/routing-utils>path-to-regexp': 6.3.0
 ```
 
 Both the regular dependency and the existing alias now resolve to `6.3.0`.
@@ -70,7 +65,9 @@ supports the existing ESLint `10.10.0`, TypeScript-ESLint `8.71.1` and Node
 Astro configuration remains in place. Browser axe and keyboard accessibility
 checks remain required. No force or legacy peer-resolution bypass was used.
 
-## Verification and maintenance
+## Historical npm verification
+
+The following commands and counts record the original remediation; they are not current setup instructions.
 
 The reviewed graph has zero findings in a fresh online `npm audit --json`.
 That audit result is separate from offline installation output. Clean `npm ci`,
@@ -99,3 +96,26 @@ expressions need their own bounded review. A clean audit covers known registry
 advisories at review time; live Clerk and Neon account verification remains a
 separate launch requirement described in
 [provider verification](provider-verification.md).
+
+## Current pnpm verification and maintenance
+
+The standard toolchain is supported Node 24.16+ on 24.x and pinned pnpm 11.2.2.
+Install with `pnpm install --frozen-lockfile`, run the same named scripts with
+`pnpm run`, and check known advisories with `pnpm audit --json`.
+`pnpm-lock.yaml` is the sole authoritative dependency lockfile. The scoped
+workspace override preserves the regular and alias routing implementations at
+6.3.0. All original 23 direct pins are unchanged; Vite 8.3.4 is now explicitly
+declared because `astro.config.mjs` imports its public `loadEnv` API. This exact
+version was already resolved by Astro 7.3.4 and satisfies Vitest 5.0.1's Vite 8 peer range.
+
+[Official pnpm settings](https://pnpm.io/settings/dependency-resolution) document
+the scoped selector. [Build settings](https://pnpm.io/settings/build) document
+explicit version-specific `allowBuilds`; only `esbuild@0.28.2` is approved and
+unreviewed scripts fail installation. Sharp 0.35.5 has no install lifecycle
+script and uses its optional platform packages. Frozen-install verification
+includes actual Sharp image encoding, decoding and resize, not just import.
+
+Current local proof: 18 unit, 45 integration and 18 browser tests, Astro check,
+ESLint, Vercel build and fresh online pnpm audit. Canary scanning, client import
+rejection, real React hydration and bilingual accessibility assertions remain
+active. See the Task14 report for exact commands and limitations.
