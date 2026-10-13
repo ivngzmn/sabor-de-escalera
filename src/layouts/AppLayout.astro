@@ -1,5 +1,8 @@
 ---
 import '../styles/tokens.css';
+import headingFont from '@fontsource/playfair-display/files/playfair-display-latin-600-normal.woff2?url';
+import bodyFont from '@fontsource/plus-jakarta-sans/files/plus-jakarta-sans-latin-400-normal.woff2?url';
+import bodyStrongFont from '@fontsource/plus-jakarta-sans/files/plus-jakarta-sans-latin-600-normal.woff2?url';
 import ConsentBanner from '../features/consent/ConsentBanner';
 import { readServerConfig } from '../server/config';
 
@@ -25,6 +28,9 @@ Astro.response.headers.set('Cache-Control', 'private, no-store');
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={copy.footer} />
     <meta name="theme-color" content="#fff8f5" />
+    {[headingFont, bodyFont, bodyStrongFont].map((href) => (
+      <link rel="preload" href={href} as="font" type="font/woff2" crossorigin="anonymous" />
+    ))}
     <title>{title} · Sabor de Escalera</title>
   </head>
   <body>

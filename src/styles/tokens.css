@@ -1,6 +1,27 @@
-@import '@fontsource/playfair-display/latin-600.css';
-@import '@fontsource/plus-jakarta-sans/latin-400.css';
-@import '@fontsource/plus-jakarta-sans/latin-600.css';
+/* Preload these same WOFF2 assets in AppLayout. A bounded native block period
+   avoids painting fallback text on normal loads; failures remain readable in
+   the system fallback. Browsers may still swap after unusually slow loads. */
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url('@fontsource/playfair-display/files/playfair-display-latin-600-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('@fontsource/plus-jakarta-sans/files/plus-jakarta-sans-latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url('@fontsource/plus-jakarta-sans/files/plus-jakarta-sans-latin-600-normal.woff2') format('woff2');
+}
 
 :root {
   color-scheme: light;
