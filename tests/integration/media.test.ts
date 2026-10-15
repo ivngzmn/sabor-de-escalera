@@ -273,3 +273,20 @@ for (const change of ['ownership', 'path'] as const) {
     expect(await pending).toMatchObject({ ok: false, error: { status: 404 } });
   });
 }
+
+test('recipe photo delivery requires the intended current public reference and rechecks visibility after provider transport',async()=>{
+ const svc=service(),intent=value(await svc.createUploadIntent(actor,input));upload(intent);const asset=value(await svc.completeUpload(actor,intent.id));
+ const {createDraftService}=await import('../../src/features/recipes/drafts');const {emptyRecipe}=await import('../../src/features/recipes/validation');
+ const drafts=createDraftService({pool,disposeUnusedAsset:svc.disposeUnusedAsset});const draft=value(await drafts.createDraft(actor));
+ await drafts.saveDraft(actor,draft.id,1,{...emptyRecipe(),photos:[{assetId:asset.id,caption:'Photo',alt:'',crop:{x:50,y:50,zoom:1}}]});
+ const publicRead=(svc as typeof svc & {readRecipeDerivative?:(recipeId:string,assetId:string,variant:string)=>Promise<unknown>}).readRecipeDerivative;
+ expect(publicRead,'public delivery must authorize current intended references').toBeTypeOf('function');if(!publicRead)return;
+ expect(await publicRead(draft.id,asset.id,'gallery')).toMatchObject({ok:false,error:{status:404}});
+ await pool.query("UPDATE recipes SET state='published' WHERE id=$1",[draft.id]);
+ expect(await publicRead(draft.id,asset.id,'gallery')).toMatchObject({ok:true});
+ expect(await publicRead(randomUUID(),asset.id,'gallery')).toMatchObject({ok:false});
+ expect(await publicRead(draft.id,asset.id,'original')).toMatchObject({ok:false});
+ const gate=blockedProvider();const delayed=media.createMediaService({pool,ready:true,provider:{...provider,derivative:async()=>{await gate.wait();return bytes;}}});
+ const pending=delayed.readRecipeDerivative(draft.id,asset.id,'gallery');
+ try{await gate.arrived;await pool.query("UPDATE recipes SET state='hidden' WHERE id=$1",[draft.id]);gate.release();expect(await pending).toMatchObject({ok:false,error:{status:404}});}finally{gate.release();await pending;}
+});

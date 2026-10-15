@@ -155,6 +155,28 @@ export function createMediaService({ pool, provider, ready }: Options) {
         });
       });
     },
+    readRecipeDerivative(recipeId: string, assetId: string, variant: string): Promise<Result<Buffer>> {
+      return result(async () => {
+        available();
+        if (!isId(recipeId) || !isId(assetId) || !['thumb','card','gallery'].includes(variant)) throw new MediaError(404, 'Photo not found.');
+        const visible = async () => {
+          const asset = (await pool.query<AssetRow>(`SELECT a.* FROM media_assets a
+            JOIN media_references ref ON ref.asset_id=a.id AND ref.kind='recipe' AND ref.reference_id=$1
+            JOIN recipes r ON r.id=ref.reference_id AND r.state='published'
+            WHERE a.id=$2 AND a.state='ready' AND a.purpose='recipe'`, [recipeId, assetId])).rows[0];
+          if (!asset) throw new MediaError(404, 'Photo not found.');
+          return asset;
+        };
+        const initial = await visible();
+        // Provider I/O takes place without member/content locks. Denial is
+        // committed by lifecycle operations before any asynchronous purge work.
+        const bytes = await provider.derivative(initial.provider_path, variant as Variant);
+        await inspectStoredImage(bytes);
+        const current = await visible();
+        if (current.provider_path !== initial.provider_path || current.provider_file_id !== initial.provider_file_id) throw new MediaError(404, 'Photo not found.');
+        return bytes;
+      });
+    },
     disposeUnusedAsset,
   };
   return api;

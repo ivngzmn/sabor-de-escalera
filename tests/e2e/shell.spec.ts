@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Response } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 test('unknown routes including inherited object names return HTTP 404', async ({ page }) => {
@@ -59,10 +59,16 @@ test('disabled providers and consent-free shell make no external calls or option
 
 test('server secret canaries do not enter HTML or browser-loaded assets', async ({ page }) => {
   const assets: Promise<string>[] = [];
-  page.on('response', (response) => {
+  const collectAsset = (response: Response) => {
     if (/javascript|text\/html|text\/css/.test(response.headers()['content-type'] ?? '')) assets.push(response.text());
-  });
+  };
+  page.on('response', collectAsset);
   await page.goto('/');
   await expect(page.getByRole('main')).toBeVisible();
+  // Dynamic island modules arrive after the server-rendered main is visible.
+  // Keep collecting through hydration and completion of all network requests.
+  await expect(page.locator('astro-island[ssr]')).toHaveCount(0);
+  await page.waitForLoadState('networkidle');
+  page.off('response', collectAsset);
   for (const body of await Promise.all(assets)) expect(body).not.toContain('server-secret-canary');
 });

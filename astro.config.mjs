@@ -3,6 +3,7 @@ import react from '@astrojs/react';
 import vercel from '@astrojs/vercel';
 import clerk from '@clerk/astro';
 import { loadEnv } from 'vite';
+import tailwindcss from '@tailwindcss/vite';
 const environment = { ...loadEnv(process.env.NODE_ENV ?? 'development', process.cwd(), ''), ...process.env };
 const clerkConfigured = Boolean(environment.PUBLIC_CLERK_PUBLISHABLE_KEY && environment.CLERK_SECRET_KEY && environment.DATABASE_URL && environment.APP_ORIGIN && environment.CLERK_EMAIL_CODE_CONFIGURED === 'true');
 const clerkIntegration = clerk({ telemetry: { disabled: true } });
@@ -18,7 +19,7 @@ export default defineConfig({
   adapter: vercel({ imageService: false, isr: false }),
   integrations: [react(), clerkIntegration],
   vite: {
-    plugins: [{
+    plugins: [tailwindcss(), {
       name: 'server-module-boundary',
       enforce: 'pre',
       transform(_code, id, options) {

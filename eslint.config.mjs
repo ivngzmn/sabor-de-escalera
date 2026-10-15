@@ -8,5 +8,6 @@ export default defineConfig(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...astro.configs.recommended,
+  { files: ['**/*.astro'], languageOptions: { parserOptions: { parser: tseslint.parser } } },
   { files: ['**/*.ts', '**/*.mjs'], languageOptions: { globals: { process: 'readonly', console: 'readonly' } } },
 );

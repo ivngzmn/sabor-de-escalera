@@ -168,7 +168,7 @@ test('migration runner is concurrency-safe and repeatable without losing mapped 
   const actor = await service().ensureMember(identity('retained'));
   await Promise.all([migrate(pool), migrate(pool)]);
   expect((await service().ensureMember(identity('retained'))).id).toBe(actor.id);
-  expect((await pool.query('SELECT count(*)::int AS count FROM schema_migrations')).rows[0].count).toBe(3);
+  expect((await pool.query('SELECT count(*)::int AS count FROM schema_migrations')).rows[0].count).toBe(4);
 });
 
 test('auth configuration requires private keys, exact secure origin and verified email-code instance configuration', () => {
@@ -181,7 +181,7 @@ test('auth configuration requires private keys, exact secure origin and verified
 test('migration CLI applies the same tracked migrations to the isolated local schema', async () => {
   const result = await promisify(execFile)(process.execPath, ['--experimental-strip-types', 'scripts/migrate.ts'], { env: { ...process.env, DATABASE_URL: databaseUrl, PGOPTIONS: `-c search_path=${schema}` } });
   expect(result.stdout).toContain('Database migrations applied.');
-  expect((await pool.query('SELECT count(*)::int AS count FROM schema_migrations')).rows[0].count).toBe(3);
+  expect((await pool.query('SELECT count(*)::int AS count FROM schema_migrations')).rows[0].count).toBe(4);
 });
 
 

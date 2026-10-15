@@ -8,6 +8,9 @@ export async function fixtureDependencies(root: string, sourcePackages: string[]
   const modules = join(root, 'node_modules');
   await mkdir(modules);
   for (const name of await readdir('node_modules')) {
+    // Each concurrent Astro harness owns its optimizer cache. Sharing .vite
+    // replaces dependency hashes under other live servers and breaks hydration.
+    if (['.vite', '.astro', '.cache'].includes(name)) continue;
     if (sourcePackages.some((pkg) => pkg.split('/')[0] === name)) {
       await mkdir(join(modules, name));
       for (const child of await readdir(resolve('node_modules', name))) {
