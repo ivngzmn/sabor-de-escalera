@@ -27,8 +27,13 @@ const page = Object.hasOwn(pages, key) ? pages[key] : undefined;
 if (!page) Astro.response.status = 404;
 const [title, description] = page?.[spanish ? 'es' : 'en'] ?? (spanish ? ['Página no encontrada', 'Esta página no está disponible.'] : ['Page not found', 'This page is unavailable.']);
 ---
-<AppLayout title={title}><h1>{title}</h1><p class="intro">{description}</p>
-  {key === 'favorites' && <section aria-label={spanish ? 'Vista previa de favoritos' : 'Favorites preview'} class="mt-8 grid gap-6 md:grid-cols-3">
+<AppLayout title={title}>
+  <section class="flex flex-col items-start gap-2 rounded-xl border border-border bg-muted p-6 md:p-10">
+    {page && <p class="eyebrow">Sabor de Escalera</p>}
+    <h1>{title}</h1>
+    <p class="intro">{description}</p>
+  </section>
+  {key === 'favorites' && <section aria-label={spanish ? 'Vista previa de favoritos' : 'Favorites preview'} class="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
     {[0, 1, 2].map(() => <RecipePlaceholder variant="card" state="planned" language={spanish ? 'es' : 'en'} />)}
   </section>}
 </AppLayout>
