@@ -2,12 +2,81 @@
   max-width: 64rem;
   margin: auto;
 }
+.editor-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+}
+.editor-header h1 {
+  margin-block: 0.25rem 0.5rem;
+}
+.editor-header p {
+  margin: 0;
+}
+.editor-status {
+  margin: 0.75rem 0 0;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+/* Stitch "Paso 01 … 05" stepper: one white card, active step on warm fill. */
 .editor-tabs {
-  margin: 2rem 0;
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  margin: 1.5rem 0 2rem;
+  padding: 0.75rem 0.75rem 1.25rem;
   gap: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-level-1);
 }
 .editor-tabs [data-slot="button"] {
   flex: 1 1 8rem;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  text-align: left;
+}
+.editor-tabs [data-slot="button"][aria-current="step"] {
+  background: var(--color-warm-strong);
+  color: var(--color-terracotta);
+}
+.editor-step-number {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  background: var(--color-warm);
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+[aria-current="step"] > .editor-step-number {
+  background: var(--color-terracotta-fill);
+  color: #fff;
+}
+.editor-progress {
+  position: absolute;
+  inset: auto 1rem 0.5rem;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--color-warm);
+  overflow: hidden;
+}
+.editor-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--color-terracotta-fill);
+  transition: width 200ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .editor-progress > span {
+    transition: none;
+  }
 }
 
 .editor-fields {
@@ -25,6 +94,12 @@
 }
 .editor-fields section > [data-slot="field-set"] {
   padding-block: 1rem;
+}
+/* Section titles inside the workspace use headline-md. */
+.editor-fields h2 {
+  margin: 0;
+  font-size: clamp(1.5rem, 0.75vw + 1.25rem, 1.75rem);
+  line-height: 1.29;
 }
 .editor-grid {
   display: grid;
@@ -60,7 +135,53 @@
   overflow: hidden;
   aspect-ratio: 4/3;
   max-width: 100%;
+  border-radius: 16px;
   background: var(--color-warm);
+  box-shadow: var(--shadow-level-2);
+}
+.recipe-story {
+  margin-block: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-warm);
+}
+.recipe-story .author-text {
+  margin: 0.5rem 0 0;
+  color: var(--color-muted);
+  font-size: 1.0625rem;
+}
+.recipe-columns h2 {
+  margin-top: 0;
+  font-size: 1.375rem;
+}
+/* Numbered terracotta step markers from the Stitch recipe detail. */
+.recipe-steps {
+  list-style: none;
+  padding: 0;
+  counter-reset: recipe-step;
+}
+.recipe-steps > li {
+  position: relative;
+  padding-left: 3rem;
+  min-height: 2rem;
+}
+.recipe-steps > li::before {
+  counter-increment: recipe-step;
+  content: counter(recipe-step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: var(--color-terracotta-fill);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
 }
 .cover-frame img {
   display: block;
@@ -74,7 +195,8 @@
 .recipe-columns {
   display: grid;
   grid-template-columns: 1fr 1.4fr;
-  gap: 2rem;
+  align-items: start;
+  gap: 1.5rem;
 }
 .recipe-columns li {
   margin-block: 0.7rem;
@@ -94,7 +216,16 @@
   .editor-tabs [data-slot="button"] {
     flex: 1 1 8rem;
   }
+  .editor-header {
+    align-items: flex-start;
+  }
   .recipe-preview h1 {
     font-size: 2.2rem;
   }
+}
+.recipe-steps > li:has(> h3) {
+  padding-left: 0;
+}
+.recipe-steps > li:has(> h3)::before {
+  content: none;
 }

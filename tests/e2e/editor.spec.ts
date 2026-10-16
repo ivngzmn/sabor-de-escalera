@@ -212,7 +212,7 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     const back = page.getByRole("button", { name: "Back", exact: true });
     await page.mouse.move(0, 0);
-    await expect(back).toHaveCSS("background-color", "rgb(255, 248, 245)");
+    await expect(back).toHaveCSS("background-color", "rgb(255, 255, 255)");
     expect(
       await back.evaluate((el) => el.getBoundingClientRect().height),
     ).toBeGreaterThanOrEqual(44);
@@ -535,7 +535,7 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
     });
     await expect(restart).toBeVisible();
     await expect(restart).toHaveCSS("color", "rgb(255, 255, 255)");
-    await expect(restart).toHaveCSS("background-color", "rgb(166, 51, 27)");
+    await expect(restart).toHaveCSS("background-color", "rgb(200, 75, 49)");
     await page.goto(`${base}/add-recipe`);
     await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
     await page.context().setOffline(true);

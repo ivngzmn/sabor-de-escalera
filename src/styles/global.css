@@ -1,7 +1,9 @@
 @import "tailwindcss";
 @source "../";
 
-/* Light-only shadcn semantic tokens, mapped to the established Escalera palette. */
+/* Light-only shadcn semantic tokens, mapped to the Stitch "Warm Editorial
+   Heritage" design system. Fills use the brighter terracotta; text-sized
+   terracotta uses the deeper ink so it stays AA on the cream canvas. */
 :root {
   --background: var(--color-cream);
   --foreground: var(--color-text);
@@ -9,19 +11,25 @@
   --card-foreground: var(--color-text);
   --popover: var(--color-surface);
   --popover-foreground: var(--color-text);
-  --primary: var(--color-terracotta);
+  --primary: var(--color-terracotta-fill);
   --primary-foreground: #fff;
+  --primary-hover: var(--color-chili);
+  --primary-ink: var(--color-terracotta);
   --secondary: var(--color-green);
   --secondary-foreground: #fff;
+  --secondary-soft: var(--color-green-soft);
   --muted: var(--color-warm);
   --muted-foreground: var(--color-muted);
-  --accent: var(--color-warm);
+  --accent: var(--color-warm-strong);
   --accent-foreground: var(--color-text);
+  --masa: var(--color-masa);
+  --masa-soft: var(--color-masa-soft);
+  --masa-foreground: var(--color-masa-ink);
   --destructive: var(--color-terracotta);
   --destructive-foreground: #fff;
   --border: var(--color-border);
-  --input: var(--color-muted);
-  --ring: var(--color-green);
+  --input: var(--color-outline);
+  --ring: var(--color-focus);
 }
 @theme inline {
   --color-background: var(--background);
@@ -32,22 +40,81 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-ink: var(--primary-ink);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-soft: var(--secondary-soft);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-masa: var(--masa);
+  --color-masa-soft: var(--masa-soft);
+  --color-masa-foreground: var(--masa-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* DESIGN.md radius steps pinned to the classes the components use. */
+  --radius-sm: 4px; /* accents */
+  --radius-md: 8px; /* buttons, inputs, step cards */
+  --radius-lg: 12px; /* grouped controls */
+  --radius-xl: 16px; /* recipe cards, modals, hero banners */
+  --radius-2xl: 24px; /* gallery tiles, spotlight panels */
   --font-sans: var(--font-body);
   --font-serif: var(--font-heading);
   --font-weight-medium: 600;
+  --font-weight-bold: 600;
+}
+/* Warm espresso-tinted elevation ladder from DESIGN.md. */
+@theme {
+  --shadow-xs: 0 1px 3px 0 rgba(38, 28, 20, .04);
+  --shadow-sm: 0 2px 8px -2px rgba(38, 28, 20, .06), 0 1px 3px 0 rgba(38, 28, 20, .04);
+  --shadow-md: 0 8px 24px -4px rgba(38, 28, 20, .10), 0 4px 10px -2px rgba(38, 28, 20, .05);
+  --shadow-lg: 0 20px 32px -6px rgba(38, 28, 20, .16), 0 8px 16px -4px rgba(38, 28, 20, .08);
+}
+
+/* Typography tokens. Display weights cap at 600 because only the 600 faces
+   are loaded (see tokens.css). */
+@utility type-headline-xl {
+  font-family: var(--font-heading);
+  font-size: clamp(2.25rem, 2.5vw + 1.25rem, 3rem);
+  font-weight: 600;
+  line-height: 1.17;
+}
+@utility type-headline-lg {
+  font-family: var(--font-heading);
+  font-size: clamp(1.75rem, 1.5vw + 1.2rem, 2.25rem);
+  font-weight: 600;
+  line-height: 1.22;
+}
+@utility type-headline-md {
+  font-family: var(--font-heading);
+  font-size: clamp(1.5rem, .75vw + 1.25rem, 1.75rem);
+  font-weight: 600;
+  line-height: 1.29;
+}
+@utility type-headline-sm {
+  font-family: var(--font-heading);
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.27;
+}
+@utility type-title-md {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.44;
+}
+@utility type-body-lg {
+  font-size: 1.125rem;
+  line-height: 1.56;
+}
+@utility type-label-sm {
+  font-size: .6875rem;
+  font-weight: 600;
+  line-height: 1.27;
+  letter-spacing: .04em;
+  text-transform: uppercase;
 }

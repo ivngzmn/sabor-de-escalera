@@ -1,20 +1,36 @@
 ---
 import RecipePlaceholder from '../components/RecipePlaceholder';
+import { Badge } from '../components/ui/badge';
+import { buttonVariants } from '../components/ui/button';
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '../components/ui/empty';
 import AppLayout from '../layouts/AppLayout.astro';
 const spanish = Astro.url.searchParams.get('lang') === 'es';
+const href = (path: string) => spanish ? `${path}?lang=es` : path;
 ---
 <AppLayout title={spanish ? 'Descubrir' : 'Discover'}>
-  <p class="eyebrow">{spanish ? 'Nuestra mesa compartida' : 'Our shared table'}</p>
-  <h1>{spanish ? 'Sabores que nos unen.' : 'Flavors that bring us together.'}</h1>
-  <p class="intro">{spanish ? 'Un lugar para compartir recetas e historias, y cocinar juntos.' : 'A place to share recipes and stories, and cook together.'}</p>
-  <section aria-labelledby="recipes-heading" class="mt-10">
-    <Empty><EmptyHeader>
+  <section class="grid items-center gap-8 overflow-hidden rounded-xl border border-border bg-muted p-6 shadow-sm md:p-10 lg:grid-cols-[1.1fr_1fr] lg:gap-12">
+    <div class="flex flex-col items-start gap-2">
+      <Badge variant="eyebrow">{spanish ? 'Recetario comunitario' : 'Community cookbook'}</Badge>
+      <h1>{spanish ? 'Sabores que nos unen.' : 'Flavors that bring us together.'}</h1>
+      <p class="intro">{spanish ? 'Un lugar para compartir recetas e historias, y cocinar juntos.' : 'A place to share recipes and stories, and cook together.'}</p>
+      <div class="mt-4 flex flex-wrap gap-3">
+        <a href="#recipes-heading" data-slot="button" class={buttonVariants()}>{spanish ? 'Explorar recetas' : 'Explore recipes'}</a>
+        <a href={href('/add-recipe')} data-slot="button" class={buttonVariants({ variant: 'outline' })}>{spanish ? 'Compartir tu receta' : 'Share your recipe'}</a>
+      </div>
+    </div>
+    <figure class="m-0 flex flex-col justify-end gap-3 rounded-xl bg-primary p-8 text-primary-foreground shadow-md md:min-h-72 md:p-10">
+      <blockquote class="m-0 font-serif text-3xl leading-tight md:text-4xl">“{spanish ? 'Donde come uno, comen dos.' : 'Where one can eat, two can eat.'}”</blockquote>
+      <figcaption class="type-label-sm text-primary-foreground">{spanish ? 'Refrán tradicional' : 'Traditional proverb'}</figcaption>
+    </figure>
+  </section>
+  <section aria-labelledby="recipes-heading" class="mt-14 flex flex-col gap-2">
+    <p class="eyebrow">{spanish ? 'Nuestra mesa compartida' : 'Our shared table'}</p>
+    <Empty className="mt-2 rounded-xl border border-dashed border-input/40 bg-card/60"><EmptyHeader>
     <EmptyTitle><h2 id="recipes-heading">{spanish ? 'Las recetas están en camino' : 'Recipes are on their way'}</h2></EmptyTitle>
     <EmptyDescription>{spanish ? 'Estamos preparando la colección. Las recetas aparecerán aquí después de su revisión.' : 'We’re preparing the collection. Recipes will appear here after review.'}</EmptyDescription>
     </EmptyHeader></Empty>
   </section>
-  <section aria-label={spanish ? 'Vista previa de la colección de recetas' : 'Recipe collection preview'} class="mt-8 grid gap-6 md:grid-cols-3">
+  <section aria-label={spanish ? 'Vista previa de la colección de recetas' : 'Recipe collection preview'} class="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
     {[0, 1, 2].map(() => <RecipePlaceholder variant="card" state="planned" language={spanish ? 'es' : 'en'} />)}
   </section>
 </AppLayout>
