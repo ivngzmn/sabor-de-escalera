@@ -20,6 +20,14 @@ export default defineConfig({
     url: `${baseURL}/@vite/client`,
     reuseExistingServer: false,
     env: {
+      // Keep anonymous checks independent of a developer's configured .env.
+      PUBLIC_CLERK_PUBLISHABLE_KEY: '',
+      CLERK_EMAIL_CODE_CONFIGURED: 'false',
+      APP_ORIGIN: baseURL,
+      EMAIL_NOTIFICATIONS_ENABLED: 'false',
+      AUTO_TRANSLATION_ENABLED: 'false',
+      ANALYTICS_ENABLED: 'false',
+      IMAGEKIT_UPLOADS_ENABLED: 'false',
       DATABASE_URL: 'postgresql://server-secret-canary.invalid/example',
       CLERK_SECRET_KEY: 'server-secret-canary-clerk',
       RESEND_API_KEY: 'server-secret-canary-resend',

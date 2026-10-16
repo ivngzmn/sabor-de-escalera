@@ -115,3 +115,59 @@ test('a real storage event withdraws memory-only choices in another tab', async 
     expect(await page.evaluate(() => sessionStorage.getItem('essential'))).toBe('retain');
   } finally { await other.close(); }
 });
+
+test('floating preferences reopen saved choices, discard edits and restore focus', async ({ page }) => {
+  await page.goto('/');
+  const panel = page.getByRole('region', { name: 'Your privacy choices' });
+  await panel.getByRole('button', { name: 'Reject optional', exact: true }).click();
+  const launcher = page.getByRole('button', { name: 'Privacy preferences', exact: true });
+  await expect(launcher).toBeVisible();
+  await expect(launcher).toBeFocused();
+  await launcher.click();
+  await expect(launcher).toHaveAttribute('aria-expanded', 'true');
+  const preferences = panel.getByRole('checkbox', { name: 'Remember preferences', exact: true });
+  await expect(preferences).not.toBeChecked();
+  await preferences.check();
+  await page.keyboard.press('Escape');
+  await expect(panel).not.toBeVisible();
+  await expect(launcher).toBeFocused();
+  await launcher.click();
+  await expect(preferences).not.toBeChecked();
+  await preferences.check();
+  await panel.getByRole('button', { name: 'Save privacy choices' }).click();
+  await expect(launcher).toBeFocused();
+  await page.reload();
+  await launcher.click();
+  await expect(preferences).toBeChecked();
+  await preferences.uncheck();
+  await panel.getByRole('button', { name: 'Close privacy preferences' }).click();
+  await launcher.click();
+  await expect(preferences).toBeChecked();
+  expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
+});
+
+test('floating notice fits a short mobile viewport and leaves essential choices explicit', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 568 });
+  await page.goto('/');
+  const panel = page.getByRole('region', { name: 'Your privacy choices' });
+  await expect(panel).toHaveCSS('position', 'fixed');
+  await panel.getByRole('button', { name: 'Customize', exact: true }).click();
+  const bounds = await panel.boundingBox();
+  expect(bounds!.x).toBeGreaterThanOrEqual(0);
+  expect(bounds!.y).toBeGreaterThanOrEqual(0);
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(390);
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(568);
+  await panel.getByRole('button', { name: 'Save privacy choices' }).click();
+  await expect(panel).not.toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('Spanish launcher is localized and privacy page stays inline', async ({ page }) => {
+  await page.goto('/?lang=es');
+  await page.getByRole('button', { name: 'Rechazar opcionales', exact: true }).click();
+  await page.getByRole('button', { name: 'Preferencias de privacidad', exact: true }).click();
+  await expect(page.getByRole('checkbox', { name: 'Recordar preferencias', exact: true })).not.toBeChecked();
+  await page.goto('/privacy?lang=es');
+  await expect(page.getByRole('button', { name: 'Preferencias de privacidad', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Guardar opciones de privacidad' })).toBeVisible();
+});
