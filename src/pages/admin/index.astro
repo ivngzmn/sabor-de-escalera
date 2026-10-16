@@ -1,4 +1,6 @@
 ---
+import { AdminInviteFields } from '../../features/accounts/AdminInviteFields';
+import { Button } from '../../components/ui/button';
 import AppLayout from '../../layouts/AppLayout.astro';
 import { SignIn } from '@clerk/astro/components';
 import { accounts, type Actor } from '../../features/accounts/service';
@@ -35,12 +37,11 @@ const onboarding = `/onboarding?${new URLSearchParams({ returnTo: target, ...(sp
     <h2 id="admin-roles">{spanish ? 'Administradores' : 'Administrators'}</h2>
     <form method="post" action="/api/accounts/admin" class="account-form">
       <input type="hidden" name="action" value="invite" /><input type="hidden" name="lang" value={spanish ? 'es' : 'en'} />
-      <label for="invite-email">{spanish ? 'Correo del administrador' : 'Administrator email'}</label><input id="invite-email" name="email" type="email" autocomplete="email" required />
-      <p>{spanish ? 'La invitación dura siete días. El acceso se concede cuando inicie sesión con ese correo verificado. Comparte el enlace /admin; los correos de notificación están desactivados.' : 'The invitation lasts seven days. Access is granted when they sign in with that verified email. Share the /admin link; notification emails are disabled.'}</p>
-      <button type="submit">{spanish ? 'Crear invitación' : 'Create invitation'}</button>
+      <AdminInviteFields spanish={spanish} />
+      <Button type="submit">{spanish ? 'Crear invitación' : 'Create invitation'}</Button>
     </form>
-    <ul>{management.invitations.map((invite) => <li><form method="post" action="/api/accounts/admin"><input type="hidden" name="action" value="revoke" /><input type="hidden" name="target" value={invite.id} /><input type="hidden" name="lang" value={spanish ? 'es' : 'en'} /><span>{invite.email}</span> <button type="submit">{spanish ? 'Revocar invitación' : 'Revoke invitation'}</button></form></li>)}</ul>
-    <ul>{management.members.map((member) => <li><form method="post" action="/api/accounts/admin"><input type="hidden" name="action" value="remove" /><input type="hidden" name="target" value={member.id} /><input type="hidden" name="lang" value={spanish ? 'es' : 'en'} /><span>{member.display_name ?? (spanish ? 'Perfil pendiente' : 'Profile pending')}</span> <button type="submit">{spanish ? 'Retirar acceso administrativo' : 'Remove admin access'}</button></form></li>)}</ul>
+    <ul>{management.invitations.map((invite) => <li><form method="post" action="/api/accounts/admin"><input type="hidden" name="action" value="revoke" /><input type="hidden" name="target" value={invite.id} /><input type="hidden" name="lang" value={spanish ? 'es' : 'en'} /><span>{invite.email}</span> <Button type="submit">{spanish ? 'Revocar invitación' : 'Revoke invitation'}</Button></form></li>)}</ul>
+    <ul>{management.members.map((member) => <li><form method="post" action="/api/accounts/admin"><input type="hidden" name="action" value="remove" /><input type="hidden" name="target" value={member.id} /><input type="hidden" name="lang" value={spanish ? 'es' : 'en'} /><span>{member.display_name ?? (spanish ? 'Perfil pendiente' : 'Profile pending')}</span> <Button type="submit">{spanish ? 'Retirar acceso administrativo' : 'Remove admin access'}</Button></form></li>)}</ul>
     <h2>{spanish ? 'Registro de cambios de acceso' : 'Access change audit'}</h2>
     <ul>{audit.map((event) => <li><time datetime={event.created_at.toISOString()}>{event.created_at.toLocaleDateString(spanish ? 'es' : 'en')}</time> · {event.action} · {event.target_id}</li>)}</ul>
   </section>}

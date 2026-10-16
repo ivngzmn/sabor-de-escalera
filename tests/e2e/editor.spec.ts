@@ -11,6 +11,7 @@ import { fixtureDependencies } from "../fixtures/dependencies";
 
 test("actual Astro editor saves, preserves language/steps, focuses errors, confirms paste, resolves conflicts and publishes escaped text", async ({
   page,
+  browser,
 }) => {
   test.setTimeout(120000);
   const url = process.env.TEST_DATABASE_URL;
@@ -98,7 +99,75 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
         { timeout: 25000 },
       )
       .toBe(true);
+    // Exercise the actual Astro profile route and native POST without hydration.
+    const profileContext = await browser.newContext({
+      javaScriptEnabled: false,
+    });
+    try {
+      const profilePage = await profileContext.newPage();
+      await profilePage.goto(`${base}/onboarding?lang=es`);
+      await expect(
+        profilePage.getByLabel("Nombre público (obligatorio)"),
+      ).toHaveValue("Author");
+      await profilePage
+        .getByLabel("Nombre público (obligatorio)")
+        .fill("Ana <Escalera>");
+      await profilePage
+        .getByLabel("Biografía (opcional)")
+        .fill("Recetas de familia");
+      await profilePage
+        .getByLabel("Avatar", { exact: true })
+        .selectOption("corn");
+      await profilePage
+        .getByLabel("Visibilidad de recetas guardadas")
+        .selectOption("false");
+      await profilePage
+        .getByRole("button", { name: "Guardar y continuar" })
+        .click();
+      await expect(profilePage).toHaveURL(`${base}/`);
+      await profilePage.goto(`${base}/onboarding?lang=es`);
+      await expect(
+        profilePage.getByLabel("Nombre público (obligatorio)"),
+      ).toHaveValue("Ana <Escalera>");
+      await expect(profilePage.getByLabel("Biografía (opcional)")).toHaveValue(
+        "Recetas de familia",
+      );
+      await expect(
+        profilePage.getByLabel("Avatar", { exact: true }),
+      ).toHaveValue("corn");
+      await expect(
+        profilePage.getByLabel("Visibilidad de recetas guardadas"),
+      ).toHaveValue("false");
+    } finally {
+      await profileContext.close();
+    }
+
+    let creationRequested = false;
+    let releaseCreation!: () => void;
+    const creationGate = new Promise<void>((resolve) => {
+      releaseCreation = resolve;
+    });
+    await page.route(`${base}/api/drafts`, async (route) => {
+      if (route.request().method() === "POST") {
+        creationRequested = true;
+        await creationGate;
+      }
+      await route.continue();
+    });
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(`${base}/add-recipe`);
+    const loading = page.getByRole("status", { name: "Loading recipe" });
+    await expect(loading).toBeVisible();
+    await expect(loading).toHaveAttribute("aria-busy", "true");
+    for (const shape of await loading.locator('[data-slot="skeleton"]').all()) {
+      await expect(shape).toHaveCSS("animation-name", "none");
+    }
+    await expect.poll(() => creationRequested, { timeout: 15000 }).toBe(true);
+    expect(errors, "editor hydration must succeed").toEqual([]);
+    releaseCreation();
+    await expect(loading).toHaveCount(0, { timeout: 10000 });
+    await page.unroute(`${base}/api/drafts`);
+
     await expect(
       page.getByRole("button", { name: "Save Draft", exact: true }),
     ).toBeVisible();
@@ -106,7 +175,8 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
       .poll(
         async () => {
           expect(errors, "editor hydration must succeed").toEqual([]);
-          return (await pool.query("SELECT count(*)::int AS n FROM recipes")).rows[0].n;
+          return (await pool.query("SELECT count(*)::int AS n FROM recipes"))
+            .rows[0].n;
         },
         { timeout: 15000 },
       )
@@ -114,15 +184,31 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
     await expect(
       page.getByText("Untitled recipe", { exact: true }),
     ).toBeVisible();
-    const initialDraft = (await pool.query("SELECT id FROM recipes")).rows[0].id;
+    const initialDraft = (await pool.query("SELECT id FROM recipes")).rows[0]
+      .id;
     await page.evaluate(() => {
-      localStorage.setItem("escalera:consent", JSON.stringify({version: 1, preferences: true, recovery: false, analytics: false, updatedAt: new Date().toISOString()}));
+      localStorage.setItem(
+        "escalera:consent",
+        JSON.stringify({
+          version: 1,
+          preferences: true,
+          recovery: false,
+          analytics: false,
+          updatedAt: new Date().toISOString(),
+        }),
+      );
       localStorage.setItem("escalera:preferences:language", "es");
     });
     await page.goto(`${base}/add-recipe?draft=${initialDraft}`);
-    await expect(page.getByRole("button", {name: "Guardar borrador", exact: true})).toBeVisible();
-    await page.getByRole("link", {name: "English", exact: true}).click();
-    expect(await page.evaluate(() => localStorage.getItem("escalera:preferences:language"))).toBe("en");
+    await expect(
+      page.getByRole("button", { name: "Guardar borrador", exact: true }),
+    ).toBeVisible();
+    await page.getByRole("link", { name: "English", exact: true }).click();
+    expect(
+      await page.evaluate(() =>
+        localStorage.getItem("escalera:preferences:language"),
+      ),
+    ).toBe("en");
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     const back = page.getByRole("button", { name: "Back", exact: true });
     await page.mouse.move(0, 0);
@@ -167,6 +253,18 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
       .click();
     await page.getByRole("button", { name: "Choose a category." }).click();
     await expect(page.getByLabel("Primary category")).toBeFocused();
+    await expect(page.getByLabel("Primary category")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    await expect(page.getByLabel("Primary category")).toHaveAttribute(
+      "aria-describedby",
+      "field-category-error",
+    );
+    await expect(
+      page.getByLabel("Primary category").locator("..").locator(".."),
+    ).toHaveAttribute("data-invalid", "true");
+
     await expect(page.getByLabel("Title", { exact: true })).toHaveValue(
       "<img src=x onerror=alert(1)> Frijoles",
     );
@@ -202,17 +300,30 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
       page.getByRole("button", { name: "Save as separate draft" }),
     ).toBeVisible({ timeout: 10000 });
     await page.route("**/api/drafts/*", async (route) => {
-      if (route.request().method() === "POST" && route.request().postDataJSON().action === "copy") await route.abort("connectionfailed");
+      if (
+        route.request().method() === "POST" &&
+        route.request().postDataJSON().action === "copy"
+      )
+        await route.abort("connectionfailed");
       else await route.continue();
     });
     await page.getByRole("button", { name: "Save as separate draft" }).click();
-    await expect(page.getByRole("alert")).toContainText("Could not create a separate draft");
-    await expect(page.getByLabel("Instruction 1", { exact: true })).toHaveValue("My preserved instruction.");
+    await expect(page.getByRole("alert")).toContainText(
+      "Could not create a separate draft",
+    );
+    await expect(page.getByLabel("Instruction 1", { exact: true })).toHaveValue(
+      "My preserved instruction.",
+    );
     await page.unroute("**/api/drafts/*");
     let releaseCopy!: () => void;
-    const copyGate = new Promise<void>((resolve) => { releaseCopy = resolve; });
+    const copyGate = new Promise<void>((resolve) => {
+      releaseCopy = resolve;
+    });
     await page.route("**/api/drafts/*", async (route) => {
-      if (route.request().method() === "POST" && route.request().postDataJSON().action === "copy") {
+      if (
+        route.request().method() === "POST" &&
+        route.request().postDataJSON().action === "copy"
+      ) {
         const response = await route.fetch();
         await copyGate;
         await route.fulfill({ response });
@@ -226,10 +337,16 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
             .n,
       )
       .toBe(2);
-    await page.getByLabel("Instruction 1", { exact: true }).fill("Typed while the separate copy was pending.");
+    await page
+      .getByLabel("Instruction 1", { exact: true })
+      .fill("Typed while the separate copy was pending.");
     releaseCopy();
-    await expect(page.getByRole("button", { name: "Save as separate draft" })).toBeHidden();
-    await expect(page.getByLabel("Instruction 1", { exact: true })).toHaveValue("Typed while the separate copy was pending.");
+    await expect(
+      page.getByRole("button", { name: "Save as separate draft" }),
+    ).toBeHidden();
+    await expect(page.getByLabel("Instruction 1", { exact: true })).toHaveValue(
+      "Typed while the separate copy was pending.",
+    );
     await page.unroute("**/api/drafts/*");
     const current = (
       await pool.query("SELECT * FROM recipes ORDER BY created_at DESC LIMIT 1")
@@ -296,7 +413,10 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
     await page.getByRole("button", { name: "Preview", exact: true }).click();
     let loseCommittedPublication = false;
     await page.route("**/api/drafts/*", async (route) => {
-      if (route.request().method() === "POST" && route.request().postDataJSON().action === "publish") {
+      if (
+        route.request().method() === "POST" &&
+        route.request().postDataJSON().action === "publish"
+      ) {
         if (loseCommittedPublication) await route.fetch();
         await route.abort("connectionfailed");
       } else await route.continue();
@@ -304,10 +424,18 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
     await page
       .getByRole("button", { name: "Publish Recipe", exact: true })
       .click();
-    await expect(page.getByRole("alert")).toContainText("Could not confirm publication", { timeout: 15000 });
-    expect((await pool.query("SELECT state FROM recipes WHERE id=$1", [current.id])).rows[0].state).toBe("draft");
+    await expect(page.getByRole("alert")).toContainText(
+      "Could not confirm publication",
+      { timeout: 15000 },
+    );
+    expect(
+      (await pool.query("SELECT state FROM recipes WHERE id=$1", [current.id]))
+        .rows[0].state,
+    ).toBe("draft");
     loseCommittedPublication = true;
-    await page.getByRole("button", { name: "Publish Recipe", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Publish Recipe", exact: true })
+      .click();
     await expect(page.getByRole("link", { name: "View Recipe" })).toBeVisible({
       timeout: 10000,
     });
@@ -316,20 +444,39 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
       "Frijoles",
     );
-    await expect(page.getByText("Final instruction for publication.", { exact: true })).toBeVisible();
-    expect((await pool.query("SELECT count(*)::int AS n FROM recipe_publications WHERE recipe_id=$1", [current.id])).rows[0].n).toBe(1);
+    await expect(
+      page.getByText("Final instruction for publication.", { exact: true }),
+    ).toBeVisible();
+    expect(
+      (
+        await pool.query(
+          "SELECT count(*)::int AS n FROM recipe_publications WHERE recipe_id=$1",
+          [current.id],
+        )
+      ).rows[0].n,
+    ).toBe(1);
     expect(errors).toEqual([]);
     await page.goto(`${base}/privacy`);
     await page.getByRole("button", { name: "Accept optional" }).click();
     await page.goto(`${base}/add-recipe`);
     await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
     await page.route("**/api/drafts/*", async (route) => {
-      if (route.request().method() === "POST" && route.request().postDataJSON().action === "delete") await route.abort("connectionfailed");
+      if (
+        route.request().method() === "POST" &&
+        route.request().postDataJSON().action === "delete"
+      )
+        await route.abort("connectionfailed");
       else await route.continue();
     });
-    await page.getByRole("button", { name: "Delete draft", exact: true }).click();
-    await page.getByRole("button", { name: "Confirm delete", exact: true }).click();
-    await expect(page.getByRole("alert")).toContainText("Could not confirm deletion");
+    await page
+      .getByRole("button", { name: "Delete draft", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Confirm delete", exact: true })
+      .click();
+    await expect(page.getByRole("alert")).toContainText(
+      "Could not confirm deletion",
+    );
     await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
     await page.unroute("**/api/drafts/*");
@@ -382,6 +529,13 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
         ),
       )
       .toBe(0);
+    const restart = page.getByRole("link", {
+      name: "Start a new recipe",
+      exact: true,
+    });
+    await expect(restart).toBeVisible();
+    await expect(restart).toHaveCSS("color", "rgb(255, 255, 255)");
+    await expect(restart).toHaveCSS("background-color", "rgb(166, 51, 27)");
     await page.goto(`${base}/add-recipe`);
     await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
     await page.context().setOffline(true);

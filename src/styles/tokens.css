@@ -46,7 +46,7 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--color-cream); color: var(--color-text); font: 1rem/1.6 var(--font-body); }
-a { color: var(--color-terracotta); text-underline-offset: .2em; }
+a:not([data-slot]) { color: var(--color-terracotta); text-underline-offset: .2em; }
 a:hover { text-decoration-thickness: .15em; }
 :focus-visible:not([data-slot]) { outline: 3px solid var(--color-focus); outline-offset: 4px; }
 h1, h2 { font-family: var(--font-heading); line-height: 1.2; font-weight: 600; }
@@ -64,7 +64,6 @@ nav a[aria-current] { font-weight: 600; text-decoration-thickness: 2px; }
 main { min-height: 58vh; padding-block: clamp(2.5rem, 6vw, 5rem); }
 .eyebrow { color: var(--color-green); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; font-size: .8rem; }
 .intro { max-width: 46rem; color: var(--color-muted); font-size: 1.125rem; }
-.empty-state { background: var(--color-warm); border: 1px solid var(--color-border); border-radius: var(--radius); padding: clamp(1.5rem, 4vw, 3rem); margin-top: 2.5rem; }
 footer { border-top: 1px solid var(--color-border); padding-block: 2rem; }
 .footer-inner { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem 3rem; }
 .footer-copy { max-width: 32rem; margin: 0; color: var(--color-muted); }
@@ -75,18 +74,6 @@ footer { border-top: 1px solid var(--color-border); padding-block: 2rem; }
 input:not([data-slot]), textarea:not([data-slot]), select:not([data-slot]), button:not([data-slot]) { font: inherit; padding: .75rem; border: 1px solid var(--color-muted); border-radius: .35rem; min-height: 44px; max-width: 100%; }
 button:not([data-slot]) { cursor: pointer; color: white; background: var(--color-terracotta); }
 textarea:not([data-slot]) { resize: vertical; }
-.consent-panel { max-width: 50rem; background: var(--color-surface); border: 1px solid var(--color-muted); border-radius: var(--radius); padding: 1.5rem; }
-.consent-banner { width: min(50rem, calc(100% - 2rem)); margin: 0 auto 2rem; }
-.consent-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-block: 1rem; }
-.consent-actions button { flex: 1 1 10rem; }
-.consent-panel fieldset { border: 1px solid var(--color-muted); margin-block: 1rem; padding: 1rem; }
-.consent-choice { margin-block: 1rem; }
-.consent-choice label:not([data-slot]) { display: flex; gap: .75rem; align-items: center; font-weight: 600; }
-.consent-choice input { width: 1.5rem; height: 1.5rem; accent-color: var(--color-terracotta); }
-.consent-choice p { margin: .25rem 0 0; }
-.consent-status { margin: 0; }
-@media print { .consent-banner, .consent-status { display: none; } }
-
 /* Native server forms and native checkbox/range controls use the same theme.
    React data-slot primitives own their variants and state styles. */
 input[type=checkbox]:not([data-slot]) { width:1.5rem; height:1.5rem; min-height:1.5rem; padding:0; accent-color:var(--primary); }

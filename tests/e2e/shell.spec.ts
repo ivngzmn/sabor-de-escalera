@@ -72,3 +72,21 @@ test('server secret canaries do not enter HTML or browser-loaded assets', async 
   page.off('response', collectAsset);
   for (const body of await Promise.all(assets)) expect(body).not.toContain('server-secret-canary');
 });
+
+test('unfinished recipe previews show static, localized placeholders without hiding the empty state', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Recipes are on their way' })).toBeVisible();
+  const preview = page.getByRole('region', { name: 'Recipe collection preview' });
+  await expect(preview).toBeVisible();
+  await expect(preview.getByText('Coming soon', { exact: true })).toHaveCount(3);
+  await expect(preview.locator('[aria-busy="true"]')).toHaveCount(0);
+  for (const shape of await preview.locator('[data-slot="skeleton"]').all()) {
+    await expect(shape).toHaveCSS('animation-name', 'none');
+    await expect(shape).toHaveAttribute('aria-hidden', 'true');
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.goto('/?lang=es');
+  await expect(page.getByText('Próximamente', { exact: true })).toHaveCount(3);
+});

@@ -15,31 +15,16 @@
   padding: 0;
   min-width: 0;
 }
-.editor-fields > section > fieldset {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: 1rem;
-  margin: 1rem 0;
-  min-width: 0;
-  background: var(--color-surface);
-}
-.editor-field {
-  display: grid;
-  gap: 0.4rem;
-  margin-bottom: 1.25rem;
+.editor-fields [data-slot="field-set"] {
   min-width: 0;
 }
-.editor-field label {
-  font-weight: 600;
+.editor-fields section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
-.editor-field input,
-.editor-field textarea,
-.editor-field select {
-  width: 100%;
-}
-.editor-field p {
-  margin: 0;
-  color: var(--color-muted);
+.editor-fields section > [data-slot="field-set"] {
+  padding-block: 1rem;
 }
 .editor-grid {
   display: grid;
@@ -56,10 +41,6 @@
 .editor-actions a {
   padding: 0.6rem;
   min-height: 44px;
-}
-
-.field-error {
-  color: var(--color-terracotta);
 }
 
 .recipe-preview {
@@ -102,11 +83,6 @@
   white-space: pre-wrap;
 }
 
-.recipe-editor input[type="checkbox"] {
-  width: 1.2rem;
-  min-height: 1.2rem;
-  margin-right: 0.6rem;
-}
 .recipe-editor input[type="range"] {
   display: block;
   width: 100%;
