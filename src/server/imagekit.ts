@@ -43,10 +43,16 @@ export function createImageKitProvider({ publicKey, privateKey, urlEndpoint, fet
   return {
     async grant(fields, expiresAt) {
       const now = Math.floor(Date.now() / 1000);
+      // V2 compares claims with multipart strings, not their JS source types.
+      // Empty collections are rejected by ImageKit; absent fields remain bound
+      // by V2's rejection of additional, unsigned request parameters.
+      const wireFields = Object.fromEntries(Object.entries(fields)
+        .filter(([, value]) => !Array.isArray(value) || value.length > 0)
+        .map(([key, value]) => [key, typeof value === 'object' ? JSON.stringify(value) : String(value)]));
       const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT', kid: publicKey })).toString('base64url');
-      const payload = Buffer.from(JSON.stringify({ ...fields, iat: now, exp: Math.min(now + 300, Math.floor(expiresAt / 1000)) })).toString('base64url');
+      const payload = Buffer.from(JSON.stringify({ ...wireFields, iat: now, exp: Math.min(now + 300, Math.floor(expiresAt / 1000)) })).toString('base64url');
       const signature = createHmac('sha256', privateKey).update(`${header}.${payload}`).digest('base64url');
-      return { endpoint: 'https://upload.imagekit.io/api/v2/files/upload', fields, token: `${header}.${payload}.${signature}` };
+      return { endpoint: 'https://upload.imagekit.io/api/v2/files/upload', fields: wireFields, token: `${header}.${payload}.${signature}` };
     },
     async inspect(path) {
       const query = new URLSearchParams({ path: path.slice(0, path.lastIndexOf('/')), limit: '2', type: 'file' });
@@ -55,7 +61,7 @@ export function createImageKitProvider({ publicKey, privateKey, urlEndpoint, fet
       const file = files[0];
       if (file.filePath !== path || file.isPrivateFile !== true || typeof file.fileId !== 'string' || !Number.isInteger(file.size) || file.size > MAX_STORED_BYTES) return null;
       // Inspect the retained library object, not a transformed delivery URL.
-      return { fileId: file.fileId, filePath: file.filePath, isPrivateFile: true, size: file.size, bytes: await download(signed(path)) };
+      return { fileId: file.fileId, filePath: file.filePath, isPrivateFile: true, size: file.size, bytes: await download(signed(path, 'orig-true')) };
     },
     async derivative(path, variant) { return download(signed(path, variants[variant])); },
     async removeAndPurge(fileId, path, purgeId) {
