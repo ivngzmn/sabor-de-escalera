@@ -14,3 +14,9 @@ dist/
 .DS_Store
 test-results/
 playwright-report/
+.agents/
+.claude/
+.superpowers/
+agent/skills/
+skills-lock.json
+reference/
