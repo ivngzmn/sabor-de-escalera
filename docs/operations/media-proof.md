@@ -1,12 +1,38 @@
 # Private media proof and release gate
 
-Status: **BLOCKED for live uploads and delivery**. `mediaReadiness().enabled` is deliberately false in server code, regardless of environment variables. No ImageKit account, API key, paid feature, deployment or live upload was provisioned. HEIC is not advertised or accepted. Local tests verify application contracts only; provider doubles are not privacy, conversion or quality evidence.
+Status: **Configured, but application uploads and delivery remain BLOCKED**. `mediaReadiness().enabled` is deliberately false in server code, regardless of environment variables. The owner authorized ImageKit development setup on October 15, 2026. Credentials are in the ignored, untracked `.env`, with owner-only file permissions. No paid feature or deployment was enabled. HEIC is not advertised or accepted.
+
+## Live development evidence — October 15, 2026
+
+Official ImageKit skills are installed from `imagekit-developer/skills`. The DevTools MCP `search_docs` tool was used to investigate V2 upload validation and pre-transformation semantics. DAM and Admin MCP servers were registered and authenticated with owner approval. These connections do not establish application upload readiness.
+
+Synthetic fixtures exercised the real development account, with all unsigned image requests restricted. Results:
+
+| Check | Result |
+|---|---|
+| Authenticated API connection | Passed |
+| V2 signed private upload | Passed after serializing JWT claims exactly as multipart strings and omitting empty collections rejected by ImageKit |
+| Actual retained bytes | Passed after requesting signed `orig-true`; ordinary delivery can automatically convert WebP to JPEG and is not original-file inspection |
+| Synthetic EXIF rotation and retained metadata removal | Passed: orientation 6 became 640×960 pixels, with no EXIF/ICC/orientation metadata; the retained WebP passed the application's full inspection |
+| Signed thumb/card/gallery/avatar delivery | Passed, decoded WebP with bounded bytes |
+| Unsigned original, query transform and default named thumbnail | Denied with HTTP 401 |
+| Upload-token replay | Denied with HTTP 400 |
+| Added unsigned field, altered private flag or altered pre-transformation | Denied with HTTP 400 |
+| Exactly 20,000,000-byte synthetic JPEG | Accepted and reduced to an 86-byte WebP |
+| 20,000,001-byte input with the same signed checks | **Failed requirement: accepted**, reduced to 86 bytes |
+| SVG disguised as JPEG with pre-transformation | **Failed requirement: accepted**, rasterized to WebP |
+| Synthetic fixture cleanup / cache purge | Nine library objects deleted and purge requests queued; completion was not confirmed within the bounded poll, and four warmed signed variants still returned HTTP 200. Cache-removal proof remains open. |
+| Corrupt JPEG input | **Failed provider rejection: accepted**, retained as corrupt bytes; application inspection still rejects it |
+
+Controls with a one-byte size check and a disallowed MIME check returned HTTP 400, both with and without pre-transformation. The observed acceptance of oversized/SVG inputs must therefore be resolved at the original-input validation boundary; it is not evidence that all `checks` expressions are ignored. Do not enable the gate based on successful delivery or client-side validation. Provider clarification or a separately reviewed original-input/quarantine processing design is needed. A temporary indexing delay was also observed after upload; the existing explicit completion retry remains relevant.
+
+These are synthetic transport/security proofs, not realistic photo-quality, GPS/color/alpha/HEIC, hosted Linux runtime, free-capacity or launch-readiness proofs. Reproducers and raw results are retained in the ignored plan workspace and temporary evidence files; they contain synthetic asset identifiers but no API keys.
 
 ## Implemented boundary
 
 Verified Clerk request state supplies the actor; media routes preserve handshake responses/cookies, enforce exact-origin writes, bound JSON bodies and return `private, no-store`. PostgreSQL member locks recheck suspension/onboarding and enforce rolling 30/hour and 100/day intent limits before signing credentials, including avatars. Counters contain internal member IDs/timestamps, not raw IP addresses or filenames. Failed credential issuance still consumes an attempt. Rate ledger cleanup may delete only unreferenced abandoned intents after the longest rate window and provider reconciliation; completed intents support idempotency and are retained with assets.
 
-V2 HS256 JWT uses the public key as `kid` and includes the full server-built payload. The browser receives a five-minute grant with a unique private owner/intent folder, no overwrite, no unique-name rewriting, no extensions, no tags, pre-transform and MIME/20,000,000-byte checks. No client-controlled provider fields are signed. Additional/unbound parameter rejection, token single use, checks before pre-transform and prevention of billable extensions require live adversarial proof. We do not fall back to V1 credentials.
+V2 HS256 JWT uses the public key as `kid` and includes the full server-built multipart string payload. Empty collections are omitted because ImageKit rejects an empty `extensions` field; additional unsigned fields remain denied. The browser receives a five-minute grant with a unique private owner/intent folder, no overwrite, no unique-name rewriting, no extensions or tags, pre-transform and MIME/20,000,000-byte checks. No client-controlled provider fields are signed. Source validation before pre-transform remains a failed live gate. We do not fall back to V1 browser credentials.
 
 Completion accepts only the internal intent ID. It locates the provider object by server-selected path, verifies private status/path/size, downloads the retained object through a server-only signed URL, bounds streaming to 2,000,000 bytes, decodes with Sharp and rejects non-WebP, corrupt, oversized, animated or metadata-bearing content. Width/height are persisted; provisional retained bounds are 2400×2400 and 2 MB. The pre-transform requests WebP at quality 85. These provisional settings need real quality measurements; a dimension/quality setting alone does not guarantee the byte bound. Rejected objects remain private and require orphan reconciliation.
 
@@ -24,7 +50,7 @@ The 2 MB response cap is below Vercel's documented 4.5 MB function payload limit
 
 ## Live evidence required before changing the gate
 
-All are BLOCKED pending private provider configuration and owner-authorized provisioning:
+The remaining checks below are unverified or failed. Account configuration and the partial evidence above do not clear this release gate:
 
 - Actual 20 MB JPEG/PNG/WebP upload through browser direct transport; reject >20 MB before storage, MIME spoofing, corrupt data, SVG and animated payloads. Establish decimal MB behavior.
 - Actual HEIC conversion with portrait/landscape EXIF rotations, GPS tags and difficult color/alpha/detail samples. HEIC remains denied until this passes and API/migration acceptance is deliberately changed.
