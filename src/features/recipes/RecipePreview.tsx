@@ -1,3 +1,6 @@
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import {
   categories,
   totalMinutes,
@@ -20,19 +23,22 @@ export default function RecipePreview({
   const t = (en: string, es: string) => (spanish ? es : en);
   return (
     <article className="recipe-preview">
-      <p className="eyebrow">
-        {
-          categories.find((c) => c.id === input.category)?.[
-            spanish ? "es" : "en"
-          ]
-        }{" "}
-        ·{" "}
-        {
-          origins.find((o) => o.id === input.origin)?.[
-            spanish ? "label_es" : "label_en"
-          ]
-        }
-      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="secondary">
+          {
+            categories.find((c) => c.id === input.category)?.[
+              spanish ? "es" : "en"
+            ]
+          }
+        </Badge>
+        <Badge variant="outline">
+          {
+            origins.find((o) => o.id === input.origin)?.[
+              spanish ? "label_es" : "label_en"
+            ]
+          }
+        </Badge>
+      </div>
       <h1>{input.title || t("Untitled recipe", "Receta sin título")}</h1>
       <p>
         {t("Original language", "Idioma original")}:{" "}
@@ -53,10 +59,11 @@ export default function RecipePreview({
         </p>
       )}
       {input.story && <p className="author-text">{input.story}</p>}
+      <Separator className="my-6" />
       <div className="recipe-gallery">
         {input.photos.map((p, i) => (
           <figure key={p.assetId}>
-            <div className={i === 0 ? "cover-frame" : ""}>
+            <div className={cn(i === 0 && "cover-frame")}>
               <img
                 src={
                   published

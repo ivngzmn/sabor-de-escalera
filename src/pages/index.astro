@@ -1,4 +1,6 @@
 ---
+import RecipePlaceholder from '../components/RecipePlaceholder';
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '../components/ui/empty';
 import AppLayout from '../layouts/AppLayout.astro';
 const spanish = Astro.url.searchParams.get('lang') === 'es';
 ---
@@ -6,8 +8,13 @@ const spanish = Astro.url.searchParams.get('lang') === 'es';
   <p class="eyebrow">{spanish ? 'Nuestra mesa compartida' : 'Our shared table'}</p>
   <h1>{spanish ? 'Sabores que nos unen.' : 'Flavors that bring us together.'}</h1>
   <p class="intro">{spanish ? 'Un lugar para compartir recetas e historias, y cocinar juntos.' : 'A place to share recipes and stories, and cook together.'}</p>
-  <section class="empty-state" aria-labelledby="recipes-heading">
-    <h2 id="recipes-heading">{spanish ? 'Las recetas están en camino' : 'Recipes are on their way'}</h2>
-    <p>{spanish ? 'Estamos preparando la colección. Las recetas aparecerán aquí después de su revisión.' : 'We’re preparing the collection. Recipes will appear here after review.'}</p>
+  <section aria-labelledby="recipes-heading" class="mt-10">
+    <Empty><EmptyHeader>
+    <EmptyTitle><h2 id="recipes-heading">{spanish ? 'Las recetas están en camino' : 'Recipes are on their way'}</h2></EmptyTitle>
+    <EmptyDescription>{spanish ? 'Estamos preparando la colección. Las recetas aparecerán aquí después de su revisión.' : 'We’re preparing the collection. Recipes will appear here after review.'}</EmptyDescription>
+    </EmptyHeader></Empty>
+  </section>
+  <section aria-label={spanish ? 'Vista previa de la colección de recetas' : 'Recipe collection preview'} class="mt-8 grid gap-6 md:grid-cols-3">
+    {[0, 1, 2].map(() => <RecipePlaceholder variant="card" state="planned" language={spanish ? 'es' : 'en'} />)}
   </section>
 </AppLayout>

@@ -32,6 +32,8 @@ On ordinary pages, show the initial privacy notice as a fixed floating panel. Af
 
 Use a nonmodal panel with a labelled region and explicit expanded state on the launcher. Move focus into preferences when opened by the launcher; return focus to it after closing or saving. Escape closes a reopened panel without saving. Keep the panel within mobile viewport bounds, scroll its content when necessary, respect safe-area insets, and hide floating controls when printing. Preserve optional choices defaulting off, cleanup on withdrawal, cross-tab synchronization, storage-failure behavior, and equal access to accept/reject/customize. Opening or closing never changes consent.
 
+Keep the server-rendered notice inline until hydration enables its controls, preserving native form access without JavaScript. Measure scroll clearance for the active floating surface so footer content can scroll above it; update on expansion/resize and remove on unmount or inline settings mode.
+
 ## Skeletons and incremental UI progress
 
 Provide reusable shadcn Skeleton compositions for recipe cards, recipe detail sections, and editor panels. Match the dimensions and responsive layout of the eventual content to limit layout shifts. Compose the official Skeleton primitive rather than hand-rolled animated divs; respect reduced-motion preferences and hide decorative shapes from assistive technology.

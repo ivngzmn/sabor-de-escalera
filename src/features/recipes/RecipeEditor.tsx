@@ -1,6 +1,24 @@
+import RecipePlaceholder from "@/components/RecipePlaceholder";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Field,
+  FieldGroup,
+  FieldSet,
+  FieldLegend,
+  FieldLabel as Label,
+  FieldError as FieldErrorMessage,
+} from "@/components/ui/field";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { NativeSelect } from "@/components/ui/native-select";
 import { useEffect, useRef, useState, type ClipboardEvent } from "react";
@@ -72,6 +90,8 @@ export default function RecipeEditor({
     [input, setInput] = useState<RecipeInput>(initial?.input ?? emptyRecipe()),
     [step, setStep] = useState(0),
     [lang, setLang] = useState(language);
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
   const [status, setStatus] = useState(initial ? "saved" : "creating"),
     [failure, setFailure] = useState<Failure | null>(null),
     [operationError, setOperationError] = useState(false),
@@ -383,7 +403,10 @@ export default function RecipeEditor({
         }
       }
     };
-    if (!new URL(location.href).searchParams.has("lang") && readConsent().preferences) {
+    if (
+      !new URL(location.href).searchParams.has("lang") &&
+      readConsent().preferences
+    ) {
       try {
         const preferred = localStorage.getItem("escalera:preferences:language");
         if (preferred === "en" || preferred === "es") applyLanguage(preferred);
@@ -392,7 +415,9 @@ export default function RecipeEditor({
       }
     }
     const switchLanguage = (event: MouseEvent) => {
-      const link = (event.target as HTMLElement).closest<HTMLAnchorElement>("a[hreflang]");
+      const link = (event.target as HTMLElement).closest<HTMLAnchorElement>(
+        "a[hreflang]",
+      );
       if (!link || !["en", "es"].includes(link.hreflang)) return;
       event.preventDefault();
       applyLanguage(link.hreflang as "en" | "es");
@@ -425,15 +450,23 @@ export default function RecipeEditor({
   function set<K extends keyof RecipeInput>(key: K, value: RecipeInput[K]) {
     update({ ...current.current, [key]: value });
   }
+  function controlProps(field: string) {
+    const invalid = errors.some((error) => error.field === field);
+    return {
+      id: fieldId(field),
+      "aria-invalid": invalid,
+      "aria-describedby": invalid ? `${fieldId(field)}-error` : undefined,
+    };
+  }
   function label(field: string, en: string, es: string) {
     const error = errors.find((e) => e.field === field);
     return (
       <>
         <Label htmlFor={fieldId(field)}>{t(en, es)}</Label>
         {error && (
-          <p id={`${fieldId(field)}-error`} className="field-error">
+          <FieldErrorMessage id={`${fieldId(field)}-error`}>
             {lang === "es" ? "Revisa este campo." : error.message}
-          </p>
+          </FieldErrorMessage>
         )}
       </>
     );
@@ -457,10 +490,10 @@ export default function RecipeEditor({
         : undefined,
     };
     return (
-      <div className="editor-field">
+      <Field data-invalid={props["aria-invalid"]}>
         {label(field, en, es)}
         {multiline ? <Textarea {...props} rows={4} /> : <Input {...props} />}
-      </div>
+      </Field>
     );
   }
   function plainPaste(event: ClipboardEvent<HTMLFormElement>) {
@@ -567,7 +600,10 @@ export default function RecipeEditor({
       setStatus("saved");
       forget(next.id);
     } catch (e) {
-      failOperation(e, "Could not load the latest draft. Your work is preserved. Use Load latest to retry.");
+      failOperation(
+        e,
+        "Could not load the latest draft. Your work is preserved. Use Load latest to retry.",
+      );
     }
   }
   async function copy() {
@@ -593,7 +629,10 @@ export default function RecipeEditor({
       setConflict(false);
       setFailure(null);
     } catch (e) {
-      failOperation(e, "Could not create a separate draft. Your work is preserved. Use Save as separate draft to retry.");
+      failOperation(
+        e,
+        "Could not create a separate draft. Your work is preserved. Use Save as separate draft to retry.",
+      );
     } finally {
       busy.current = false;
     }
@@ -636,8 +675,11 @@ export default function RecipeEditor({
       setPublished(recipe);
       forget(next.id);
     } catch (e) {
-      if (record.current && await confirmPublished(record.current.id)) return;
-      failOperation(e, "Could not confirm publication. Your work is preserved. Use Publish Recipe to retry.");
+      if (record.current && (await confirmPublished(record.current.id))) return;
+      failOperation(
+        e,
+        "Could not confirm publication. Your work is preserved. Use Publish Recipe to retry.",
+      );
       if (e instanceof RequestError) setErrors(e.details.fields ?? []);
     } finally {
       publicationPending.current = false;
@@ -662,7 +704,10 @@ export default function RecipeEditor({
         ),
       });
     } catch (e) {
-      failOperation(e, "Could not confirm deletion. Your work is preserved. Use Confirm delete to retry.");
+      failOperation(
+        e,
+        "Could not confirm deletion. Your work is preserved. Use Confirm delete to retry.",
+      );
     }
   }
   if (published)
@@ -714,14 +759,14 @@ export default function RecipeEditor({
       <div className="editor-actions">
         <Button
           type="button"
-          disabled={busy.current || blocked || conflict || publishing}
+          disabled={!ready || busy.current || blocked || conflict || publishing}
           onClick={() => (draft ? void save() : void create())}
         >
           {t("Save Draft", "Guardar borrador")}
         </Button>
         <Button
           type="button"
-          disabled={!draft || blocked || publishing}
+          disabled={!ready || !draft || blocked || publishing}
           onClick={() => setConfirmDelete(true)}
         >
           {t("Delete draft", "Eliminar borrador")}
@@ -743,24 +788,29 @@ export default function RecipeEditor({
         }
       </p>
       {failure && (
-        <div role="alert">
-          <p>
-            {lang === "es" && failure.status !== 410
-              ? t(
-                  "Revisa los campos o vuelve a intentar. Tu trabajo se conserva.",
-                  "Revisa los campos o vuelve a intentar. Tu trabajo se conserva.",
-                )
-              : failure.message}
-          </p>
-          {!blocked && !conflict && !operationError && (
-            <Button
-              type="button"
-              onClick={() => (draft ? void save() : void create())}
-            >
-              {t("Retry save", "Reintentar guardado")}
-            </Button>
-          )}
-        </div>
+        <Alert variant="destructive">
+          <AlertTitle>
+            {t("Your draft needs attention", "Revisa tu borrador")}
+          </AlertTitle>
+          <AlertDescription>
+            <p>
+              {lang === "es" && failure.status !== 410
+                ? t(
+                    "Revisa los campos o vuelve a intentar. Tu trabajo se conserva.",
+                    "Revisa los campos o vuelve a intentar. Tu trabajo se conserva.",
+                  )
+                : failure.message}
+            </p>
+            {!blocked && !conflict && !operationError && (
+              <Button
+                type="button"
+                onClick={() => (draft ? void save() : void create())}
+              >
+                {t("Retry save", "Reintentar guardado")}
+              </Button>
+            )}
+          </AlertDescription>
+        </Alert>
       )}
       {conflict && (
         <div className="editor-actions">
@@ -842,6 +892,7 @@ export default function RecipeEditor({
           <Button
             type="button"
             key={index}
+            disabled={!ready}
             variant={step === index ? "secondary" : "outline"}
             aria-current={step === index ? "step" : undefined}
             onClick={() => {
@@ -875,654 +926,770 @@ export default function RecipeEditor({
           </ul>
         </section>
       )}
-      <form onSubmit={(e) => e.preventDefault()} onPaste={plainPaste}>
-        <fieldset
-          disabled={!draft || blocked || !!published || publishing}
-          className="editor-fields"
-        >
-          {step === 0 && (
-            <section>
-              <h2>{t("Details", "Detalles")}</h2>
-              {textField("title", "Title", "Título")}
-              {similar.length > 0 && (
-                <aside>
-                  <p>
-                    {t(
-                      "Similar titles already exist. Family variations are welcome; this does not block publication.",
-                      "Ya hay títulos similares. Las variantes familiares son bienvenidas; puedes publicar.",
-                    )}
-                  </p>
-                  <ul>
-                    {similar.map((r) => (
-                      <li key={r.id}>
-                        <a href={r.url} target="_blank" rel="noopener">
-                          {r.title}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </aside>
-              )}
-              <div className="editor-grid">
-                <div className="editor-field">
-                  {label("category", "Primary category", "Categoría principal")}
-                  <NativeSelect
-                    id={fieldId("category")}
-                    value={input.category}
-                    onChange={(e) => set("category", e.target.value)}
-                  >
-                    <option value="">{t("Choose…", "Elegir…")}</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c[lang]}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                </div>
-                <div className="editor-field">
-                  {label("origin", "Origin", "Origen")}
-                  <NativeSelect
-                    id={fieldId("origin")}
-                    value={input.origin}
-                    onChange={(e) => set("origin", e.target.value)}
-                  >
-                    <option value="">{t("Choose…", "Elegir…")}</option>
-                    {origins.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o[lang === "es" ? "label_es" : "label_en"]}
-                      </option>
-                    ))}
-                  </NativeSelect>
-                </div>
-              </div>
-              {textField(
-                "yieldText",
-                "Servings / yield",
-                "Porciones / rendimiento",
-              )}
-              <div className="editor-field">
-                {label(
-                  "baseline",
-                  "Scaling baseline",
-                  "Base numérica para ajustar porciones",
+      {!draft && status === "creating" && (
+        <RecipePlaceholder variant="editor" state="loading" language={lang} />
+      )}
+      <Card className={cn(!draft && status === "creating" && "hidden")}>
+        <CardHeader>
+          <CardTitle role="heading" aria-level={2}>
+            {t("Recipe workspace", "Tu receta")}
+          </CardTitle>
+          <CardDescription>
+            {t(
+              "Build your recipe one step at a time.",
+              "Prepara tu receta paso a paso.",
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={(e) => e.preventDefault()} onPaste={plainPaste}>
+            <FieldSet
+              disabled={
+                !ready || !draft || blocked || !!published || publishing
+              }
+              className="editor-fields"
+            >
+              <FieldLegend className="sr-only">
+                {t("Recipe fields", "Campos de la receta")}
+              </FieldLegend>
+              <FieldGroup>
+                {step === 0 && (
+                  <section>
+                    <FieldGroup>
+                      <h2>{t("Details", "Detalles")}</h2>
+                      {textField("title", "Title", "Título")}
+                      {similar.length > 0 && (
+                        <aside>
+                          <p>
+                            {t(
+                              "Similar titles already exist. Family variations are welcome; this does not block publication.",
+                              "Ya hay títulos similares. Las variantes familiares son bienvenidas; puedes publicar.",
+                            )}
+                          </p>
+                          <ul>
+                            {similar.map((r) => (
+                              <li key={r.id}>
+                                <a href={r.url} target="_blank" rel="noopener">
+                                  {r.title}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </aside>
+                      )}
+                      <div className="editor-grid">
+                        <Field
+                          data-invalid={errors.some(
+                            (error) => error.field === "category",
+                          )}
+                        >
+                          {label(
+                            "category",
+                            "Primary category",
+                            "Categoría principal",
+                          )}
+                          <NativeSelect
+                            {...controlProps("category")}
+                            value={input.category}
+                            onChange={(e) => set("category", e.target.value)}
+                          >
+                            <option value="">{t("Choose…", "Elegir…")}</option>
+                            {categories.map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c[lang]}
+                              </option>
+                            ))}
+                          </NativeSelect>
+                        </Field>
+                        <Field
+                          data-invalid={errors.some(
+                            (error) => error.field === "origin",
+                          )}
+                        >
+                          {label("origin", "Origin", "Origen")}
+                          <NativeSelect
+                            {...controlProps("origin")}
+                            value={input.origin}
+                            onChange={(e) => set("origin", e.target.value)}
+                          >
+                            <option value="">{t("Choose…", "Elegir…")}</option>
+                            {origins.map((o) => (
+                              <option key={o.id} value={o.id}>
+                                {o[lang === "es" ? "label_es" : "label_en"]}
+                              </option>
+                            ))}
+                          </NativeSelect>
+                        </Field>
+                      </div>
+                      {textField(
+                        "yieldText",
+                        "Servings / yield",
+                        "Porciones / rendimiento",
+                      )}
+                      <Field
+                        data-invalid={errors.some(
+                          (error) => error.field === "baseline",
+                        )}
+                      >
+                        {label(
+                          "baseline",
+                          "Scaling baseline",
+                          "Base numérica para ajustar porciones",
+                        )}
+                        <Input
+                          {...controlProps("baseline")}
+                          type="number"
+                          min="0.01"
+                          step="any"
+                          value={input.baseline ?? ""}
+                          onChange={(e) =>
+                            update({
+                              ...input,
+                              baseline:
+                                e.target.value === ""
+                                  ? null
+                                  : Number(e.target.value),
+                              baselineConfirmed: false,
+                            })
+                          }
+                        />
+                        <Label htmlFor="baseline-confirmed">
+                          <Checkbox
+                            id="baseline-confirmed"
+                            checked={input.baselineConfirmed}
+                            onCheckedChange={(checked) =>
+                              set("baselineConfirmed", checked === true)
+                            }
+                          />
+                          {t(
+                            "I confirm this numeric baseline",
+                            "Confirmo esta base numérica",
+                          )}
+                        </Label>
+                        <p>
+                          {t(
+                            "Keep your yield range above; choose the number the written quantities serve. Quantities such as ½, 2–3 and “to taste” remain as written.",
+                            "Conserva arriba el rango; elige cuántas porciones representan las cantidades. Se conservan ½, 2–3 y «al gusto».",
+                          )}
+                        </p>
+                      </Field>
+                      <Field
+                        data-invalid={errors.some(
+                          (error) => error.field === "timing",
+                        )}
+                      >
+                        {label(
+                          "timing",
+                          "Timing method",
+                          "Cómo indicar el tiempo",
+                        )}
+                        <NativeSelect
+                          {...controlProps("timing")}
+                          value={input.timing.mode}
+                          onChange={(e) =>
+                            set("timing", {
+                              ...input.timing,
+                              mode: e.target.value as "total" | "parts",
+                            })
+                          }
+                        >
+                          <option value="total">
+                            {t("Total time", "Tiempo total")}
+                          </option>
+                          <option value="parts">
+                            {t(
+                              "Prep + cook + rest",
+                              "Preparación + cocción + reposo",
+                            )}
+                          </option>
+                        </NativeSelect>
+                      </Field>
+                      <div className="editor-grid">
+                        {(input.timing.mode === "total"
+                          ? (["total"] as const)
+                          : (["prep", "cook", "rest"] as const)
+                        ).map((k) => (
+                          <Field
+                            key={k}
+                            data-invalid={errors.some(
+                              (error) => error.field === `timing.${k}`,
+                            )}
+                          >
+                            {label(
+                              `timing.${k}`,
+                              `${{ total: "Total", prep: "Prep", cook: "Cook", rest: "Rest / chill (optional)" }[k]} minutes`,
+                              `${{ total: "Total", prep: "Preparación", cook: "Cocción", rest: "Reposo / frío (opcional)" }[k]} en minutos`,
+                            )}
+                            <Input
+                              {...controlProps(`timing.${k}`)}
+                              type="number"
+                              min="0"
+                              value={input.timing[k] ?? ""}
+                              onChange={(e) =>
+                                set("timing", {
+                                  ...input.timing,
+                                  [k]:
+                                    e.target.value === ""
+                                      ? null
+                                      : Number(e.target.value),
+                                })
+                              }
+                            />
+                          </Field>
+                        ))}
+                      </div>
+                      <p>
+                        {t(
+                          "Total includes all preparation, cooking and rest/chill time.",
+                          "El total incluye preparación, cocción y reposo/frío.",
+                        )}{" "}
+                        {totalMinutes(input) ?? "—"} {t("minutes", "minutos")}
+                      </p>
+                      {textField(
+                        "story",
+                        "Story (optional)",
+                        "Historia (opcional)",
+                        true,
+                      )}
+                      {textField(
+                        "sourceCredit",
+                        "Source / original author credit (optional)",
+                        "Fuente / autor original (opcional)",
+                      )}
+                      {textField(
+                        "videoUrl",
+                        "External video link (optional)",
+                        "Enlace externo de vídeo (opcional)",
+                      )}
+                      {textField(
+                        "notes",
+                        "Author notes (optional)",
+                        "Notas del autor (opcional)",
+                        true,
+                      )}
+                      <Field
+                        data-invalid={errors.some(
+                          (error) => error.field === "language",
+                        )}
+                      >
+                        {label(
+                          "language",
+                          "Original recipe language",
+                          "Idioma original de la receta",
+                        )}
+                        <NativeSelect
+                          {...controlProps("language")}
+                          value={input.language}
+                          onChange={(e) =>
+                            set("language", e.target.value as "en" | "es")
+                          }
+                        >
+                          <option value="en">English</option>
+                          <option value="es">Español</option>
+                        </NativeSelect>
+                      </Field>
+                      <p>
+                        {t(
+                          "Optional dietary tags are author provided.",
+                          "Las etiquetas opcionales las indica el autor.",
+                        )}
+                      </p>
+                      {["vegan", "vegetarian"].map((tag) => (
+                        <Label key={tag} htmlFor={`dietary-${tag}`}>
+                          <Checkbox
+                            id={`dietary-${tag}`}
+                            checked={input.dietary.includes(tag)}
+                            onCheckedChange={(checked) =>
+                              set(
+                                "dietary",
+                                checked === true
+                                  ? [...input.dietary, tag]
+                                  : input.dietary.filter((x) => x !== tag),
+                              )
+                            }
+                          />
+                          {tag === "vegan"
+                            ? t("Vegan", "Vegano")
+                            : t("Vegetarian", "Vegetariano")}
+                        </Label>
+                      ))}
+                    </FieldGroup>
+                  </section>
                 )}
-                <Input
-                  id={fieldId("baseline")}
-                  type="number"
-                  min="0.01"
-                  step="any"
-                  value={input.baseline ?? ""}
-                  onChange={(e) =>
-                    update({
-                      ...input,
-                      baseline:
-                        e.target.value === "" ? null : Number(e.target.value),
-                      baselineConfirmed: false,
-                    })
-                  }
-                />
-                <Label>
-                  <input
-                    type="checkbox"
-                    checked={input.baselineConfirmed}
-                    onChange={(e) => set("baselineConfirmed", e.target.checked)}
-                  />
-                  {t(
-                    "I confirm this numeric baseline",
-                    "Confirmo esta base numérica",
-                  )}
-                </Label>
-                <p>
-                  {t(
-                    "Keep your yield range above; choose the number the written quantities serve. Quantities such as ½, 2–3 and “to taste” remain as written.",
-                    "Conserva arriba el rango; elige cuántas porciones representan las cantidades. Se conservan ½, 2–3 y «al gusto».",
-                  )}
-                </p>
-              </div>
-              <div className="editor-field">
-                {label("timing", "Timing method", "Cómo indicar el tiempo")}
-                <NativeSelect
-                  id={fieldId("timing")}
-                  value={input.timing.mode}
-                  onChange={(e) =>
-                    set("timing", {
-                      ...input.timing,
-                      mode: e.target.value as "total" | "parts",
-                    })
-                  }
-                >
-                  <option value="total">
-                    {t("Total time", "Tiempo total")}
-                  </option>
-                  <option value="parts">
-                    {t("Prep + cook + rest", "Preparación + cocción + reposo")}
-                  </option>
-                </NativeSelect>
-              </div>
-              <div className="editor-grid">
-                {(input.timing.mode === "total"
-                  ? (["total"] as const)
-                  : (["prep", "cook", "rest"] as const)
-                ).map((k) => (
-                  <div className="editor-field" key={k}>
-                    {label(
-                      `timing.${k}`,
-                      `${{ total: "Total", prep: "Prep", cook: "Cook", rest: "Rest / chill (optional)" }[k]} minutes`,
-                      `${{ total: "Total", prep: "Preparación", cook: "Cocción", rest: "Reposo / frío (opcional)" }[k]} en minutos`,
-                    )}
-                    <Input
-                      id={fieldId(`timing.${k}`)}
-                      type="number"
-                      min="0"
-                      value={input.timing[k] ?? ""}
-                      onChange={(e) =>
-                        set("timing", {
-                          ...input.timing,
-                          [k]:
-                            e.target.value === ""
-                              ? null
-                              : Number(e.target.value),
-                        })
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
-              <p>
-                {t(
-                  "Total includes all preparation, cooking and rest/chill time.",
-                  "El total incluye preparación, cocción y reposo/frío.",
-                )}{" "}
-                {totalMinutes(input) ?? "—"} {t("minutes", "minutos")}
-              </p>
-              {textField(
-                "story",
-                "Story (optional)",
-                "Historia (opcional)",
-                true,
-              )}
-              {textField(
-                "sourceCredit",
-                "Source / original author credit (optional)",
-                "Fuente / autor original (opcional)",
-              )}
-              {textField(
-                "videoUrl",
-                "External video link (optional)",
-                "Enlace externo de vídeo (opcional)",
-              )}
-              {textField(
-                "notes",
-                "Author notes (optional)",
-                "Notas del autor (opcional)",
-                true,
-              )}
-              <div className="editor-field">
-                {label(
-                  "language",
-                  "Original recipe language",
-                  "Idioma original de la receta",
-                )}
-                <NativeSelect
-                  id={fieldId("language")}
-                  value={input.language}
-                  onChange={(e) =>
-                    set("language", e.target.value as "en" | "es")
-                  }
-                >
-                  <option value="en">English</option>
-                  <option value="es">Español</option>
-                </NativeSelect>
-              </div>
-              <p>
-                {t(
-                  "Optional dietary tags are author provided.",
-                  "Las etiquetas opcionales las indica el autor.",
-                )}
-              </p>
-              {["vegan", "vegetarian"].map((tag) => (
-                <Label key={tag}>
-                  <input
-                    type="checkbox"
-                    checked={input.dietary.includes(tag)}
-                    onChange={(e) =>
-                      set(
-                        "dietary",
-                        e.target.checked
-                          ? [...input.dietary, tag]
-                          : input.dietary.filter((x) => x !== tag),
-                      )
-                    }
-                  />
-                  {tag === "vegan"
-                    ? t("Vegan", "Vegano")
-                    : t("Vegetarian", "Vegetariano")}
-                </Label>
-              ))}
-            </section>
-          )}
-          {step === 1 && (
-            <section>
-              <h2 id={fieldId("photos")} tabIndex={-1}>
-                {t("Photos", "Fotos")}
-              </h2>
-              <p>
-                {t(
-                  "Add 1–6 captioned photos. The first photo is the cover; the full image stays available in the gallery.",
-                  "Añade de 1 a 6 fotos con descripción. La primera es la portada; se conserva la imagen completa en la galería.",
-                )}
-              </p>
-              {input.photos.map((p, i) => (
-                <fieldset key={p.assetId} {...draggable("photos", i)}>
-                  <legend>
-                    {i === 0
-                      ? t("Cover photo", "Foto de portada")
-                      : `${t("Photo", "Foto")} ${i + 1}`}
-                  </legend>
-                  <div className="cover-frame">
-                    <img
-                      src={`/api/media/${p.assetId}?variant=gallery`}
-                      width={p.width ?? 640}
-                      height={p.height ?? 480}
-                      alt={p.alt || p.caption}
-                      style={{
-                        objectPosition: `${p.crop.x}% ${p.crop.y}%`,
-                        transform: `scale(${p.crop.zoom})`,
-                      }}
-                    />
-                  </div>
-                  <div className="editor-field">
-                    {label(
-                      `photos.${i}.caption`,
-                      `Caption ${i + 1}`,
-                      `Descripción ${i + 1}`,
-                    )}
-                    <Textarea
-                      id={fieldId(`photos.${i}.caption`)}
-                      maxLength={400}
-                      value={p.caption}
-                      onChange={(e) =>
-                        set(
-                          "photos",
-                          input.photos.map((photo, j) =>
-                            j === i
-                              ? { ...photo, caption: e.target.value }
-                              : photo,
-                          ),
-                        )
-                      }
-                    />
-                    <p>{Array.from(p.caption).length}/400</p>
-                  </div>
-                  <div className="editor-field">
-                    {label(
-                      `photos.${i}.alt`,
-                      `Alt text ${i + 1} (optional)`,
-                      `Texto alternativo ${i + 1} (opcional)`,
-                    )}
-                    <Input
-                      id={fieldId(`photos.${i}.alt`)}
-                      maxLength={400}
-                      value={p.alt}
-                      onChange={(e) =>
-                        set(
-                          "photos",
-                          input.photos.map((photo, j) =>
-                            j === i ? { ...photo, alt: e.target.value } : photo,
-                          ),
-                        )
-                      }
-                    />
+                {step === 1 && (
+                  <section>
+                    <h2 id={fieldId("photos")} tabIndex={-1}>
+                      {t("Photos", "Fotos")}
+                    </h2>
                     <p>
                       {t(
-                        "The caption is the default alt text.",
-                        "La descripción se usa como texto alternativo por defecto.",
+                        "Add 1–6 captioned photos. The first photo is the cover; the full image stays available in the gallery.",
+                        "Añade de 1 a 6 fotos con descripción. La primera es la portada; se conserva la imagen completa en la galería.",
                       )}
                     </p>
-                  </div>
-                  {i === 0 &&
-                    (["x", "y", "zoom"] as const).map((k) => (
-                      <Label key={k}>
-                        {t(
-                          `Cover ${k === "x" ? "horizontal position" : k === "y" ? "vertical position" : "zoom"}`,
-                          `Portada: ${k === "x" ? "posición horizontal" : k === "y" ? "posición vertical" : "zoom"}`,
+                    {input.photos.map((p, i) => (
+                      <FieldSet key={p.assetId} {...draggable("photos", i)}>
+                        <FieldLegend>
+                          {i === 0
+                            ? t("Cover photo", "Foto de portada")
+                            : `${t("Photo", "Foto")} ${i + 1}`}
+                        </FieldLegend>
+                        <div className="cover-frame">
+                          <img
+                            src={`/api/media/${p.assetId}?variant=gallery`}
+                            width={p.width ?? 640}
+                            height={p.height ?? 480}
+                            alt={p.alt || p.caption}
+                            style={{
+                              objectPosition: `${p.crop.x}% ${p.crop.y}%`,
+                              transform: `scale(${p.crop.zoom})`,
+                            }}
+                          />
+                        </div>
+                        <Field
+                          data-invalid={errors.some(
+                            (error) => error.field === `photos.${i}.caption`,
+                          )}
+                        >
+                          {label(
+                            `photos.${i}.caption`,
+                            `Caption ${i + 1}`,
+                            `Descripción ${i + 1}`,
+                          )}
+                          <Textarea
+                            {...controlProps(`photos.${i}.caption`)}
+                            maxLength={400}
+                            value={p.caption}
+                            onChange={(e) =>
+                              set(
+                                "photos",
+                                input.photos.map((photo, j) =>
+                                  j === i
+                                    ? { ...photo, caption: e.target.value }
+                                    : photo,
+                                ),
+                              )
+                            }
+                          />
+                          <p>{Array.from(p.caption).length}/400</p>
+                        </Field>
+                        <Field
+                          data-invalid={errors.some(
+                            (error) => error.field === `photos.${i}.alt`,
+                          )}
+                        >
+                          {label(
+                            `photos.${i}.alt`,
+                            `Alt text ${i + 1} (optional)`,
+                            `Texto alternativo ${i + 1} (opcional)`,
+                          )}
+                          <Input
+                            {...controlProps(`photos.${i}.alt`)}
+                            maxLength={400}
+                            value={p.alt}
+                            onChange={(e) =>
+                              set(
+                                "photos",
+                                input.photos.map((photo, j) =>
+                                  j === i
+                                    ? { ...photo, alt: e.target.value }
+                                    : photo,
+                                ),
+                              )
+                            }
+                          />
+                          <p>
+                            {t(
+                              "The caption is the default alt text.",
+                              "La descripción se usa como texto alternativo por defecto.",
+                            )}
+                          </p>
+                        </Field>
+                        {i === 0 &&
+                          (["x", "y", "zoom"] as const).map((k) => (
+                            <Label key={k}>
+                              {t(
+                                `Cover ${k === "x" ? "horizontal position" : k === "y" ? "vertical position" : "zoom"}`,
+                                `Portada: ${k === "x" ? "posición horizontal" : k === "y" ? "posición vertical" : "zoom"}`,
+                              )}
+                              <input
+                                type="range"
+                                min={k === "zoom" ? 1 : 0}
+                                max={k === "zoom" ? 3 : 100}
+                                step={k === "zoom" ? 0.1 : 1}
+                                value={p.crop[k]}
+                                onChange={(e) =>
+                                  set(
+                                    "photos",
+                                    input.photos.map((photo, j) =>
+                                      j === i
+                                        ? {
+                                            ...photo,
+                                            crop: {
+                                              ...photo.crop,
+                                              [k]: Number(e.target.value),
+                                            },
+                                          }
+                                        : photo,
+                                    ),
+                                  )
+                                }
+                              />
+                            </Label>
+                          ))}
+                        {i > 0 && (
+                          <Button
+                            type="button"
+                            onClick={() => move("photos", i, 0)}
+                          >
+                            {t("Make cover", "Usar como portada")}
+                          </Button>
                         )}
-                        <input
-                          type="range"
-                          min={k === "zoom" ? 1 : 0}
-                          max={k === "zoom" ? 3 : 100}
-                          step={k === "zoom" ? 0.1 : 1}
-                          value={p.crop[k]}
-                          onChange={(e) =>
+                        {controls("photos", i)}
+                        <ImageUploader
+                          purpose="recipe"
+                          available={mediaAvailable}
+                          spanish={lang === "es"}
+                          onComplete={(asset) =>
                             set(
                               "photos",
-                              input.photos.map((photo, j) =>
-                                j === i
+                              current.current.photos.map((photo) =>
+                                photo.assetId === p.assetId
                                   ? {
                                       ...photo,
-                                      crop: {
-                                        ...photo.crop,
-                                        [k]: Number(e.target.value),
-                                      },
+                                      assetId: asset.id,
+                                      width: asset.width,
+                                      height: asset.height,
                                     }
                                   : photo,
                               ),
                             )
                           }
                         />
-                      </Label>
+                      </FieldSet>
                     ))}
-                  {i > 0 && (
-                    <Button type="button" onClick={() => move("photos", i, 0)}>
-                      {t("Make cover", "Usar como portada")}
-                    </Button>
-                  )}
-                  {controls("photos", i)}
-                  <ImageUploader
-                    purpose="recipe"
-                    available={mediaAvailable}
-                    spanish={lang === "es"}
-                    onComplete={(asset) =>
-                      set(
-                        "photos",
-                        current.current.photos.map((photo) =>
-                          photo.assetId === p.assetId
-                            ? {
-                                ...photo,
+                    {input.photos.length < 6 && (
+                      <ImageUploader
+                        purpose="recipe"
+                        available={mediaAvailable}
+                        spanish={lang === "es"}
+                        onComplete={(asset) => {
+                          if (
+                            current.current.photos.length < 6 &&
+                            !current.current.photos.some(
+                              (p) => p.assetId === asset.id,
+                            )
+                          )
+                            set("photos", [
+                              ...current.current.photos,
+                              {
                                 assetId: asset.id,
                                 width: asset.width,
                                 height: asset.height,
-                              }
-                            : photo,
-                        ),
-                      )
-                    }
-                  />
-                </fieldset>
-              ))}
-              {input.photos.length < 6 && (
-                <ImageUploader
-                  purpose="recipe"
-                  available={mediaAvailable}
-                  spanish={lang === "es"}
-                  onComplete={(asset) => {
-                    if (
-                      current.current.photos.length < 6 &&
-                      !current.current.photos.some(
-                        (p) => p.assetId === asset.id,
-                      )
-                    )
-                      set("photos", [
-                        ...current.current.photos,
-                        {
-                          assetId: asset.id,
-                          width: asset.width,
-                          height: asset.height,
-                          caption: "",
-                          alt: "",
-                          crop: { x: 50, y: 50, zoom: 1 },
-                        },
-                      ]);
-                  }}
-                />
-              )}
-            </section>
-          )}
-          {(step === 2 || step === 3) && (
-            <section>
-              <h2
-                id={fieldId(step === 2 ? "ingredients" : "instructions")}
-                tabIndex={-1}
-              >
-                {step === 2
-                  ? t("Ingredients", "Ingredientes")
-                  : t("Instructions", "Instrucciones")}
-              </h2>
-              <p>
-                {t(
-                  "Drag rows or use Move up / Move down. Sections move with the same controls.",
-                  "Arrastra las filas o usa Subir / Bajar. Las secciones usan los mismos controles.",
+                                caption: "",
+                                alt: "",
+                                crop: { x: 50, y: 50, zoom: 1 },
+                              },
+                            ]);
+                        }}
+                      />
+                    )}
+                  </section>
                 )}
-              </p>
-              {step === 2
-                ? input.ingredients.map((r, i) => (
-                    <fieldset key={i} {...draggable("ingredients", i)}>
-                      <legend>
-                        {r.kind === "section"
-                          ? t("Section", "Sección")
-                          : `${t("Ingredient", "Ingrediente")} ${i + 1}`}
-                      </legend>
-                      <div className="editor-grid">
-                        {(r.kind === "section"
-                          ? (["name"] as const)
-                          : (["quantity", "unit", "name", "notes"] as const)
-                        ).map((k) => (
-                          <div className="editor-field" key={k}>
-                            {label(
-                              `ingredients.${i}.${k}`,
-                              `${{ quantity: "Quantity", unit: "Unit", name: "Ingredient name", notes: "Ingredient notes" }[k]} ${i + 1}`,
-                              `${{ quantity: "Cantidad", unit: "Unidad", name: "Ingrediente", notes: "Notas del ingrediente" }[k]} ${i + 1}`,
-                            )}
-                            <Input
-                              id={fieldId(`ingredients.${i}.${k}`)}
-                              value={r[k]}
-                              onChange={(e) =>
-                                set(
-                                  "ingredients",
-                                  input.ingredients.map((row, j) =>
-                                    j === i
-                                      ? { ...row, [k]: e.target.value }
-                                      : row,
-                                  ),
-                                )
-                              }
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      {controls("ingredients", i)}
-                    </fieldset>
-                  ))
-                : input.instructions.map((r, i) => (
-                    <fieldset key={i} {...draggable("instructions", i)}>
-                      <legend>
-                        {r.kind === "section"
-                          ? t("Section", "Sección")
-                          : `${t("Step", "Paso")} ${i + 1}`}
-                      </legend>
-                      <div className="editor-field">
-                        {label(
-                          `instructions.${i}.text`,
-                          `Instruction ${i + 1}`,
-                          `Instrucción ${i + 1}`,
-                        )}
-                        <Textarea
-                          id={fieldId(`instructions.${i}.text`)}
-                          rows={4}
-                          value={r.text}
-                          onChange={(e) =>
-                            set(
-                              "instructions",
-                              input.instructions.map((row, j) =>
-                                j === i
-                                  ? { ...row, text: e.target.value }
-                                  : row,
-                              ),
-                            )
-                          }
-                        />
-                      </div>
-                      {controls("instructions", i)}
-                    </fieldset>
-                  ))}
-              <div className="editor-actions">
-                {[false, true].map((section) => (
-                  <Button
-                    type="button"
-                    key={String(section)}
-                    disabled={
-                      step === 2
-                        ? input.ingredients.length >= 100
-                        : input.instructions.length >= 50
-                    }
-                    onClick={() =>
-                      step === 2
-                        ? set("ingredients", [
-                            ...input.ingredients,
-                            {
-                              kind: section ? "section" : "ingredient",
-                              quantity: "",
-                              unit: "",
-                              name: "",
-                              notes: "",
-                            },
-                          ])
-                        : set("instructions", [
-                            ...input.instructions,
-                            { kind: section ? "section" : "step", text: "" },
-                          ])
-                    }
-                  >
-                    {section
-                      ? t("Add section", "Añadir sección")
-                      : step === 2
-                        ? t("Add ingredient", "Añadir ingrediente")
-                        : t("Add instruction", "Añadir instrucción")}
-                  </Button>
-                ))}
-              </div>
-              <div className="editor-field">
-                <Label htmlFor="paste-lines">
-                  {step === 2
-                    ? t(
-                        "Paste ingredient lines",
-                        "Pegar líneas de ingredientes",
-                      )
-                    : t(
-                        "Paste instruction lines",
-                        "Pegar líneas de instrucciones",
+                {(step === 2 || step === 3) && (
+                  <section>
+                    <h2
+                      {...controlProps(
+                        step === 2 ? "ingredients" : "instructions",
                       )}
-                </Label>
-                <Textarea
-                  id="paste-lines"
-                  value={paste}
-                  onChange={(e) => {
-                    setPaste(e.target.value);
-                    setPasteLines(null);
-                  }}
-                />
-                <Button
-                  type="button"
-                  disabled={!paste.trim()}
-                  onClick={() =>
-                    setPasteLines(
-                      paste.split(/\r?\n/).filter((line) => line.trim()),
-                    )
-                  }
-                >
-                  {t("Review pasted lines", "Revisar líneas pegadas")}
-                </Button>
-              </div>
-              {pasteLines && (
-                <section>
-                  <h3>
-                    {t("Confirm ambiguous text", "Confirmar el texto ambiguo")}
-                  </h3>
-                  <p>
-                    {t(
-                      "Nothing has been added. Lines stay as written; review quantities and sections yourself.",
-                      "No se ha añadido nada. Las líneas se conservan: revisa cantidades y secciones.",
+                      tabIndex={-1}
+                    >
+                      {step === 2
+                        ? t("Ingredients", "Ingredientes")
+                        : t("Instructions", "Instrucciones")}
+                    </h2>
+                    <p>
+                      {t(
+                        "Drag rows or use Move up / Move down. Sections move with the same controls.",
+                        "Arrastra las filas o usa Subir / Bajar. Las secciones usan los mismos controles.",
+                      )}
+                    </p>
+                    {step === 2
+                      ? input.ingredients.map((r, i) => (
+                          <FieldSet key={i} {...draggable("ingredients", i)}>
+                            <FieldLegend>
+                              {r.kind === "section"
+                                ? t("Section", "Sección")
+                                : `${t("Ingredient", "Ingrediente")} ${i + 1}`}
+                            </FieldLegend>
+                            <div className="editor-grid">
+                              {(r.kind === "section"
+                                ? (["name"] as const)
+                                : ([
+                                    "quantity",
+                                    "unit",
+                                    "name",
+                                    "notes",
+                                  ] as const)
+                              ).map((k) => (
+                                <Field
+                                  key={k}
+                                  data-invalid={errors.some(
+                                    (error) =>
+                                      error.field === `ingredients.${i}.${k}`,
+                                  )}
+                                >
+                                  {label(
+                                    `ingredients.${i}.${k}`,
+                                    `${{ quantity: "Quantity", unit: "Unit", name: "Ingredient name", notes: "Ingredient notes" }[k]} ${i + 1}`,
+                                    `${{ quantity: "Cantidad", unit: "Unidad", name: "Ingrediente", notes: "Notas del ingrediente" }[k]} ${i + 1}`,
+                                  )}
+                                  <Input
+                                    {...controlProps(`ingredients.${i}.${k}`)}
+                                    value={r[k]}
+                                    onChange={(e) =>
+                                      set(
+                                        "ingredients",
+                                        input.ingredients.map((row, j) =>
+                                          j === i
+                                            ? { ...row, [k]: e.target.value }
+                                            : row,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </Field>
+                              ))}
+                            </div>
+                            {controls("ingredients", i)}
+                          </FieldSet>
+                        ))
+                      : input.instructions.map((r, i) => (
+                          <FieldSet key={i} {...draggable("instructions", i)}>
+                            <FieldLegend>
+                              {r.kind === "section"
+                                ? t("Section", "Sección")
+                                : `${t("Step", "Paso")} ${i + 1}`}
+                            </FieldLegend>
+                            <Field
+                              data-invalid={errors.some(
+                                (error) =>
+                                  error.field === `instructions.${i}.text`,
+                              )}
+                            >
+                              {label(
+                                `instructions.${i}.text`,
+                                `Instruction ${i + 1}`,
+                                `Instrucción ${i + 1}`,
+                              )}
+                              <Textarea
+                                {...controlProps(`instructions.${i}.text`)}
+                                rows={4}
+                                value={r.text}
+                                onChange={(e) =>
+                                  set(
+                                    "instructions",
+                                    input.instructions.map((row, j) =>
+                                      j === i
+                                        ? { ...row, text: e.target.value }
+                                        : row,
+                                    ),
+                                  )
+                                }
+                              />
+                            </Field>
+                            {controls("instructions", i)}
+                          </FieldSet>
+                        ))}
+                    <div className="editor-actions">
+                      {[false, true].map((section) => (
+                        <Button
+                          type="button"
+                          key={String(section)}
+                          disabled={
+                            step === 2
+                              ? input.ingredients.length >= 100
+                              : input.instructions.length >= 50
+                          }
+                          onClick={() =>
+                            step === 2
+                              ? set("ingredients", [
+                                  ...input.ingredients,
+                                  {
+                                    kind: section ? "section" : "ingredient",
+                                    quantity: "",
+                                    unit: "",
+                                    name: "",
+                                    notes: "",
+                                  },
+                                ])
+                              : set("instructions", [
+                                  ...input.instructions,
+                                  {
+                                    kind: section ? "section" : "step",
+                                    text: "",
+                                  },
+                                ])
+                          }
+                        >
+                          {section
+                            ? t("Add section", "Añadir sección")
+                            : step === 2
+                              ? t("Add ingredient", "Añadir ingrediente")
+                              : t("Add instruction", "Añadir instrucción")}
+                        </Button>
+                      ))}
+                    </div>
+                    <Field>
+                      <Label htmlFor="paste-lines">
+                        {step === 2
+                          ? t(
+                              "Paste ingredient lines",
+                              "Pegar líneas de ingredientes",
+                            )
+                          : t(
+                              "Paste instruction lines",
+                              "Pegar líneas de instrucciones",
+                            )}
+                      </Label>
+                      <Textarea
+                        id="paste-lines"
+                        value={paste}
+                        onChange={(e) => {
+                          setPaste(e.target.value);
+                          setPasteLines(null);
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        disabled={!paste.trim()}
+                        onClick={() =>
+                          setPasteLines(
+                            paste.split(/\r?\n/).filter((line) => line.trim()),
+                          )
+                        }
+                      >
+                        {t("Review pasted lines", "Revisar líneas pegadas")}
+                      </Button>
+                    </Field>
+                    {pasteLines && (
+                      <section>
+                        <h3>
+                          {t(
+                            "Confirm ambiguous text",
+                            "Confirmar el texto ambiguo",
+                          )}
+                        </h3>
+                        <p>
+                          {t(
+                            "Nothing has been added. Lines stay as written; review quantities and sections yourself.",
+                            "No se ha añadido nada. Las líneas se conservan: revisa cantidades y secciones.",
+                          )}
+                        </p>
+                        <ul>
+                          {pasteLines.map((line, i) => (
+                            <li key={i}>{line}</li>
+                          ))}
+                        </ul>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            if (
+                              step === 2 &&
+                              input.ingredients.length + pasteLines.length <=
+                                100
+                            ) {
+                              set("ingredients", [
+                                ...input.ingredients,
+                                ...pasteLines.map(
+                                  (name) =>
+                                    ({
+                                      kind: "ingredient",
+                                      quantity: "",
+                                      unit: "",
+                                      name,
+                                      notes: "",
+                                    }) as Ingredient,
+                                ),
+                              ]);
+                              setPasteLines(null);
+                              setPaste("");
+                            } else if (
+                              step === 3 &&
+                              input.instructions.length + pasteLines.length <=
+                                50
+                            ) {
+                              set("instructions", [
+                                ...input.instructions,
+                                ...pasteLines.map(
+                                  (text) =>
+                                    ({ kind: "step", text }) as Instruction,
+                                ),
+                              ]);
+                              setPasteLines(null);
+                              setPaste("");
+                            } else
+                              setFailure({
+                                status: 422,
+                                message:
+                                  "Too many rows. Shorten the pasted list.",
+                              });
+                          }}
+                        >
+                          {t(
+                            "Confirm lines as written",
+                            "Confirmar líneas sin cambios",
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={() => setPasteLines(null)}
+                        >
+                          {t("Cancel", "Cancelar")}
+                        </Button>
+                      </section>
                     )}
-                  </p>
-                  <ul>
-                    {pasteLines.map((line, i) => (
-                      <li key={i}>{line}</li>
-                    ))}
-                  </ul>
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      if (
-                        step === 2 &&
-                        input.ingredients.length + pasteLines.length <= 100
-                      ) {
-                        set("ingredients", [
-                          ...input.ingredients,
-                          ...pasteLines.map(
-                            (name) =>
-                              ({
-                                kind: "ingredient",
-                                quantity: "",
-                                unit: "",
-                                name,
-                                notes: "",
-                              }) as Ingredient,
-                          ),
-                        ]);
-                        setPasteLines(null);
-                        setPaste("");
-                      } else if (
-                        step === 3 &&
-                        input.instructions.length + pasteLines.length <= 50
-                      ) {
-                        set("instructions", [
-                          ...input.instructions,
-                          ...pasteLines.map(
-                            (text) => ({ kind: "step", text }) as Instruction,
-                          ),
-                        ]);
-                        setPasteLines(null);
-                        setPaste("");
-                      } else
-                        setFailure({
-                          status: 422,
-                          message: "Too many rows. Shorten the pasted list.",
-                        });
-                    }}
-                  >
-                    {t(
-                      "Confirm lines as written",
-                      "Confirmar líneas sin cambios",
-                    )}
-                  </Button>
-                  <Button type="button" onClick={() => setPasteLines(null)}>
-                    {t("Cancel", "Cancelar")}
-                  </Button>
-                </section>
-              )}
-            </section>
-          )}
-          {step === 4 && draft && (
-            <>
-              <RecipePreview
-                input={input}
-                id={draft.id}
-                origins={origins}
-                spanish={lang === "es"}
-              />
-              <Button
-                type="button"
-                disabled={conflict || busy.current}
-                onClick={publish}
-              >
-                {t("Publish Recipe", "Publicar receta")}
-              </Button>
-            </>
-          )}
-        </fieldset>
-      </form>
+                  </section>
+                )}
+                {step === 4 && draft && (
+                  <>
+                    <RecipePreview
+                      input={input}
+                      id={draft.id}
+                      origins={origins}
+                      spanish={lang === "es"}
+                    />
+                    <Button
+                      type="button"
+                      disabled={conflict || busy.current}
+                      onClick={publish}
+                    >
+                      {t("Publish Recipe", "Publicar receta")}
+                    </Button>
+                  </>
+                )}
+              </FieldGroup>
+            </FieldSet>
+          </form>
+        </CardContent>
+      </Card>
       <div className="editor-actions">
         {step > 0 && (
           <Button
             variant="outline"
             type="button"
+            disabled={!ready}
             onClick={() => setStep(step - 1)}
           >
             {t("Back", "Atrás")}
           </Button>
         )}
         {step < 4 && (
-          <Button type="button" onClick={() => setStep(step + 1)}>
+          <Button
+            type="button"
+            disabled={!ready}
+            onClick={() => setStep(step + 1)}
+          >
             {t("Continue", "Continuar")}
           </Button>
         )}

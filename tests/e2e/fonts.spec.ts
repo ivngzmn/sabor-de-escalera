@@ -1,6 +1,25 @@
 import { expect, test, type Page } from '@playwright/test';
 import sharp from 'sharp';
 
+test.beforeEach(async ({ page, baseURL }) => {
+  // Dependency optimization can request a development-only document reload.
+  // Keep it from adding a fourth navigation to this three-document font check.
+  await page.routeWebSocket(url => url.host === new URL(baseURL!).host, socket => {
+    const server = socket.connectToServer();
+    server.onMessage(message => {
+      if (typeof message === 'string') {
+        try {
+          if (JSON.parse(message)?.type === 'full-reload') {
+            console.info('Suppressed Vite HMR reload during font measurement.');
+            return;
+          }
+        } catch { /* Forward non-JSON messages unchanged. */ }
+      }
+      socket.send(message);
+    });
+  });
+});
+
 const selectors = ['.brand', '.header-inner', 'h1', '.intro'];
 const geometry = (page: Page) => page.evaluate((targets) => targets.map((selector) => {
   const element = document.querySelector(selector)!;
@@ -10,6 +29,16 @@ const geometry = (page: Page) => page.evaluate((targets) => targets.map((selecto
   return { selector, height: box.height, y: box.y + scrollY, textWidth: text.getBoundingClientRect().width, fontSize: getComputedStyle(element).fontSize };
 }), selectors);
 const painted = (page: Page) => page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+const loadedFonts = (page: Page) => page.evaluate(async () => {
+  // A new document can report ready before all CSS font usage is discovered.
+  // Compare geometry only after the three actual faces finish loading.
+  await Promise.all([
+    document.fonts.load('600 24px "Playfair Display"'),
+    document.fonts.load('400 16px "Plus Jakarta Sans"'),
+    document.fonts.load('600 16px "Plus Jakarta Sans"'),
+  ]);
+  await document.fonts.ready;
+});
 
 const textInk = async (page: Page, selector: string) => {
   const clip = await page.locator(selector).boundingBox();
@@ -43,13 +72,14 @@ for (const width of [390, 1440]) for (const language of ['en', 'es']) {
       expect(await textInk(page, 'h1')).toBeLessThan(1);
       expect(await textInk(page, '.intro')).toBeLessThan(1);
       release();
-      await page.evaluate(() => document.fonts.ready);
+      await loadedFonts(page);
       await painted(page);
       expect(await textInk(page, 'h1')).toBeGreaterThan(1);
       expect(await textInk(page, '.intro')).toBeGreaterThan(1);
       const home = await geometry(page);
       await page.getByRole('contentinfo').getByRole('link', { name: language === 'es' ? 'Acerca de' : 'About', exact: true }).click();
       await page.getByRole('link', { name: 'Sabor de Escalera', exact: true }).click();
+      await loadedFonts(page);
       await painted(page);
       expect(await geometry(page)).toEqual(home);
       // Routing disables the browser cache; each page still requests each face only once.
@@ -83,6 +113,7 @@ for (const width of [390, 1440]) for (const language of ['en', 'es']) {
     const home = await geometry(page);
     await page.getByRole('contentinfo').getByRole('link', { name: language === 'es' ? 'Acerca de' : 'About', exact: true }).click();
     await page.getByRole('link', { name: 'Sabor de Escalera', exact: true }).click();
+    await loadedFonts(page);
     await painted(page);
     const firstPaint = await geometry(page);
     await page.evaluate(() => document.fonts.ready);

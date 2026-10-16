@@ -1,6 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Field,
+  FieldGroup,
+  FieldSet,
+  FieldLegend,
+  FieldLabel as Label,
+  FieldDescription,
+} from "@/components/ui/field";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useId, useState } from "react";
 import {
   acceptedTypes,
@@ -188,14 +196,14 @@ export default function ImageUploader({
     }
   }
   return (
-    <fieldset aria-describedby={`${id}-hint`}>
-      <legend>
+    <FieldSet aria-describedby={`${id}-hint`}>
+      <FieldLegend>
         {text(
           purpose === "avatar" ? "Profile photo (optional)" : "Photo",
           purpose === "avatar" ? "Foto de perfil (opcional)" : "Foto",
         )}
-      </legend>
-      <p id={`${id}-hint`}>
+      </FieldLegend>
+      <FieldDescription id={`${id}-hint`}>
         {available
           ? text(
               "JPEG, PNG or WebP, up to 20 MB. Your current photo stays until the replacement is saved.",
@@ -210,81 +218,87 @@ export default function ImageUploader({
                 "Photo uploads are temporarily unavailable. Your draft and saved photos are preserved.",
                 "No se pueden subir fotos por ahora. Se conservan tu borrador y las fotos guardadas.",
               )}
-      </p>
-      {savedId && (
-        <img
-          src={`/api/media/${encodeURIComponent(savedId)}?variant=${purpose === "avatar" ? "avatar" : "card"}`}
-          width={purpose === "avatar" ? 256 : 640}
-          height={purpose === "avatar" ? 256 : 480}
-          alt={text("Your saved photo", "Tu foto guardada")}
-        />
-      )}
-      <Label htmlFor={`${id}-file`}>
-        {text("Choose photo", "Elegir foto")}
-      </Label>
-      <Input
-        id={`${id}-file`}
-        type="file"
-        accept={acceptedTypes.join(",")}
-        disabled={!available || busy}
-        aria-describedby={`${id}-hint`}
-        aria-invalid={!!error}
-        onChange={(event) => {
-          const selected = event.currentTarget.files?.[0];
-          setIntent(null);
-          setProcessed(null);
-          setMessage("");
-          setError("");
-          if (!selected) {
-            setFile(null);
-            return;
-          }
-          if (
-            !acceptedTypes.includes(selected.type) ||
-            selected.size < 1 ||
-            selected.size > MAX_INPUT_BYTES
-          ) {
-            setFile(null);
-            setError(
-              text(
-                "Choose a JPEG, PNG or WebP photo up to 20 MB.",
-                "Elige una foto JPEG, PNG o WebP de hasta 20 MB.",
-              ),
-            );
-            return;
-          }
-          setFile(selected);
-        }}
-      />
-      <Button
-        type="button"
-        disabled={!available || !file || busy}
-        onClick={upload}
-      >
-        {error && file
-          ? text("Retry photo", "Reintentar foto")
-          : text("Upload photo", "Subir foto")}
-      </Button>
-      {purpose === "avatar" && savedId && (
-        <Button type="button" disabled={!available || busy} onClick={remove}>
-          {text("Remove photo", "Eliminar foto")}
+      </FieldDescription>
+      <FieldGroup>
+        {savedId && (
+          <img
+            src={`/api/media/${encodeURIComponent(savedId)}?variant=${purpose === "avatar" ? "avatar" : "card"}`}
+            width={purpose === "avatar" ? 256 : 640}
+            height={purpose === "avatar" ? 256 : 480}
+            alt={text("Your saved photo", "Tu foto guardada")}
+          />
+        )}
+        <Field data-invalid={!!error} data-disabled={!available || busy}>
+          <Label htmlFor={`${id}-file`}>
+            {text("Choose photo", "Elegir foto")}
+          </Label>
+          <Input
+            id={`${id}-file`}
+            type="file"
+            accept={acceptedTypes.join(",")}
+            disabled={!available || busy}
+            aria-describedby={`${id}-hint${error ? ` ${id}-error` : ""}`}
+            aria-invalid={!!error}
+            onChange={(event) => {
+              const selected = event.currentTarget.files?.[0];
+              setIntent(null);
+              setProcessed(null);
+              setMessage("");
+              setError("");
+              if (!selected) {
+                setFile(null);
+                return;
+              }
+              if (
+                !acceptedTypes.includes(selected.type) ||
+                selected.size < 1 ||
+                selected.size > MAX_INPUT_BYTES
+              ) {
+                setFile(null);
+                setError(
+                  text(
+                    "Choose a JPEG, PNG or WebP photo up to 20 MB.",
+                    "Elige una foto JPEG, PNG o WebP de hasta 20 MB.",
+                  ),
+                );
+                return;
+              }
+              setFile(selected);
+            }}
+          />
+        </Field>
+        <Button
+          type="button"
+          disabled={!available || !file || busy}
+          onClick={upload}
+        >
+          {error && file
+            ? text("Retry photo", "Reintentar foto")
+            : text("Upload photo", "Subir foto")}
         </Button>
-      )}
-      {busy && (
-        <progress
-          value={progress}
-          max="100"
-          aria-label={text("Photo upload progress", "Progreso de la foto")}
-        />
-      )}
-      <p role="status" aria-live="polite">
-        {message}
-      </p>
-      {error && (
-        <p role="alert">
-          <a href={`#${id}-file`}>{error}</a>
+        {purpose === "avatar" && savedId && (
+          <Button type="button" disabled={!available || busy} onClick={remove}>
+            {text("Remove photo", "Eliminar foto")}
+          </Button>
+        )}
+        {busy && (
+          <progress
+            value={progress}
+            max="100"
+            aria-label={text("Photo upload progress", "Progreso de la foto")}
+          />
+        )}
+        <p role="status" aria-live="polite">
+          {message}
         </p>
-      )}
-    </fieldset>
+        {error && (
+          <Alert variant="destructive" id={`${id}-error`}>
+            <AlertDescription>
+              <a href={`#${id}-file`}>{error}</a>
+            </AlertDescription>
+          </Alert>
+        )}
+      </FieldGroup>
+    </FieldSet>
   );
 }
