@@ -745,34 +745,43 @@ export default function RecipeEditor({
     );
   return (
     <div className="recipe-editor">
-      <p className="eyebrow">{t("From your kitchen", "Desde tu cocina")}</p>
-      <h1>{t("Share your recipe", "Comparte tu receta")}</h1>
-      <p>
-        {draft?.label ?? t("Preparing your draft…", "Preparando tu borrador…")}
-      </p>
-      <p>
-        {t(
-          "A title is required before publication. Saved drafts stay until you delete them.",
-          "Se necesita un título para publicar. Los borradores se conservan hasta que los elimines.",
-        )}
-      </p>
-      <div className="editor-actions">
-        <Button
-          type="button"
-          disabled={!ready || busy.current || blocked || conflict || publishing}
-          onClick={() => (draft ? void save() : void create())}
-        >
-          {t("Save Draft", "Guardar borrador")}
-        </Button>
-        <Button
-          type="button"
-          disabled={!ready || !draft || blocked || publishing}
-          onClick={() => setConfirmDelete(true)}
-        >
-          {t("Delete draft", "Eliminar borrador")}
-        </Button>
-      </div>
-      <p role="status" aria-live="polite">
+      <header className="editor-header">
+        <div className="flex flex-col gap-1">
+          <p className="eyebrow">{t("From your kitchen", "Desde tu cocina")}</p>
+          <h1>{t("Share your recipe", "Comparte tu receta")}</h1>
+          <p className="intro">
+            {draft?.label ??
+              t("Preparing your draft…", "Preparando tu borrador…")}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {t(
+              "A title is required before publication. Saved drafts stay until you delete them.",
+              "Se necesita un título para publicar. Los borradores se conservan hasta que los elimines.",
+            )}
+          </p>
+        </div>
+        <div className="editor-actions">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={
+              !ready || busy.current || blocked || conflict || publishing
+            }
+            onClick={() => (draft ? void save() : void create())}
+          >
+            {t("Save Draft", "Guardar borrador")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!ready || !draft || blocked || publishing}
+            onClick={() => setConfirmDelete(true)}
+          >
+            {t("Delete draft", "Eliminar borrador")}
+          </Button>
+        </div>
+      </header>
+      <p role="status" aria-live="polite" className="editor-status">
         {
           {
             saved: t("Saved", "Guardado"),
@@ -893,7 +902,7 @@ export default function RecipeEditor({
             type="button"
             key={index}
             disabled={!ready}
-            variant={step === index ? "secondary" : "outline"}
+            variant="ghost"
             aria-current={step === index ? "step" : undefined}
             onClick={() => {
               setStep(index);
@@ -901,9 +910,15 @@ export default function RecipeEditor({
               setPaste("");
             }}
           >
+            <span aria-hidden="true" className="editor-step-number">
+              {String(index + 1).padStart(2, "0")}
+            </span>
             {name}
           </Button>
         ))}
+        <div aria-hidden="true" className="editor-progress">
+          <span style={{ width: `${((step + 1) / 5) * 100}%` }} />
+        </div>
       </nav>
       {errors.length > 0 && (
         <section aria-label={t("Publication checklist", "Lista para publicar")}>

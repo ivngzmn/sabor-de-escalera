@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import {
@@ -24,14 +25,14 @@ export default function RecipePreview({
   return (
     <article className="recipe-preview">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="secondary">
+        <Badge variant="tag">
           {
             categories.find((c) => c.id === input.category)?.[
               spanish ? "es" : "en"
             ]
           }
         </Badge>
-        <Badge variant="outline">
+        <Badge variant="region">
           {
             origins.find((o) => o.id === input.origin)?.[
               spanish ? "label_es" : "label_en"
@@ -58,7 +59,14 @@ export default function RecipePreview({
           {input.sourceCredit}
         </p>
       )}
-      {input.story && <p className="author-text">{input.story}</p>}
+      {input.story && (
+        <div className="recipe-story">
+          <p className="eyebrow">
+            {t("The story behind the dish", "La historia detrás del platillo")}
+          </p>
+          <p className="author-text">{input.story}</p>
+        </div>
+      )}
       <Separator className="my-6" />
       <div className="recipe-gallery">
         {input.photos.map((p, i) => (
@@ -101,6 +109,8 @@ export default function RecipePreview({
         ))}
       </div>
       <div className="recipe-columns">
+        <Card>
+          <CardContent>
         <section aria-label={t("Ingredients", "Ingredientes")}>
           <h2>{t("Ingredients", "Ingredientes")}</h2>
           <ul>
@@ -120,9 +130,13 @@ export default function RecipePreview({
             ))}
           </ul>
         </section>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent>
         <section aria-label={t("Instructions", "Instrucciones")}>
           <h2>{t("Instructions", "Instrucciones")}</h2>
-          <ol>
+          <ol className="recipe-steps">
             {input.instructions.map((r, i) => (
               <li key={i} className="author-text">
                 {r.kind === "section" ? <h3>{r.text}</h3> : r.text}
@@ -130,6 +144,8 @@ export default function RecipePreview({
             ))}
           </ol>
         </section>
+          </CardContent>
+        </Card>
       </div>
       {input.notes && (
         <section>
