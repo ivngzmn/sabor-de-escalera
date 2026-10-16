@@ -1,0 +1,58 @@
+{
+  "name": "sabor-de-escalera",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24.16.0 <25",
+    "pnpm": "11.2.2"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "check": "astro check",
+    "lint": "eslint . --max-warnings=0",
+    "test": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:e2e": "playwright test",
+    "build": "astro build",
+    "db:migrate": "node --experimental-strip-types scripts/migrate.ts"
+  },
+  "dependencies": {
+    "@astrojs/react": "5.0.3",
+    "@astrojs/vercel": "11.0.13",
+    "@clerk/astro": "4.1.12",
+    "@fontsource/playfair-display": "5.3.0",
+    "@fontsource/plus-jakarta-sans": "5.3.0",
+    "@radix-ui/react-icons": "1.3.2",
+    "@radix-ui/react-label": "2.1.17",
+    "@radix-ui/react-slot": "1.5.0",
+    "astro": "7.3.4",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "pg": "8.23.1",
+    "radix-ui": "^1.8.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "sharp": "0.35.5",
+    "tailwind-merge": "3.7.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.10",
+    "@axe-core/playwright": "4.13.0",
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "24.10.1",
+    "@types/pg": "8.23.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.2.5",
+    "eslint": "10.10.0",
+    "eslint-plugin-astro": "2.1.1",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.2",
+    "typescript-eslint": "8.71.1",
+    "vite": "8.3.4",
+    "vitest": "5.0.1"
+  },
+  "packageManager": "pnpm@11.2.2"
+}

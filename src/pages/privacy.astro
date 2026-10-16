@@ -1,0 +1,7 @@
+---
+import AppLayout from '../layouts/AppLayout.astro';
+import ConsentBanner from '../features/consent/ConsentBanner';
+const language = Astro.url.searchParams.get('lang') === 'es' ? 'es' : 'en';
+const title = language === 'es' ? 'Configuración de privacidad' : 'Privacy settings';
+---
+<AppLayout title={title} privacySettings><h1>{title}</h1><ConsentBanner client:load language={language} settings /></AppLayout>

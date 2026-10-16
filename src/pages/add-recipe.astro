@@ -1,0 +1,22 @@
+---
+import AppLayout from '../layouts/AppLayout.astro';
+import UnavailableDraft from '../features/recipes/UnavailableDraft';
+import RecipeEditor from '../features/recipes/RecipeEditor';
+import {draftsService} from '../features/recipes/drafts';
+import {requireActor} from '../features/accounts/service';
+import {AccountError,canContribute,signInHref} from '../features/accounts/permissions';
+import {accountFailure} from '../features/accounts/routes';
+import {accountConfiguration} from '../server/clerk';
+import {mediaReadiness} from '../features/media/service';
+const spanish=Astro.url.searchParams.get('lang')==='es';
+const origin=accountConfiguration()?.origin??Astro.url.origin;
+let actor;let initial=null;let origins;let unavailable=0;
+try {
+ actor=await requireActor(Astro.request);
+ if(!actor.onboarded)return Astro.redirect(`/onboarding?${new URLSearchParams({returnTo:Astro.url.pathname+Astro.url.search,...(spanish?{lang:'es'}:{})})}`,303);
+ if(!canContribute(actor))return new Response(spanish?'Las contribuciones no están disponibles para esta cuenta.':'Contributions are currently unavailable for this account.',{status:403,headers:{'Cache-Control':'private, no-store'}});
+ const svc=draftsService();origins=await svc.origins();const id=Astro.url.searchParams.get('draft');
+ if(id){const draft=await svc.readDraft(actor,id);if(draft.ok&&draft.value.state==='draft')initial=draft.value;else {unavailable=draft.ok?409:draft.error.status;Astro.response.status=unavailable;}}
+}catch(error){if(error instanceof AccountError&&(error.status===401||error.status===503))return Astro.redirect(signInHref(Astro.url.pathname+Astro.url.search,origin),303);return accountFailure(error);}
+---
+<AppLayout title={spanish?'Añadir receta':'Add Recipe'}>{unavailable?<UnavailableDraft client:load accountId={actor.id} clearRecovery={unavailable===410} spanish={spanish}/>:<RecipeEditor client:load accountId={actor.id} initial={initial} origins={origins} mediaAvailable={mediaReadiness().enabled} language={spanish?'es':'en'}/>}</AppLayout>

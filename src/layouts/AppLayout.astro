@@ -1,0 +1,65 @@
+---
+import '../styles/global.css';
+import '../styles/tokens.css';
+import headingFont from '@fontsource/playfair-display/files/playfair-display-latin-600-normal.woff2?url';
+import bodyFont from '@fontsource/plus-jakarta-sans/files/plus-jakarta-sans-latin-400-normal.woff2?url';
+import bodyStrongFont from '@fontsource/plus-jakarta-sans/files/plus-jakarta-sans-latin-600-normal.woff2?url';
+import ConsentBanner from '../features/consent/ConsentBanner';
+import { readServerConfig } from '../server/config';
+
+interface Props { title: string; privacySettings?: boolean; }
+const { title } = Astro.props;
+readServerConfig();
+const language = Astro.url.searchParams.get('lang') === 'es' ? 'es' : 'en';
+const copy = language === 'es'
+  ? { skip: 'Saltar al contenido', discover: 'Descubrir', add: 'Añadir receta', favorites: 'Favoritos', about: 'Acerca de', privacy: 'Configuración de privacidad', footer: 'Recetas, historias y sabores para compartir.' }
+  : { skip: 'Skip to content', discover: 'Discover', add: 'Add Recipe', favorites: 'Favorites', about: 'About', privacy: 'Privacy settings', footer: 'Recipes, stories, and flavors to share.' };
+const href = (path: string) => language === 'es' ? `${path}?lang=es` : path;
+const languageHref = (value: string) => {
+  const params = new URLSearchParams(Astro.url.searchParams);
+  params.set('lang', value);
+  return `${Astro.url.pathname}?${params.toString()}`;
+};
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+---
+<!doctype html>
+<html lang={language}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={copy.footer} />
+    <meta name="theme-color" content="#fff8f5" />
+    {[headingFont, bodyFont, bodyStrongFont].map((href) => (
+      <link rel="preload" href={href} as="font" type="font/woff2" crossorigin="anonymous" />
+    ))}
+    <title>{title} · Sabor de Escalera</title>
+  </head>
+  <body>
+    <a href="#main-content" class="skip-link" data-en="Skip to content" data-es="Saltar al contenido">{copy.skip}</a>
+    <header>
+      <div class="container header-inner">
+        <a class="brand" href={href('/')}>Sabor de Escalera</a>
+        <nav aria-label={language === 'es' ? 'Navegación principal' : 'Main navigation'}>
+          <a href={href('/')} aria-current={Astro.url.pathname === '/' ? 'page' : undefined} data-en="Discover" data-es="Descubrir">{copy.discover}</a>
+          <a href={href('/add-recipe')} data-en="Add Recipe" data-es="Añadir receta">{copy.add}</a>
+          <a href={href('/favorites')} data-en="Favorites" data-es="Favoritos">{copy.favorites}</a>
+        </nav>
+        <nav aria-label={language === 'es' ? 'Idioma' : 'Language'}>
+          <a href={languageHref('en')} lang="en" hreflang="en" aria-current={language === 'en' ? 'true' : undefined}>English</a>
+          <a href={languageHref('es')} lang="es" hreflang="es" aria-current={language === 'es' ? 'true' : undefined}>Español</a>
+        </nav>
+      </div>
+    </header>
+    <main id="main-content" tabindex="-1" class="container"><slot /></main>
+    {!Astro.props.privacySettings && <ConsentBanner client:load language={language} />}
+    <footer>
+      <div class="container footer-inner">
+        <p class="footer-copy">{copy.footer}</p>
+        <nav aria-label={language === 'es' ? 'Información' : 'Information'}>
+          <a href={href('/about')} data-en="About" data-es="Acerca de">{copy.about}</a>
+          <a href={href('/privacy')} data-en="Privacy settings" data-es="Configuración de privacidad">{copy.privacy}</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

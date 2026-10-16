@@ -1,0 +1,46 @@
+---
+import { ProfileFields, SavedListField } from '../features/accounts/ProfileFields';
+import { Button } from '../components/ui/button';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import ImageUploader from '../features/media/ImageUploader';
+import { mediaReadiness } from '../features/media/service';
+import AppLayout from '../layouts/AppLayout.astro';
+import { accountConfiguration } from '../server/clerk';
+import { accounts, type Actor } from '../features/accounts/service';
+import { AccountError, assertSameOriginWrite, safeReturnTo, signInHref } from '../features/accounts/permissions';
+import { accountFailure } from '../features/accounts/routes';
+const spanish = Astro.url.searchParams.get('lang') === 'es';
+const origin = accountConfiguration()?.origin ?? Astro.url.origin;
+const target = safeReturnTo(Astro.url.searchParams.get('returnTo'), origin);
+let actor: Actor | undefined;
+let errorMessage = '';
+if (Astro.request.method === 'POST') {
+  try {
+    assertSameOriginWrite(Astro.request, origin);
+    const service = accounts();
+    const form = await Astro.request.formData();
+    await service.updateProfile(Astro.request, Object.fromEntries(form));
+    return Astro.redirect(target, 303);
+  } catch (error) {
+    if (!(error instanceof AccountError && error.status === 400)) return accountFailure(error);
+    Astro.response.status = 400;
+    errorMessage = spanish ? 'Revisa tu nombre, biografía y avatar.' : 'Check your display name, bio and avatar.';
+  }
+}
+try { actor = await accounts().requireActor(Astro.request); }
+catch (error) {
+  if (error instanceof AccountError && error.status === 401) return Astro.redirect(signInHref(target, origin), 303);
+  return accountFailure(error);
+}
+---
+<AppLayout title={spanish ? 'Tu perfil' : 'Your profile'}>
+  <h1>{spanish ? 'Tu perfil' : 'Your profile'}</h1>
+  <p class="intro">{spanish ? 'Elige cómo aparecerás en la comunidad. Puedes cambiarlo después.' : 'Choose how you appear in the community. You can change this later.'}</p>
+  {errorMessage && <Alert variant="destructive" id="profile-error"><AlertDescription><a href="#display-name">{errorMessage}</a></AlertDescription></Alert>}
+  <form method="post" class="account-form" aria-describedby={errorMessage ? 'profile-error' : undefined}>
+    <ProfileFields spanish={spanish} displayName={actor?.displayName} bio={actor?.bio} avatarPreset={actor?.avatarPreset} />
+    <ImageUploader client:load purpose="avatar" available={mediaReadiness().enabled} spanish={spanish} currentAssetId={actor?.avatarAssetId} />
+    <SavedListField spanish={spanish} isPublic={actor?.savedListPublic} />
+    <Button type="submit">{spanish ? 'Guardar y continuar' : 'Save and continue'}</Button>
+  </form>
+</AppLayout>

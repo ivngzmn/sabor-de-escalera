@@ -1,0 +1,15 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import RecipePreview from '../../../features/recipes/RecipePreview';
+import '../../../features/recipes/editor.css';
+import {draftsService} from '../../../features/recipes/drafts';
+const spanish=Astro.url.searchParams.get('lang')==='es';
+const service=draftsService();const result=await service.readPublished(Astro.params.id??'');
+if(!result.ok)Astro.response.status=result.error.status===503?503:404;
+const recipe=result.ok?result.value:null;
+if(recipe&&Astro.url.pathname!==recipe.url)return Astro.redirect(recipe.url!+(spanish?'?lang=es':''),308);
+const origins=recipe?await service.origins():[];
+---
+<AppLayout title={recipe?.input.title??(spanish?'Receta no disponible':'Recipe unavailable')}>
+ {recipe?<><RecipePreview input={recipe.input} id={recipe.id} origins={origins} spanish={spanish} published/><p>{spanish?'Publicada':'Published'}: <time datetime={recipe.publishedAt!}>{new Date(recipe.publishedAt!).toLocaleDateString(spanish?'es':'en')}</time> · {spanish?'Actualizada':'Updated'}: <time datetime={recipe.updatedAt}>{new Date(recipe.updatedAt).toLocaleDateString(spanish?'es':'en')}</time></p></>:<><h1>{spanish?'Uy, esta receta se ha ido de la mesa.':'Oops—this recipe has left the table.'}</h1><a href={spanish?'/?lang=es':'/'}>{spanish?'Explorar recetas':'Explore Recipes'}</a></>}
+</AppLayout>
