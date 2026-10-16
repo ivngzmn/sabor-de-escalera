@@ -1,5 +1,25 @@
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+  CardAction,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Field,
+  FieldGroup,
+  FieldSet,
+  FieldLegend,
+  FieldLabel,
+  FieldContent,
+  FieldDescription,
+} from "@/components/ui/field";
+import { CookieIcon, Cross2Icon } from "@radix-ui/react-icons";
+import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import {
   CONSENT_STORAGE_KEY,
@@ -9,9 +29,12 @@ import {
   updateConsent,
   type ConsentChoices,
 } from "./service";
+import "./consent.css";
 const dictionaries = {
   en: {
     title: "Your privacy choices",
+    launcher: "Privacy preferences",
+    close: "Close privacy preferences",
     intro:
       "Essential services keep sign-in, security and your saved account drafts working. Optional choices start off and can be changed at any time in Privacy settings.",
     accept: "Accept optional",
@@ -32,6 +55,8 @@ const dictionaries = {
   },
   es: {
     title: "Tus opciones de privacidad",
+    launcher: "Preferencias de privacidad",
+    close: "Cerrar preferencias de privacidad",
     intro:
       "Los servicios esenciales permiten iniciar sesión, mantener la seguridad y guardar tus borradores en la cuenta. Las opciones empiezan desactivadas y se pueden cambiar en Configuración de privacidad.",
     accept: "Aceptar opcionales",
@@ -61,6 +86,7 @@ export default function ConsentBanner({
   const copy = dictionaries[language];
   const [visible, setVisible] = useState(true);
   const [ready, setReady] = useState(false);
+  const [decided, setDecided] = useState(false);
   const [customize, setCustomize] = useState(settings);
   const [choices, setChoices] = useState<ConsentChoices>({
     preferences: false,
@@ -68,11 +94,44 @@ export default function ConsentBanner({
     analytics: false,
   });
   const [message, setMessage] = useState("");
+  const launcher = useRef<HTMLButtonElement>(null);
   const fieldset = useRef<HTMLFieldSetElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const panelId = settings
+    ? "privacy-settings-panel"
+    : "privacy-floating-panel";
+
+  // Let footer links and focused content scroll above the nonmodal surface.
+  useEffect(() => {
+    if (settings || !ready) return;
+    const surface = visible ? panel.current : launcher.current;
+    if (!surface) return;
+    const measure = () => {
+      const clearance =
+        document.documentElement.clientHeight -
+        surface.getBoundingClientRect().top +
+        16;
+      document.documentElement.style.setProperty(
+        "--privacy-clearance",
+        `${clearance}px`,
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(surface);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+      document.documentElement.style.removeProperty("--privacy-clearance");
+    };
+  }, [settings, ready, visible, decided]);
+
   useEffect(() => {
     const refresh = () => {
       const consent = readConsent();
       setChoices(consent);
+      setDecided(Boolean(consent.updatedAt));
       setVisible(settings || !consent.updatedAt);
     };
     refresh();
@@ -92,94 +151,180 @@ export default function ConsentBanner({
       window.removeEventListener("storage", sync);
     };
   }, [settings]);
+
   useEffect(() => {
-    if (customize && !settings) fieldset.current?.focus();
-  }, [customize, settings]);
+    if (visible && customize && !settings) fieldset.current?.focus();
+  }, [visible, customize, settings]);
+
+  useEffect(() => {
+    if (settings || !visible || !decided) return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setVisible(false);
+        launcher.current?.focus();
+      }
+    };
+    document.addEventListener("keydown", escape);
+    return () => document.removeEventListener("keydown", escape);
+  }, [settings, visible, decided]);
+
   const save = (next: ConsentChoices) => {
     updateConsent(next);
     setMessage(copy.saved);
+    if (!settings) requestAnimationFrame(() => launcher.current?.focus());
+  };
+  const close = () => {
+    setVisible(false);
+    launcher.current?.focus();
   };
   return (
     <>
-      <p role="status" className="consent-status">
+      <p role="status" className="sr-only">
         {message}
       </p>
-      {visible && (
-        <section
-          className={`consent-panel ${settings ? "" : "consent-banner"}`}
-          aria-label={copy.title}
+      {!settings && ready && decided && (
+        <Button
+          ref={launcher}
+          type="button"
+          variant="outline"
+          className="privacy-launcher"
+          aria-expanded={visible}
+          aria-controls={panelId}
+          onClick={() => {
+            if (visible) close();
+            else {
+              setChoices(readConsent());
+              setCustomize(true);
+              setVisible(true);
+            }
+          }}
         >
-          {!settings && <h2>{copy.title}</h2>}
-          <p>{copy.intro}</p>
-          <div className="consent-actions">
-            <Button
-              type="button"
-              disabled={!ready}
-              onClick={() =>
-                save({ preferences: true, recovery: true, analytics: true })
-              }
-            >
-              {copy.accept}
-            </Button>
-            <Button
-              type="button"
-              disabled={!ready}
-              onClick={() =>
-                save({ preferences: false, recovery: false, analytics: false })
-              }
-            >
-              {copy.reject}
-            </Button>
-            {!settings && (
+          <CookieIcon data-icon="inline-start" aria-hidden="true" />
+          {copy.launcher}
+        </Button>
+      )}
+      {visible && (
+        <Card
+          ref={panel}
+          id={panelId}
+          role="region"
+          aria-label={copy.title}
+          className={cn(
+            "privacy-panel",
+            !settings && ready && "privacy-panel-floating",
+            !settings && decided && "privacy-panel-reopened",
+          )}
+        >
+          <CardHeader>
+            <CardTitle role="heading" aria-level={2}>
+              {copy.title}
+            </CardTitle>
+            <CardDescription>{copy.intro}</CardDescription>
+            {!settings && decided && (
+              <CardAction>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={copy.close}
+                  onClick={close}
+                >
+                  <Cross2Icon aria-hidden="true" />
+                </Button>
+              </CardAction>
+            )}
+          </CardHeader>
+          <CardContent className="flex flex-col gap-6">
+            <div className="privacy-actions">
               <Button
                 type="button"
                 disabled={!ready}
-                onClick={() => setCustomize(true)}
+                onClick={() =>
+                  save({ preferences: true, recovery: true, analytics: true })
+                }
               >
-                {copy.customize}
+                {copy.accept}
               </Button>
+              <Button
+                type="button"
+                disabled={!ready}
+                onClick={() =>
+                  save({
+                    preferences: false,
+                    recovery: false,
+                    analytics: false,
+                  })
+                }
+              >
+                {copy.reject}
+              </Button>
+              {!settings && (
+                <Button
+                  type="button"
+                  disabled={!ready}
+                  onClick={() => setCustomize(true)}
+                >
+                  {copy.customize}
+                </Button>
+              )}
+            </div>
+            {customize && (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  save(choices);
+                }}
+              >
+                <FieldGroup>
+                  <FieldSet disabled={!ready} ref={fieldset} tabIndex={-1}>
+                    <FieldLegend>{copy.title}</FieldLegend>
+                    <FieldGroup>
+                      {(["preferences", "recovery", "analytics"] as const).map(
+                        (category) => (
+                          <Field
+                            key={category}
+                            orientation="horizontal"
+                            data-disabled={!ready}
+                          >
+                            <Checkbox
+                              id={`consent-${category}`}
+                              checked={choices[category]}
+                              disabled={!ready}
+                              onCheckedChange={(checked) =>
+                                setChoices((previous) => ({
+                                  ...previous,
+                                  [category]: checked === true,
+                                }))
+                              }
+                              aria-describedby={`consent-${category}-purpose`}
+                            />
+                            <FieldContent>
+                              <FieldLabel htmlFor={`consent-${category}`}>
+                                {copy[category]}
+                              </FieldLabel>
+                              <FieldDescription
+                                id={`consent-${category}-purpose`}
+                              >
+                                {copy[`${category}Purpose`]}
+                              </FieldDescription>
+                            </FieldContent>
+                          </Field>
+                        ),
+                      )}
+                    </FieldGroup>
+                  </FieldSet>
+                  <Button type="submit" disabled={!ready}>
+                    {copy.save}
+                  </Button>
+                </FieldGroup>
+              </form>
             )}
-          </div>
-          {customize && (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                save(choices);
-              }}
-            >
-              <fieldset disabled={!ready} ref={fieldset} tabIndex={-1}>
-                <legend>{copy.title}</legend>
-                <p>{copy.essential}</p>
-                {(["preferences", "recovery", "analytics"] as const).map(
-                  (category) => (
-                    <div key={category} className="consent-choice">
-                      <Label>
-                        <input
-                          type="checkbox"
-                          checked={choices[category]}
-                          onChange={(event) =>
-                            setChoices({
-                              ...choices,
-                              [category]: event.target.checked,
-                            })
-                          }
-                          aria-describedby={`consent-${category}-purpose`}
-                        />{" "}
-                        {copy[category]}
-                      </Label>
-                      <p id={`consent-${category}-purpose`}>
-                        {copy[`${category}Purpose`]}
-                      </p>
-                    </div>
-                  ),
-                )}
-              </fieldset>
-              <Button type="submit" disabled={!ready}>
-                {copy.save}
-              </Button>
-            </form>
-          )}
-        </section>
+          </CardContent>
+          <CardFooter>
+            <p>{copy.essential}</p>
+          </CardFooter>
+        </Card>
       )}
     </>
   );
