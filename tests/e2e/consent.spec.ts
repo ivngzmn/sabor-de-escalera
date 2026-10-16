@@ -171,3 +171,19 @@ test('Spanish launcher is localized and privacy page stays inline', async ({ pag
   await expect(page.getByRole('button', { name: 'Preferencias de privacidad', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Guardar opciones de privacidad' })).toBeVisible();
 });
+
+test('floating privacy surfaces leave mobile footer links reachable without making a consent choice', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 568 });
+  await page.goto('/');
+  await page.getByRole('contentinfo').getByRole('link', { name: 'About', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'About', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('escalera:consent'))).toBeNull();
+  await page.getByRole('button', { name: 'Reject optional', exact: true }).click();
+  await page.getByRole('button', { name: 'Privacy preferences', exact: true }).click();
+  await page.getByRole('button', { name: 'Close privacy preferences', exact: true }).click();
+  // Scroll past the floating launcher, as a person revealing the footer would.
+  await page.keyboard.press('End');
+  await page.getByRole('contentinfo').getByRole('link', { name: 'Privacy settings', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Privacy settings', exact: true })).toBeVisible();
+  await expect(page.locator('body')).toHaveCSS('padding-bottom', '0px');
+});

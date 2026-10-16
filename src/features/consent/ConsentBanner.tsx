@@ -96,9 +96,36 @@ export default function ConsentBanner({
   const [message, setMessage] = useState("");
   const launcher = useRef<HTMLButtonElement>(null);
   const fieldset = useRef<HTMLFieldSetElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const panelId = settings
     ? "privacy-settings-panel"
     : "privacy-floating-panel";
+
+  // Let footer links and focused content scroll above the nonmodal surface.
+  useEffect(() => {
+    if (settings || !ready) return;
+    const surface = visible ? panel.current : launcher.current;
+    if (!surface) return;
+    const measure = () => {
+      const clearance =
+        document.documentElement.clientHeight -
+        surface.getBoundingClientRect().top +
+        16;
+      document.documentElement.style.setProperty(
+        "--privacy-clearance",
+        `${clearance}px`,
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(surface);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+      document.documentElement.style.removeProperty("--privacy-clearance");
+    };
+  }, [settings, ready, visible, decided]);
 
   useEffect(() => {
     const refresh = () => {
@@ -179,6 +206,7 @@ export default function ConsentBanner({
       )}
       {visible && (
         <Card
+          ref={panel}
           id={panelId}
           role="region"
           aria-label={copy.title}
