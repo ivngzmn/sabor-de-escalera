@@ -212,7 +212,7 @@ export default function ConsentBanner({
           aria-label={copy.title}
           className={cn(
             "privacy-panel",
-            !settings && "privacy-panel-floating",
+            !settings && ready && "privacy-panel-floating",
             !settings && decided && "privacy-panel-reopened",
           )}
         >
