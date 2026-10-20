@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { CheckIcon, EyeOpenIcon, LockClosedIcon } from "@radix-ui/react-icons";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
-import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -48,7 +47,6 @@ const copy = {
     savedHint: "When this is off, only your published recipes are visible to others.",
     device: "Device privacy settings",
     preview: "How others see you",
-    live: "Live",
     noBio: "No bio yet.",
     publicFavorites: "Public favorites",
     privateFavorites: "Private favorites",
@@ -75,7 +73,6 @@ const copy = {
     savedHint: "Si está desactivado, los demás solo verán tus recetas publicadas.",
     device: "Configuración de privacidad del dispositivo",
     preview: "Cómo te ven los demás",
-    live: "En vivo",
     noBio: "Aún sin biografía.",
     publicFavorites: "Favoritos públicos",
     privateFavorites: "Favoritos privados",
@@ -90,7 +87,7 @@ const copy = {
 const symbols: Record<Preset, string> = { chile: "🌶️", corn: "🌽", lime: "🍋" };
 const length = (value: string) => Array.from(value).length;
 
-/** Stitch onboarding pattern: form sections on the left, a sticky live preview on the right. */
+/** Stitch onboarding pattern: form sections on the left, a sticky preview on the right (desktop only). */
 export default function ProfileSettingsForm({
   language,
   displayName,
@@ -285,17 +282,13 @@ export default function ProfileSettingsForm({
         </div>
       </div>
 
-      <aside aria-labelledby="preview-heading" className="lg:sticky lg:top-6 lg:col-span-4">
+      <aside aria-labelledby="preview-heading" className="hidden lg:sticky lg:top-6 lg:col-span-4 lg:block">
         <Card className="relative gap-4 overflow-hidden shadow-md">
           <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-primary via-masa to-secondary" />
-          <CardHeader className="flex flex-row items-center justify-between gap-2 pt-2">
+          <CardHeader className="pt-2">
             <p id="preview-heading" className="m-0 text-sm font-semibold text-muted-foreground">
               {t.preview}
             </p>
-            <Badge variant="tag">
-              <EyeOpenIcon aria-hidden="true" />
-              {t.live}
-            </Badge>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-2 text-center" aria-live="polite">
             <MemberAvatar
