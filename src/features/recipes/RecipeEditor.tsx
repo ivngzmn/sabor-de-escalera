@@ -63,7 +63,15 @@ import DeleteDraftDialog from "./DeleteDraftDialog";
 import LeaveDraftDialog from "./LeaveDraftDialog";
 import { hasContent, hasUnsavedWork } from "./draft-intent";
 import { useLeaveGuard } from "./useLeaveGuard";
+import {
+  BEFORE_LOGOUT,
+  LOGOUT,
+  performSignOut,
+} from "@/features/accounts/sign-out";
 import "./editor.css";
+
+/** Where a held-back exit goes once the member saves or discards. */
+type LeaveTarget = { kind: "href"; href: string } | { kind: "signout" };
 interface Props {
   accountId: string;
   initial: Draft | null;
@@ -119,7 +127,7 @@ export default function RecipeEditor({
     [paste, setPaste] = useState(""),
     [pasteLines, setPasteLines] = useState<string[] | null>(null),
     [confirmDelete, setConfirmDelete] = useState(false),
-    [leaving, setLeaving] = useState<string | null>(null);
+    [leaving, setLeaving] = useState<LeaveTarget | null>(null);
   const current = useRef(input),
     saved = useRef(initial?.input ?? null),
     record = useRef(initial),
@@ -371,15 +379,17 @@ export default function RecipeEditor({
     );
     return () => clearTimeout(scheduled);
   }, [input, status, leaving]);
+  // Reads refs only, so listeners registered once can call it.
+  const unsavedWork = () =>
+    hasUnsavedWork({
+      stopped: stopped.current,
+      hasDraft: !!record.current,
+      current: current.current,
+      saved: saved.current,
+    });
   const guard = useLeaveGuard({
-    shouldGuard: () =>
-      hasUnsavedWork({
-        stopped: stopped.current,
-        hasDraft: !!record.current,
-        current: current.current,
-        saved: saved.current,
-      }),
-    onIntercept: setLeaving,
+    shouldGuard: unsavedWork,
+    onIntercept: (href) => setLeaving({ kind: "href", href }),
   });
   useEffect(
     () => () => {
@@ -418,7 +428,14 @@ export default function RecipeEditor({
     const removeClerk = clerk?.addListener((state) => {
       if (!state.user) logout();
     });
-    window.addEventListener("escalera:logout", logout);
+    window.addEventListener(LOGOUT, logout);
+    // Sign out from the account menu: hold it and ask, like a link would.
+    const beforeLogout = (event: Event) => {
+      if (!unsavedWork()) return;
+      event.preventDefault();
+      setLeaving({ kind: "signout" });
+    };
+    window.addEventListener(BEFORE_LOGOUT, beforeLogout);
     const check = async () => {
       if (
         !record.current ||
@@ -444,7 +461,8 @@ export default function RecipeEditor({
       subscription();
       removeClerk?.();
       window.removeEventListener("storage", storage);
-      window.removeEventListener("escalera:logout", logout);
+      window.removeEventListener(LOGOUT, logout);
+      window.removeEventListener(BEFORE_LOGOUT, beforeLogout);
       window.removeEventListener("focus", check);
       document.removeEventListener("visibilitychange", check);
       clearInterval(poll);
@@ -838,13 +856,14 @@ export default function RecipeEditor({
   async function remove(): Promise<string | null> {
     return (await deleteDraft()).message;
   }
-  function leave(href: string) {
+  function leave(target: LeaveTarget) {
     guard.release();
-    location.assign(href);
+    if (target.kind === "href") location.assign(target.href);
+    else void performSignOut(accountId, lang === "es" ? "/?lang=es" : "/");
   }
   async function saveAndLeave(): Promise<boolean> {
-    const href = leaving;
-    if (!href) return false;
+    const target = leaving;
+    if (!target) return false;
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
     await idle();
@@ -854,15 +873,15 @@ export default function RecipeEditor({
       if (record.current) await saveNow();
     }
     if (record.current && sameRecipe(current.current, saved.current)) {
-      leave(href);
+      leave(target);
       return true;
     }
     setLeaving(null);
     return false;
   }
   async function discardAndLeave() {
-    const href = leaving;
-    if (!href) return;
+    const target = leaving;
+    if (!target) return;
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
     stopped.current = true;
@@ -883,7 +902,7 @@ export default function RecipeEditor({
         return;
       }
     } else if (draft) forget(draft.id);
-    leave(href);
+    leave(target);
   }
   if (published)
     return (
