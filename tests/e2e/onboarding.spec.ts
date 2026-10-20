@@ -24,9 +24,21 @@ test('unconfigured auth fails closed, blocks direct account mutations and admin 
 
 
 test('account redirects and denied account pages cannot enter shared caches', async ({ request }) => {
-  for (const path of ['/favorites?recipe=arroz&intent=favorite', '/add-recipe', '/sign-in', '/onboarding', '/admin']) {
+  for (const path of ['/favorites?recipe=arroz&intent=favorite', '/add-recipe', '/sign-in', '/onboarding', '/admin', '/profile', '/profile/settings', '/api/accounts/me']) {
     const response = await request.get(path, { maxRedirects: 0 });
     expect(response.headers()['cache-control'], path).toBe('private, no-store');
+  }
+});
+
+test('guests see a header sign-in link and profile pages send them to sign in', async ({ page }) => {
+  await page.goto('/?lang=es');
+  await page.getByRole('banner').getByRole('link', { name: 'Iniciar sesión' }).click();
+  await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible();
+  expect(new URL(page.url()).searchParams.get('returnTo')).toBe('/?lang=es');
+  for (const path of ['/profile?tab=drafts', '/profile/settings']) {
+    await page.goto(path);
+    await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+    expect(new URL(page.url()).searchParams.get('returnTo')).toBe(path);
   }
 });
 

@@ -256,6 +256,18 @@ export function createDraftService(options: {
           ).rows.map(dto);
         }),
       ),
+    listPublished: (actor: Actor | null) =>
+      result(() =>
+        transaction(pool, async (client) => {
+          await authorize(client, actor, false);
+          return (
+            await client.query<Row>(
+              "SELECT * FROM recipes WHERE owner_id=$1 AND state='published' ORDER BY first_published_at DESC,id LIMIT 100",
+              [actor!.id],
+            )
+          ).rows.map(dto);
+        }),
+      ),
     async saveDraft(
       actor: Actor | null,
       id: string,

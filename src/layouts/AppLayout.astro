@@ -7,6 +7,10 @@ import bodyStrongFont from '@fontsource/plus-jakarta-sans/files/plus-jakarta-san
 import ConsentBanner from '../features/consent/ConsentBanner';
 import { buttonVariants } from '../components/ui/button';
 import { readServerConfig } from '../server/config';
+import { accountConfiguration } from '../server/clerk';
+import { hasSessionHint, readHeaderIdentity } from '../server/header-identity';
+import AccountMenu from '../features/accounts/AccountMenu';
+import { signInHref } from '../features/accounts/permissions';
 
 interface Props { title: string; privacySettings?: boolean; }
 const { title } = Astro.props;
@@ -22,6 +26,12 @@ const languageHref = (value: string) => {
   return `${Astro.url.pathname}?${params.toString()}`;
 };
 Astro.response.headers.set('Cache-Control', 'private, no-store');
+const authEnabled = accountConfiguration() !== null;
+const accountHref = signInHref(`${Astro.url.pathname}${Astro.url.search}`, Astro.url.origin);
+const showAccount = !/^\/(?:sign-in|onboarding)(?:\/|$)/.test(Astro.url.pathname);
+// Every page is private, no-store, so the header can carry the member's own summary.
+const sessionHint = authEnabled && hasSessionHint(Astro.request);
+const initialMe = showAccount && sessionHint ? await readHeaderIdentity(Astro.request) : null;
 ---
 <!doctype html>
 <html lang={language}>
@@ -45,10 +55,13 @@ Astro.response.headers.set('Cache-Control', 'private, no-store');
           <a href={href('/favorites')} aria-current={Astro.url.pathname === '/favorites' ? 'page' : undefined} data-en="Favorites" data-es="Favoritos">{copy.favorites}</a>
           <a href={href('/add-recipe')} data-slot="button" class={buttonVariants()} aria-current={Astro.url.pathname === '/add-recipe' ? 'page' : undefined} data-en="Add Recipe" data-es="Añadir receta">{copy.add}</a>
         </nav>
-        <nav class="language-switch" aria-label={language === 'es' ? 'Idioma' : 'Language'}>
-          <a href={languageHref('en')} lang="en" hreflang="en" aria-current={language === 'en' ? 'true' : undefined}>English</a>
-          <a href={languageHref('es')} lang="es" hreflang="es" aria-current={language === 'es' ? 'true' : undefined}>Español</a>
-        </nav>
+        <div class="header-actions">
+          <nav class="language-switch" aria-label={language === 'es' ? 'Idioma' : 'Language'}>
+            <a href={languageHref('en')} lang="en" hreflang="en" aria-current={language === 'en' ? 'true' : undefined}>English</a>
+            <a href={languageHref('es')} lang="es" hreflang="es" aria-current={language === 'es' ? 'true' : undefined}>Español</a>
+          </nav>
+          {showAccount && <AccountMenu client:load authEnabled={authEnabled} sessionHint={sessionHint} initialMe={initialMe} language={language} signInHref={accountHref} />}
+        </div>
       </div>
     </header>
     <main id="main-content" tabindex="-1" class="container"><slot /></main>

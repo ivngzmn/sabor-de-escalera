@@ -81,6 +81,7 @@ a.brand:not([data-slot]) { color: var(--color-terracotta); }
 .site-nav a:not([data-slot]) { display: inline-flex; align-items: center; min-height: 44px; padding: .5rem .125rem; color: var(--color-text); font-size: .9375rem; text-decoration: none; border-bottom: 2px solid transparent; }
 .site-nav a:not([data-slot]):hover { color: var(--color-terracotta); }
 .site-nav a[aria-current]:not([data-slot]) { color: var(--color-terracotta); font-weight: 600; border-bottom-color: currentColor; }
+.header-actions { display: flex; align-items: center; gap: .75rem; }
 .language-switch { display: flex; padding: .25rem; gap: .25rem; border-radius: 9999px; background: var(--color-warm); }
 .language-switch a:not([data-slot]) { display: inline-flex; align-items: center; min-height: 36px; padding: .25rem .875rem; border-radius: 9999px; color: var(--color-muted); font-size: .8125rem; font-weight: 600; text-decoration: none; }
 .language-switch a[aria-current]:not([data-slot]) { background: var(--color-surface); color: var(--color-terracotta); box-shadow: var(--shadow-level-1); }

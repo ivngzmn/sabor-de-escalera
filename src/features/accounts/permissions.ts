@@ -8,6 +8,7 @@ export interface Actor {
   avatarAssetId?: string | null;
   avatarPreset: 'chile' | 'corn' | 'lime' | null;
   savedListPublic: boolean;
+  memberSince?: string;
 }
 export class AccountError extends Error {
   readonly status: 400 | 401 | 403 | 503;

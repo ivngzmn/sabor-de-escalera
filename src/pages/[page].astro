@@ -17,6 +17,7 @@ if (key === 'favorites' || key === 'add-recipe') {
   try {
     const actor = await requireActor(Astro.request);
     if (!actor.onboarded) return Astro.redirect(`/onboarding?${new URLSearchParams({ returnTo: `${Astro.url.pathname}${Astro.url.search}`, ...(spanish ? { lang: 'es' } : {}) })}`, 303);
+    if (key === 'favorites') return Astro.redirect(`/profile?${new URLSearchParams({ tab: 'favorites', ...(spanish ? { lang: 'es' } : {}) })}`, 303);
     if (key === 'add-recipe' && !canContribute(actor)) return new Response('Contribution access is suspended.', { status: 403, headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
     if (error instanceof AccountError && (error.status === 401 || error.status === 503)) return Astro.redirect(signInHref(`${Astro.url.pathname}${Astro.url.search}`, origin), 303);

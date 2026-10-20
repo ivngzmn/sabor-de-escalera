@@ -1,0 +1,78 @@
+---
+import { ArrowLeftIcon } from '@radix-ui/react-icons';
+import AppLayout from '../../layouts/AppLayout.astro';
+import { Alert, AlertDescription } from '../../components/ui/alert';
+import { Badge } from '../../components/ui/badge';
+import { Button, buttonVariants } from '../../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
+import { Separator } from '../../components/ui/separator';
+import { ProfileFields, SavedListField } from '../../features/accounts/ProfileFields';
+import { accounts, type Actor } from '../../features/accounts/service';
+import { AccountError, assertSameOriginWrite, signInHref } from '../../features/accounts/permissions';
+import { accountFailure } from '../../features/accounts/routes';
+import ImageUploader from '../../features/media/ImageUploader';
+import { mediaReadiness } from '../../features/media/service';
+import { accountConfiguration, ClerkResponseError } from '../../server/clerk';
+const spanish = Astro.url.searchParams.get('lang') === 'es';
+const href = (path: string) => spanish ? `${path}?lang=es` : path;
+const origin = accountConfiguration()?.origin ?? Astro.url.origin;
+let actor: Actor | undefined;
+let errorMessage = '';
+if (Astro.request.method === 'POST') {
+  try {
+    assertSameOriginWrite(Astro.request, origin);
+    await accounts().updateProfile(Astro.request, Object.fromEntries(await Astro.request.formData()));
+    return Astro.redirect(href('/profile'), 303);
+  } catch (error) {
+    if (!(error instanceof AccountError && error.status === 400)) return accountFailure(error);
+    Astro.response.status = 400;
+    errorMessage = spanish ? 'Revisa tu nombre, biografía y avatar.' : 'Check your display name, bio and avatar.';
+  }
+}
+try { actor = await accounts().requireActor(Astro.request); }
+catch (error) {
+  if (error instanceof ClerkResponseError) return error.response;
+  if (error instanceof AccountError && (error.status === 401 || error.status === 503)) return Astro.redirect(signInHref(`${Astro.url.pathname}${Astro.url.search}`, origin), 303);
+  return accountFailure(error);
+}
+if (!actor.onboarded) return Astro.redirect(`/onboarding?${new URLSearchParams({ returnTo: '/profile', ...(spanish ? { lang: 'es' } : {}) })}`, 303);
+const t = spanish
+  ? { title: 'Configuración', eyebrow: 'Tu cuenta', intro: 'Elige cómo apareces en la comunidad y quién puede ver tus recetas guardadas.', back: 'Volver a mi perfil', profile: 'Perfil público', profileIntro: 'Tu nombre, biografía y avatar aparecen junto a tus recetas.', privacy: 'Privacidad', privacyIntro: 'Tu correo electrónico nunca se muestra públicamente.', save: 'Guardar cambios', cancel: 'Cancelar', device: 'Configuración de privacidad del dispositivo' }
+  : { title: 'Settings', eyebrow: 'Your account', intro: 'Choose how you appear in the community and who can see your saved recipes.', back: 'Back to my profile', profile: 'Public profile', profileIntro: 'Your name, bio and avatar appear alongside your recipes.', privacy: 'Privacy', privacyIntro: 'Your email address is never shown publicly.', save: 'Save changes', cancel: 'Cancel', device: 'Device privacy settings' };
+---
+<AppLayout title={t.title}>
+  <a href={href('/profile')} class="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary-ink no-underline hover:underline"><ArrowLeftIcon aria-hidden="true" />{t.back}</a>
+  <div class="flex max-w-3xl flex-col items-start gap-2">
+    <Badge variant="eyebrow">{t.eyebrow}</Badge>
+    <h1>{t.title}</h1>
+    <p class="intro">{t.intro}</p>
+  </div>
+  {errorMessage && <Alert variant="destructive" id="settings-error" className="mt-6 max-w-3xl"><AlertDescription><a href="#display-name">{errorMessage}</a></AlertDescription></Alert>}
+  <form method="post" class="mt-8 flex max-w-3xl flex-col gap-6" aria-describedby={errorMessage ? 'settings-error' : undefined}>
+    <Card>
+      <CardHeader>
+        <CardTitle><h2 class="type-headline-sm m-0">{t.profile}</h2></CardTitle>
+        <CardDescription>{t.profileIntro}</CardDescription>
+      </CardHeader>
+      <CardContent className="account-form">
+        <ProfileFields spanish={spanish} displayName={actor.displayName} bio={actor.bio} avatarPreset={actor.avatarPreset} />
+        <ImageUploader client:load purpose="avatar" available={mediaReadiness().enabled} spanish={spanish} currentAssetId={actor.avatarAssetId} />
+      </CardContent>
+    </Card>
+    <Card id="privacy" className="scroll-mt-6">
+      <CardHeader>
+        <CardTitle><h2 class="type-headline-sm m-0">{t.privacy}</h2></CardTitle>
+        <CardDescription>{t.privacyIntro}</CardDescription>
+      </CardHeader>
+      <CardContent className="account-form">
+        <SavedListField spanish={spanish} isPublic={actor.savedListPublic} />
+        <Separator />
+        <a href={href('/privacy')} class="text-sm font-semibold text-primary-ink">{t.device}</a>
+      </CardContent>
+    </Card>
+    <div class="flex flex-wrap gap-3">
+      <Button type="submit">{t.save}</Button>
+      <a href={href('/profile')} data-slot="button" class={buttonVariants({ variant: 'outline' })}>{t.cancel}</a>
+    </div>
+  </form>
+</AppLayout>

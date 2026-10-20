@@ -1,0 +1,96 @@
+---
+import { CalendarIcon, FileTextIcon, GearIcon, HeartIcon, LockClosedIcon, Pencil1Icon, ReaderIcon } from '@radix-ui/react-icons';
+import AppLayout from '../../layouts/AppLayout.astro';
+import { Badge } from '../../components/ui/badge';
+import { buttonVariants } from '../../components/ui/button';
+import { Alert, AlertDescription } from '../../components/ui/alert';
+import { MemberAvatar } from '../../features/accounts/MemberAvatar';
+import ProfileTabs, { type ProfileRecipe, type ProfileTab } from '../../features/accounts/ProfileTabs';
+import { accounts, type Actor } from '../../features/accounts/service';
+import { AccountError, signInHref } from '../../features/accounts/permissions';
+import { accountFailure } from '../../features/accounts/routes';
+import { draftsService } from '../../features/recipes/drafts';
+import type { Draft } from '../../features/recipes/validation';
+import { accountConfiguration, ClerkResponseError } from '../../server/clerk';
+const spanish = Astro.url.searchParams.get('lang') === 'es';
+const language = spanish ? 'es' : 'en';
+const href = (path: string) => spanish ? `${path}${path.includes('?') ? '&' : '?'}lang=es` : path;
+const origin = accountConfiguration()?.origin ?? Astro.url.origin;
+const requested = Astro.url.searchParams.get('tab');
+const initialTab: ProfileTab = requested === 'recipes' || requested === 'drafts' ? requested : 'favorites';
+let actor: Actor;
+try { actor = await accounts().requireActor(Astro.request); }
+catch (error) {
+  if (error instanceof ClerkResponseError) return error.response;
+  if (error instanceof AccountError && (error.status === 401 || error.status === 503)) return Astro.redirect(signInHref(`${Astro.url.pathname}${Astro.url.search}`, origin), 303);
+  return accountFailure(error);
+}
+if (!actor.onboarded) return Astro.redirect(`/onboarding?${new URLSearchParams({ returnTo: `${Astro.url.pathname}${Astro.url.search}`, ...(spanish ? { lang: 'es' } : {}) })}`, 303);
+const service = draftsService();
+const [publishedResult, draftsResult] = await Promise.all([service.listPublished(actor), service.listDrafts(actor)]);
+const listUnavailable = !publishedResult.ok || !draftsResult.ok;
+const card = (recipe: Draft, kind: 'recipes' | 'drafts'): ProfileRecipe => {
+  const photo = recipe.input.photos[0];
+  const cover = photo ? (kind === 'recipes' ? `/api/recipes/${recipe.id}/photos/${photo.assetId}?variant=card` : `/api/media/${photo.assetId}?variant=card`) : null;
+  return { id: recipe.id, label: recipe.label === 'Untitled recipe' && spanish ? 'Receta sin título' : recipe.label, url: recipe.url, cover, coverAlt: photo?.alt ?? '', date: (kind === 'recipes' ? recipe.publishedAt : null) ?? recipe.updatedAt };
+};
+const published = publishedResult.ok ? publishedResult.value.map((recipe) => card(recipe, 'recipes')) : [];
+const drafts = draftsResult.ok ? draftsResult.value.map((recipe) => card(recipe, 'drafts')) : [];
+const name = actor.displayName ?? (spanish ? 'Miembro' : 'Member');
+const memberSince = actor.memberSince ? new Intl.DateTimeFormat(language, { month: 'long', year: 'numeric' }).format(new Date(actor.memberSince)) : null;
+const t = spanish
+  ? { title: 'Mi perfil', edit: 'Editar perfil', settings: 'Configuración', since: 'Miembro desde', saved: 'Recetas guardadas', published: 'Recetas publicadas', drafts: 'Borradores', privateList: 'Favoritos privados', publicList: 'Favoritos públicos', suspended: 'Las contribuciones no están disponibles para esta cuenta. Puedes seguir explorando y guardando recetas.', unavailable: 'No pudimos cargar tus recetas. Inténtalo de nuevo en un momento.', admin: 'Administración', owner: 'Propietaria/o', noBio: 'Cuéntale a la comunidad sobre tu cocina en Editar perfil.' }
+  : { title: 'My profile', edit: 'Edit profile', settings: 'Settings', since: 'Member since', saved: 'Saved recipes', published: 'Published recipes', drafts: 'Drafts', privateList: 'Private favorites', publicList: 'Public favorites', suspended: 'Contributions are currently unavailable for this account. You can keep browsing and saving recipes.', unavailable: 'We couldn’t load your recipes. Please try again in a moment.', admin: 'Admin', owner: 'Owner', noBio: 'Tell the community about your cooking in Edit profile.' };
+const stats = [
+  { label: t.saved, value: 0, icon: HeartIcon, tone: 'bg-primary/10 text-primary-ink' },
+  { label: t.published, value: published.length, icon: ReaderIcon, tone: 'bg-secondary-soft text-secondary' },
+  { label: t.drafts, value: drafts.length, icon: FileTextIcon, tone: 'bg-masa-soft text-masa-foreground' },
+];
+---
+<AppLayout title={t.title}>
+  <section aria-labelledby="profile-name" class="overflow-hidden rounded-xl bg-card shadow-md">
+    <div aria-hidden="true" class="relative h-36 bg-gradient-to-r from-primary via-primary-ink to-masa sm:h-44">
+      <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
+    </div>
+    <div class="px-4 pb-6 sm:px-10">
+      <div class="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+        <div class="flex flex-col items-start gap-4 sm:flex-row sm:gap-6">
+          <div class="relative z-10 -mt-14 shrink-0 rounded-xl bg-card p-1 shadow-lg sm:-mt-16">
+            <MemberAvatar displayName={actor.displayName} avatarAssetId={actor.avatarAssetId} avatarPreset={actor.avatarPreset} className="size-28 rounded-lg sm:size-32" fallbackClassName="rounded-lg font-serif text-4xl" />
+          </div>
+          <div class="flex min-w-0 flex-col gap-2 sm:pt-5">
+            <div class="flex flex-wrap items-center gap-3">
+              <h1 id="profile-name" class="m-0">{name}</h1>
+              {actor.role !== 'member' && <Badge variant="eyebrow">{actor.role === 'owner' ? t.owner : t.admin}</Badge>}
+            </div>
+            <p class:list={['m-0 max-w-2xl', actor.bio ? 'text-foreground' : 'text-muted-foreground']}>{actor.bio || t.noBio}</p>
+            <div class="flex flex-wrap gap-2">
+              {memberSince && <span class="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-sm"><CalendarIcon aria-hidden="true" className="size-4 text-masa-foreground" />{t.since} {memberSince}</span>}
+              <span class="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-sm">{actor.savedListPublic ? <HeartIcon aria-hidden="true" className="size-4 text-primary-ink" /> : <LockClosedIcon aria-hidden="true" className="size-4 text-muted-foreground" />}{actor.savedListPublic ? t.publicList : t.privateList}</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <a href={href('/profile/settings')} data-slot="button" class={buttonVariants()}><Pencil1Icon aria-hidden="true" />{t.edit}</a>
+          <a href={href('/profile/settings#privacy')} data-slot="button" class={buttonVariants({ variant: 'outline' })}><GearIcon aria-hidden="true" />{t.settings}</a>
+        </div>
+      </div>
+      <dl class="m-0 mt-8 grid gap-4 rounded-xl bg-muted p-4 sm:grid-cols-3">
+        {stats.map(({ label, value, icon: Icon, tone }) => (
+          <div class="flex items-center gap-4 px-2">
+            <span aria-hidden="true" class:list={['flex size-12 shrink-0 items-center justify-center rounded-lg', tone]}><Icon className="size-6" /></span>
+            <div class="flex flex-col-reverse">
+              <dt class="text-sm text-muted-foreground">{label}</dt>
+              <dd class="m-0 text-2xl leading-none font-semibold tabular-nums">{value}</dd>
+            </div>
+          </div>
+        ))}
+      </dl>
+    </div>
+  </section>
+  {actor.suspended && <Alert className="mt-6"><AlertDescription>{t.suspended}</AlertDescription></Alert>}
+  {listUnavailable && <Alert variant="destructive" className="mt-6"><AlertDescription>{t.unavailable}</AlertDescription></Alert>}
+  <div class="mt-10">
+    <ProfileTabs client:load initialTab={initialTab} language={language} published={published} drafts={drafts} />
+  </div>
+</AppLayout>

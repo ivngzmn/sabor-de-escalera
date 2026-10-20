@@ -59,6 +59,13 @@ export function createClerkAdapter(provider: ClerkProvider) {
       response.headers.set('Cache-Control', 'private, no-store');
       return response;
     },
+    /** Display-only session subject: no provider call, and never throws or redirects. */
+    async sessionSubject(request: Request): Promise<string | null> {
+      try {
+        const state = await authenticate(request);
+        return state.isAuthenticated && !state.headers.has('Location') ? state.toAuth().userId ?? null : null;
+      } catch { return null; }
+    },
     async verifyIdentity(request: Request): Promise<AuthIdentity | null> {
       const state = await authenticate(request);
       const synchronization = synchronizationResponse(state);
