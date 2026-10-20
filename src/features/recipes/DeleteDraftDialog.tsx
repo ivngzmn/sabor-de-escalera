@@ -35,6 +35,10 @@ function relativeTime(iso: string, lang: "en" | "es") {
   return rtf.format(Math.min(seconds, 0), "second");
 }
 
+function count(n: number, one: string, many: string) {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
 export default function DeleteDraftDialog(props: Props) {
   const { open, onOpenChange, lang } = props;
   const t = (en: string, es: string) => (lang === "es" ? es : en);
@@ -78,8 +82,8 @@ export default function DeleteDraftDialog(props: Props) {
           </p>
           <p className="text-muted-foreground">
             {lang === "es"
-              ? `${props.photoCount} fotos · ${props.ingredientCount} ingredientes · guardado ${when}`
-              : `${props.photoCount} photos · ${props.ingredientCount} ingredients · last saved ${when}`}
+              ? `${count(props.photoCount, "foto", "fotos")} · ${count(props.ingredientCount, "ingrediente", "ingredientes")} · guardado ${when}`
+              : `${count(props.photoCount, "photo", "photos")} · ${count(props.ingredientCount, "ingredient", "ingredients")} · last saved ${when}`}
           </p>
         </div>
         {error && (

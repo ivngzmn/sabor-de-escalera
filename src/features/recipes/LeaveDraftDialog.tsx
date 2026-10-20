@@ -13,6 +13,8 @@ interface Props {
   title: string;
   lang: "en" | "es";
   conflict: boolean;
+  /** Discard deletes a draft already saved during this visit. */
+  discardDeletes: boolean;
   onKeepEditing(): void;
   onDiscard(): Promise<void>;
   onSave(): Promise<boolean>;
@@ -36,6 +38,9 @@ export default function LeaveDraftDialog(props: Props) {
     }
   }
   const name = props.title.trim();
+  const deletes = props.discardDeletes
+    ? t(" Discarding deletes this draft.", " Descartar elimina este borrador.")
+    : "";
   return (
     <Dialog
       open={open}
@@ -68,6 +73,7 @@ export default function LeaveDraftDialog(props: Props) {
                   "You've started your recipe. Save it as a draft to finish later, or discard it.",
                   "Empezaste tu receta. Guárdala como borrador para terminarla después o descártala.",
                 )}
+            {deletes}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between">

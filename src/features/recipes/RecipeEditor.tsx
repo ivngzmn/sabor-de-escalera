@@ -1060,6 +1060,7 @@ export default function RecipeEditor({
         title={input.title}
         lang={lang}
         conflict={conflict}
+        discardDeletes={createdHere.current && !!record.current}
         onKeepEditing={() => setLeaving(null)}
         onDiscard={discardAndLeave}
         onSave={saveAndLeave}
