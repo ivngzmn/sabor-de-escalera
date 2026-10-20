@@ -1,0 +1,68 @@
+---
+import { ArrowLeftIcon } from '@radix-ui/react-icons';
+import AppLayout from '../../layouts/AppLayout.astro';
+import { Alert, AlertDescription } from '../../components/ui/alert';
+import { Badge } from '../../components/ui/badge';
+import ProfileSettingsForm from '../../features/accounts/ProfileSettingsForm';
+import { accounts, type Actor } from '../../features/accounts/service';
+import { AccountError, assertSameOriginWrite, signInHref } from '../../features/accounts/permissions';
+import { accountFailure } from '../../features/accounts/routes';
+import { mediaReadiness } from '../../features/media/service';
+import { accountConfiguration, ClerkResponseError } from '../../server/clerk';
+const spanish = Astro.url.searchParams.get('lang') === 'es';
+const href = (path: string) => spanish ? `${path}?lang=es` : path;
+const origin = accountConfiguration()?.origin ?? Astro.url.origin;
+let actor: Actor | undefined;
+let errorMessage = '';
+let submitted: Record<string, unknown> | undefined;
+if (Astro.request.method === 'POST') {
+  try {
+    assertSameOriginWrite(Astro.request, origin);
+    submitted = Object.fromEntries(await Astro.request.formData());
+    await accounts().updateProfile(Astro.request, submitted);
+    return Astro.redirect(href('/profile'), 303);
+  } catch (error) {
+    if (!(error instanceof AccountError && error.status === 400)) return accountFailure(error);
+    Astro.response.status = 400;
+    errorMessage = spanish ? 'Revisa tu nombre, biografía y avatar.' : 'Check your display name, bio and avatar.';
+  }
+}
+try { actor = await accounts().requireActor(Astro.request); }
+catch (error) {
+  if (error instanceof ClerkResponseError) return error.response;
+  if (error instanceof AccountError && (error.status === 401 || error.status === 503)) return Astro.redirect(signInHref(`${Astro.url.pathname}${Astro.url.search}`, origin), 303);
+  return accountFailure(error);
+}
+if (!actor.onboarded) return Astro.redirect(`/onboarding?${new URLSearchParams({ returnTo: '/profile', ...(spanish ? { lang: 'es' } : {}) })}`, 303);
+// A rejected save re-renders with what the member typed, not the stored values.
+const field = (key: string) => typeof submitted?.[key] === 'string' ? submitted[key] as string : undefined;
+const presetValue = field('avatarPreset');
+const preset = presetValue === undefined ? actor.avatarPreset : (['chile', 'corn', 'lime'].includes(presetValue) ? presetValue as Actor['avatarPreset'] : null);
+const t = spanish
+  ? { title: 'Editar perfil', eyebrow: 'Tu cuenta', intro: 'Elige cómo apareces en la comunidad y quién puede ver tus recetas guardadas.', back: 'Volver a mi perfil' }
+  : { title: 'Edit profile', eyebrow: 'Your account', intro: 'Choose how you appear in the community and who can see your saved recipes.', back: 'Back to my profile' };
+---
+<AppLayout title={t.title}>
+  <a href={href('/profile')} class="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary-ink no-underline hover:underline"><ArrowLeftIcon aria-hidden="true" />{t.back}</a>
+  <div class="flex max-w-3xl flex-col items-start gap-2">
+    <Badge variant="eyebrow">{t.eyebrow}</Badge>
+    <h1>{t.title}</h1>
+    <p class="intro">{t.intro}</p>
+  </div>
+  {errorMessage && <Alert variant="destructive" id="settings-error" className="mt-6 max-w-3xl"><AlertDescription><a href="#display-name">{errorMessage}</a></AlertDescription></Alert>}
+  <div class="mt-8">
+    <ProfileSettingsForm
+      client:load
+      language={spanish ? 'es' : 'en'}
+      displayName={field('displayName') ?? actor.displayName}
+      bio={field('bio') ?? actor.bio}
+      avatarPreset={preset}
+      avatarAssetId={actor.avatarAssetId ?? null}
+      savedListPublic={field('savedListPublic') === undefined ? actor.savedListPublic : field('savedListPublic') === 'true'}
+      mediaAvailable={mediaReadiness().enabled}
+      error={errorMessage || undefined}
+      cancelHref={href('/profile')}
+      privacyHref={href('/privacy')}
+    />
+  </div>
+</AppLayout>

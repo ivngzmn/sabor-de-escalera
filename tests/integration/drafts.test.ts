@@ -331,11 +331,16 @@ test("publication validates required fields, limits, schemes and exact text; pub
   expect(
     value(await svc.readPublished(draft.id)).input.ingredients[0].quantity,
   ).toBe("½–1");
+  // The profile lists the owner's published recipes apart from their drafts.
+  expect(value(await svc.listPublished(actor)).map((r) => r.id)).toContain(draft.id);
+  expect(value(await svc.listDrafts(actor)).map((r) => r.id)).not.toContain(draft.id);
+  expect(await svc.listPublished(null)).toMatchObject({ ok: false, error: { status: 401 } });
   await pool.query("UPDATE recipes SET state='hidden' WHERE id=$1", [draft.id]);
   expect(await svc.readPublished(draft.id)).toMatchObject({
     ok: false,
     error: { status: 404 },
   });
+  expect(value(await svc.listPublished(actor)).map((r) => r.id)).not.toContain(draft.id);
 });
 test("draft HTTP boundary preserves auth/CSRF/no-store and rejects client role and oversized bodies", async () => {
   const { handleDraftRequest } =
