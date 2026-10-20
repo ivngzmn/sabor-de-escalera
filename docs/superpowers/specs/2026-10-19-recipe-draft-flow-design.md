@@ -12,7 +12,7 @@ Opening **Add Recipe** creates an empty server draft immediately (`RecipeEditor.
 2. **Leave prompt for in-app navigation.** When the member clicks an in-site link (header nav, brand, account menu, footer, "Add Another Recipe", etc.) and has **unsaved work**, show a dialog (design "1A"):
    - Title: "Save your recipe before leaving?"; body names the recipe title (or "your recipe" when untitled).
    - Buttons: **Discard** (left, destructive ghost) · **Keep editing** (ghost) · **Save draft** (primary).
-   - **Save draft**: create the draft if none exists, otherwise flush the pending save; navigate on success. On failure, stay, close nothing, and show the existing failure alert.
+   - **Save draft**: create the draft if none exists, otherwise flush the pending save; navigate on success. On failure, stay on the page, close the dialog, and show the existing failure alert.
    - **Discard**: if the draft was created in *this* page session, delete it (server + device recovery copy) and navigate. If the member opened an existing draft (`?draft=` on load), discard only the unsaved changes (do not delete the draft) and navigate. If no draft exists, just navigate.
    - **Keep editing**: close dialog.
 3. **When not to prompt.** No dialog if there is no unsaved work: form still equals `emptyRecipe()` with no draft, or current input equals the last server-saved input (`sameRecipe(current, saved)`). Also no dialog when the editor is `blocked`/`stopped` (deleted, signed out, published).
