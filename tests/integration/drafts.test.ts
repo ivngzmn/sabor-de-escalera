@@ -332,15 +332,24 @@ test("publication validates required fields, limits, schemes and exact text; pub
     value(await svc.readPublished(draft.id)).input.ingredients[0].quantity,
   ).toBe("½–1");
   // The profile lists the owner's published recipes apart from their drafts.
-  expect(value(await svc.listPublished(actor)).map((r) => r.id)).toContain(draft.id);
-  expect(value(await svc.listDrafts(actor)).map((r) => r.id)).not.toContain(draft.id);
-  expect(await svc.listPublished(null)).toMatchObject({ ok: false, error: { status: 401 } });
+  expect(value(await svc.listPublished(actor)).map((r) => r.id)).toContain(
+    draft.id,
+  );
+  expect(value(await svc.listDrafts(actor)).map((r) => r.id)).not.toContain(
+    draft.id,
+  );
+  expect(await svc.listPublished(null)).toMatchObject({
+    ok: false,
+    error: { status: 401 },
+  });
   await pool.query("UPDATE recipes SET state='hidden' WHERE id=$1", [draft.id]);
   expect(await svc.readPublished(draft.id)).toMatchObject({
     ok: false,
     error: { status: 404 },
   });
-  expect(value(await svc.listPublished(actor)).map((r) => r.id)).not.toContain(draft.id);
+  expect(value(await svc.listPublished(actor)).map((r) => r.id)).not.toContain(
+    draft.id,
+  );
 });
 test("draft HTTP boundary preserves auth/CSRF/no-store and rejects client role and oversized bodies", async () => {
   const { handleDraftRequest } =
@@ -433,4 +442,39 @@ test("separate-copy creation normalizes dimensions before persisting", async () 
   expect(
     value(await svc.readDraft(actor, copy.id)).input.photos[0],
   ).toMatchObject({ width: 640, height: 480 });
+});
+
+test("createDraft stores provided initial input in one request", async () => {
+  const { emptyRecipe } = await import("../../src/features/recipes/validation");
+  const svc = await setup();
+  const draft = value(
+    await svc.createDraft(actor, {
+      ...emptyRecipe(),
+      title: "Abuela's tamales",
+    }),
+  );
+  expect(draft.version).toBe(1);
+  expect(draft.input.title).toBe("Abuela's tamales");
+  expect(draft.label).toBe("Abuela's tamales");
+  const rows = await pool.query(
+    "SELECT count(*)::int AS n FROM recipes WHERE owner_id=$1",
+    [actor.id],
+  );
+  expect(rows.rows[0].n).toBe(1);
+});
+
+test("createDraft rejects invalid initial input without creating a row", async () => {
+  const { emptyRecipe } = await import("../../src/features/recipes/validation");
+  const svc = await setup();
+  const result = await svc.createDraft(actor, {
+    ...emptyRecipe(),
+    title: "x".repeat(201),
+  });
+  expect(result.ok).toBe(false);
+  if (!result.ok) expect(result.error.status).toBe(422);
+  const rows = await pool.query(
+    "SELECT count(*)::int AS n FROM recipes WHERE owner_id=$1",
+    [actor.id],
+  );
+  expect(rows.rows[0].n).toBe(0);
 });
