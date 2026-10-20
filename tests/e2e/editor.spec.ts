@@ -142,50 +142,93 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
       await profileContext.close();
     }
 
-    let creationRequested = false;
+    // Before hydration the editor shows its placeholder; it must honour reduced motion.
+    const staticContext = await browser.newContext({
+      javaScriptEnabled: false,
+      reducedMotion: "reduce",
+    });
+    try {
+      const staticPage = await staticContext.newPage();
+      await staticPage.goto(`${base}/add-recipe`);
+      const loading = staticPage.getByRole("status", {
+        name: "Loading recipe",
+      });
+      await expect(loading).toBeVisible();
+      await expect(loading).toHaveAttribute("aria-busy", "true");
+      for (const shape of await loading
+        .locator('[data-slot="skeleton"]')
+        .all()) {
+        await expect(shape).toHaveCSS("animation-name", "none");
+      }
+    } finally {
+      await staticContext.close();
+    }
+
+    // Opening the editor creates nothing; the draft is created once the member
+    // continues with something filled in, exactly once.
+    let creationPosts = 0;
     let releaseCreation!: () => void;
     const creationGate = new Promise<void>((resolve) => {
       releaseCreation = resolve;
     });
     await page.route(`${base}/api/drafts`, async (route) => {
       if (route.request().method() === "POST") {
-        creationRequested = true;
+        creationPosts += 1;
         await creationGate;
       }
       await route.continue();
     });
-    await page.emulateMedia({ reducedMotion: "reduce" });
+    const recipeCount = async () =>
+      (await pool.query("SELECT count(*)::int AS n FROM recipes")).rows[0].n;
     await page.goto(`${base}/add-recipe`);
-    const loading = page.getByRole("status", { name: "Loading recipe" });
-    await expect(loading).toBeVisible();
-    await expect(loading).toHaveAttribute("aria-busy", "true");
-    for (const shape of await loading.locator('[data-slot="skeleton"]').all()) {
-      await expect(shape).toHaveCSS("animation-name", "none");
-    }
-    await expect.poll(() => creationRequested, { timeout: 15000 }).toBe(true);
+    const title = page.getByLabel("Title", { exact: true });
+    await expect(title).toBeEnabled({ timeout: 15000 });
     expect(errors, "editor hydration must succeed").toEqual([]);
-    releaseCreation();
-    await expect(loading).toHaveCount(0, { timeout: 10000 });
-    await page.unroute(`${base}/api/drafts`);
-
+    await expect(
+      page.getByText("Not saved yet — your draft is saved when you continue.", {
+        exact: true,
+      }),
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Save Draft", exact: true }),
+    ).toBeDisabled();
+    await page.waitForTimeout(3000);
+    expect(creationPosts).toBe(0);
+    expect(await recipeCount()).toBe(0);
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Photos", exact: true }),
     ).toBeVisible();
+    await page.waitForTimeout(1000);
+    expect(creationPosts).toBe(0);
+    expect(await recipeCount()).toBe(0);
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await title.fill("Abuela's tamales");
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    // Creation is still held: the form stays usable and keeps the newer text.
+    await expect(title).toBeEnabled();
+    await expect.poll(() => creationPosts).toBe(1);
+    await title.fill("Abuela's tamales verdes");
+    releaseCreation();
+    await expect.poll(recipeCount, { timeout: 15000 }).toBe(1);
+    await expect(title).toHaveValue("Abuela's tamales verdes");
     await expect
       .poll(
-        async () => {
-          expect(errors, "editor hydration must succeed").toEqual([]);
-          return (await pool.query("SELECT count(*)::int AS n FROM recipes"))
-            .rows[0].n;
-        },
+        async () =>
+          (await pool.query("SELECT input->>'title' AS title FROM recipes"))
+            .rows[0].title,
         { timeout: 15000 },
       )
-      .toBe(1);
-    await expect(
-      page.getByText("Untitled recipe", { exact: true }),
-    ).toBeVisible();
+      .toBe("Abuela's tamales verdes");
+    expect(creationPosts).toBe(1);
+    expect(await recipeCount()).toBe(1);
+    await page.unroute(`${base}/api/drafts`);
     const initialDraft = (await pool.query("SELECT id FROM recipes")).rows[0]
       .id;
+    await expect(page).toHaveURL(new RegExp(`draft=${initialDraft}`));
     await page.evaluate(() => {
       localStorage.setItem(
         "escalera:consent",
@@ -458,8 +501,17 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
     expect(errors).toEqual([]);
     await page.goto(`${base}/privacy`);
     await page.getByRole("button", { name: "Accept optional" }).click();
-    await page.goto(`${base}/add-recipe`);
-    await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
+    // A fresh draft exists only after the member continues with content.
+    const startDraft = async (name: string) => {
+      await page.goto(`${base}/add-recipe`);
+      await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
+      await page.getByLabel("Title", { exact: true }).fill(name);
+      await page.getByRole("button", { name: "Continue", exact: true }).click();
+      await expect(page).toHaveURL(/[?&]draft=/, { timeout: 10000 });
+      await page.getByRole("button", { name: "Back", exact: true }).click();
+      await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
+    };
+    await startDraft("Draft to delete");
     await page.route("**/api/drafts/*", async (route) => {
       if (
         route.request().method() === "POST" &&
@@ -541,8 +593,7 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
       .click();
     await expect.poll(rowState).toBe("deleted");
     await expect(dialog).toBeHidden();
-    await page.goto(`${base}/add-recipe`);
-    await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
+    await startDraft("Recovery draft");
     await page.context().setOffline(true);
     await page
       .getByLabel("Title", { exact: true })
@@ -599,8 +650,7 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
     await expect(restart).toBeVisible();
     await expect(restart).toHaveCSS("color", "rgb(255, 255, 255)");
     await expect(restart).toHaveCSS("background-color", "rgb(200, 75, 49)");
-    await page.goto(`${base}/add-recipe`);
-    await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
+    await startDraft("Logout draft");
     await page.context().setOffline(true);
     await page
       .getByLabel("Title", { exact: true })

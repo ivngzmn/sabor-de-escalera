@@ -53,6 +53,7 @@ import {
 } from "./validation";
 import RecipePreview from "./RecipePreview";
 import DeleteDraftDialog from "./DeleteDraftDialog";
+import { hasContent } from "./draft-intent";
 import "./editor.css";
 interface Props {
   accountId: string;
@@ -93,7 +94,7 @@ export default function RecipeEditor({
     [lang, setLang] = useState(language);
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
-  const [status, setStatus] = useState(initial ? "saved" : "creating"),
+  const [status, setStatus] = useState(initial ? "saved" : "new"),
     [failure, setFailure] = useState<Failure | null>(null),
     [operationError, setOperationError] = useState(false),
     [errors, setErrors] = useState<FieldError[]>([]),
@@ -112,6 +113,8 @@ export default function RecipeEditor({
     saved = useRef(initial?.input ?? null),
     record = useRef(initial),
     busy = useRef(false),
+    creating = useRef<Promise<Draft | null> | null>(null),
+    createdHere = useRef<boolean>(false),
     stopped = useRef(false),
     publicationPending = useRef(false),
     lastWrite = useRef(0),
@@ -122,7 +125,11 @@ export default function RecipeEditor({
   function update(next: RecipeInput) {
     current.current = next;
     setInput(next);
-    setStatus("unsaved");
+    // Without a draft nothing is pending on the server yet: keep "new" until the
+    // member continues, or "creating" while that first request is in flight.
+    setStatus(
+      record.current ? "unsaved" : creating.current ? "creating" : "new",
+    );
     setFailure(null);
     if (record.current) {
       try {
@@ -187,31 +194,53 @@ export default function RecipeEditor({
       return false;
     }
   }
-  async function create() {
-    if (busy.current) return;
+  function ensureDraft(): Promise<Draft | null> {
+    if (record.current) return Promise.resolve(record.current);
+    if (creating.current) return creating.current;
+    if (busy.current || stopped.current || !hasContent(current.current))
+      return Promise.resolve(null);
     busy.current = true;
+    const snapshot = current.current;
     setStatus("creating");
-    try {
-      const next = await request<Draft>("/api/drafts", {});
-      remember(next);
-      current.current = next.input;
-      setInput(next.input);
-      setStatus("saved");
-    } catch (e) {
-      stop(
-        e instanceof RequestError
-          ? e.details
-          : {
-              status: 503,
-              message: t(
-                "Could not create the draft. Retry.",
-                "No se pudo crear el borrador. Reintenta.",
-              ),
-            },
-      );
-    } finally {
-      busy.current = false;
-    }
+    setFailure(null);
+    const pending = (async () => {
+      try {
+        const next = await request<Draft>("/api/drafts", { input: snapshot });
+        createdHere.current = true;
+        remember(next);
+        saved.current = next.input;
+        if (sameRecipe(current.current, snapshot)) {
+          current.current = next.input;
+          setInput(next.input);
+          setStatus("saved");
+        } else update(current.current);
+        return next;
+      } catch (e) {
+        stop(
+          e instanceof RequestError
+            ? e.details
+            : {
+                status: 503,
+                message: t(
+                  "Could not save the draft. Your work is preserved. Retry.",
+                  "No se pudo guardar el borrador. Tu trabajo se conserva. Reintenta.",
+                ),
+              },
+        );
+        return null;
+      } finally {
+        busy.current = false;
+        creating.current = null;
+      }
+    })();
+    creating.current = pending;
+    return pending;
+  }
+  function goToStep(index: number) {
+    setStep(index);
+    setPasteLines(null);
+    setPaste("");
+    if (!record.current && hasContent(current.current)) void ensureDraft();
   }
   async function save(): Promise<Draft | null> {
     if (!record.current || busy.current || stopped.current || conflict)
@@ -272,10 +301,7 @@ export default function RecipeEditor({
   saveAction.current = () =>
     publicationPending.current ? Promise.resolve(null) : save();
   useEffect(() => {
-    if (!initial) {
-      void create();
-      return;
-    }
+    if (!initial) return;
     try {
       const r = readRecovery(
         localStorage,
@@ -659,6 +685,7 @@ export default function RecipeEditor({
         setStatus("waiting");
         await new Promise((resolve) => setTimeout(resolve, wait));
       }
+      if (!record.current) await ensureDraft();
       const next = await save();
       if (
         !next ||
@@ -761,8 +788,7 @@ export default function RecipeEditor({
           <p className="eyebrow">{t("From your kitchen", "Desde tu cocina")}</p>
           <h1>{t("Share your recipe", "Comparte tu receta")}</h1>
           <p className="intro">
-            {draft?.label ??
-              t("Preparing your draft…", "Preparando tu borrador…")}
+            {draft?.label ?? t("New recipe", "Receta nueva")}
           </p>
           <p className="text-sm text-muted-foreground">
             {t(
@@ -776,9 +802,14 @@ export default function RecipeEditor({
             type="button"
             variant="outline"
             disabled={
-              !ready || busy.current || blocked || conflict || publishing
+              !ready ||
+              busy.current ||
+              blocked ||
+              conflict ||
+              publishing ||
+              (!draft && !hasContent(input))
             }
-            onClick={() => (draft ? void save() : void create())}
+            onClick={() => (draft ? void save() : void ensureDraft())}
           >
             {t("Save Draft", "Guardar borrador")}
           </Button>
@@ -803,7 +834,11 @@ export default function RecipeEditor({
               "Saving shortly — at most once every five seconds.",
               "Se guardará pronto: como máximo una vez cada cinco segundos.",
             ),
-            creating: t("Creating draft…", "Creando borrador…"),
+            creating: t("Saving…", "Guardando…"),
+            new: t(
+              "Not saved yet — your draft is saved when you continue.",
+              "Aún no guardado: el borrador se guarda al continuar.",
+            ),
             error: t("Not saved", "No guardado"),
           }[status]
         }
@@ -825,7 +860,7 @@ export default function RecipeEditor({
             {!blocked && !conflict && !operationError && (
               <Button
                 type="button"
-                onClick={() => (draft ? void save() : void create())}
+                onClick={() => (draft ? void save() : void ensureDraft())}
               >
                 {t("Retry save", "Reintentar guardado")}
               </Button>
@@ -916,11 +951,7 @@ export default function RecipeEditor({
             disabled={!ready}
             variant="ghost"
             aria-current={step === index ? "step" : undefined}
-            onClick={() => {
-              setStep(index);
-              setPasteLines(null);
-              setPaste("");
-            }}
+            onClick={() => goToStep(index)}
           >
             <span aria-hidden="true" className="editor-step-number">
               {String(index + 1).padStart(2, "0")}
@@ -953,10 +984,10 @@ export default function RecipeEditor({
           </ul>
         </section>
       )}
-      {!draft && status === "creating" && (
+      {!draft && !ready && (
         <RecipePlaceholder variant="editor" state="loading" language={lang} />
       )}
-      <Card className={cn(!draft && status === "creating" && "hidden")}>
+      <Card className={cn(!draft && !ready && "hidden")}>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>
             {t("Recipe workspace", "Tu receta")}
@@ -971,9 +1002,7 @@ export default function RecipeEditor({
         <CardContent>
           <form onSubmit={(e) => e.preventDefault()} onPaste={plainPaste}>
             <FieldSet
-              disabled={
-                !ready || !draft || blocked || !!published || publishing
-              }
+              disabled={!ready || blocked || !!published || publishing}
               className="editor-fields"
             >
               <FieldLegend className="sr-only">
@@ -1706,7 +1735,7 @@ export default function RecipeEditor({
             variant="outline"
             type="button"
             disabled={!ready}
-            onClick={() => setStep(step - 1)}
+            onClick={() => goToStep(step - 1)}
           >
             {t("Back", "Atrás")}
           </Button>
@@ -1715,7 +1744,7 @@ export default function RecipeEditor({
           <Button
             type="button"
             disabled={!ready}
-            onClick={() => setStep(step + 1)}
+            onClick={() => goToStep(step + 1)}
           >
             {t("Continue", "Continuar")}
           </Button>
