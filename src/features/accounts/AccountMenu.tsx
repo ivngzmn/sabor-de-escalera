@@ -4,9 +4,9 @@ import {
   ChevronDownIcon,
   ExitIcon,
   FileTextIcon,
-  GearIcon,
   HeartIcon,
   LockClosedIcon,
+  Pencil1Icon,
   PersonIcon,
   ReaderIcon,
 } from "@radix-ui/react-icons";
@@ -38,7 +38,7 @@ const copy = {
     recipes: "My recipes",
     drafts: "Drafts",
     favorites: "Favorites",
-    settings: "Settings",
+    edit: "Edit profile",
     admin: "Admin",
     finish: "Finish your profile",
     signOut: "Sign out",
@@ -51,7 +51,7 @@ const copy = {
     recipes: "Mis recetas",
     drafts: "Borradores",
     favorites: "Favoritos",
-    settings: "Configuración",
+    edit: "Editar perfil",
     admin: "Administración",
     finish: "Completa tu perfil",
     signOut: "Cerrar sesión",
@@ -209,6 +209,12 @@ export default function AccountMenu({
               </a>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
+              <a href={href("/profile/settings")}>
+                <Pencil1Icon aria-hidden="true" />
+                {t.edit}
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
               <a href={href("/profile?tab=recipes")}>
                 <ReaderIcon aria-hidden="true" />
                 {t.recipes}
@@ -224,12 +230,6 @@ export default function AccountMenu({
               <a href={href("/profile?tab=favorites")}>
                 <HeartIcon aria-hidden="true" />
                 {t.favorites}
-              </a>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <a href={href("/profile/settings")}>
-                <GearIcon aria-hidden="true" />
-                {t.settings}
               </a>
             </DropdownMenuItem>
           </DropdownMenuGroup>

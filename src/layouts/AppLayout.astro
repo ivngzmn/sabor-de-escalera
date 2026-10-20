@@ -60,7 +60,7 @@ const initialMe = showAccount && sessionHint ? await readHeaderIdentity(Astro.re
             <a href={languageHref('en')} lang="en" hreflang="en" aria-current={language === 'en' ? 'true' : undefined}>English</a>
             <a href={languageHref('es')} lang="es" hreflang="es" aria-current={language === 'es' ? 'true' : undefined}>Español</a>
           </nav>
-          {showAccount && <AccountMenu client:load authEnabled={authEnabled} sessionHint={sessionHint} initialMe={initialMe} language={language} signInHref={accountHref} />}
+          {showAccount && (authEnabled ? <AccountMenu client:load authEnabled={authEnabled} sessionHint={sessionHint} initialMe={initialMe} language={language} signInHref={accountHref} /> : <a href={accountHref} data-slot="button" class={buttonVariants({ variant: 'outline' })}>{language === 'es' ? 'Iniciar sesión' : 'Sign in'}</a>)}
         </div>
       </div>
     </header>

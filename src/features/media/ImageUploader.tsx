@@ -32,6 +32,8 @@ interface Props {
   spanish?: boolean;
   currentAssetId?: string | null;
   onComplete?: (asset: AssetRef) => void;
+  /** Saved avatar photo changed (upload or removal), e.g. for a live preview. */
+  onSavedChange?: (assetId: string | null) => void;
 }
 export default function ImageUploader({
   purpose,
@@ -39,6 +41,7 @@ export default function ImageUploader({
   spanish = false,
   currentAssetId,
   onComplete,
+  onSavedChange,
 }: Props) {
   const id = useId();
   const [file, setFile] = useState<File | null>(null);
@@ -152,6 +155,7 @@ export default function ImageUploader({
       }
       if (purpose === "avatar") await post("avatar", { assetId: asset.id });
       setSavedId(asset.id);
+      onSavedChange?.(asset.id);
       onComplete?.(asset);
       setMessage(text("Photo saved.", "Foto guardada."));
       setFile(null);
@@ -178,6 +182,7 @@ export default function ImageUploader({
     try {
       await post("avatar", { assetId: null });
       setSavedId(null);
+      onSavedChange?.(null);
       setMessage(
         text(
           "Photo removed. Your selected avatar will be used.",
@@ -226,6 +231,7 @@ export default function ImageUploader({
             width={purpose === "avatar" ? 256 : 640}
             height={purpose === "avatar" ? 256 : 480}
             alt={text("Your saved photo", "Tu foto guardada")}
+            className={purpose === "avatar" ? "size-24 rounded-xl object-cover shadow-sm" : undefined}
           />
         )}
         <Field data-invalid={!!error} data-disabled={!available || busy}>
@@ -277,7 +283,7 @@ export default function ImageUploader({
             : text("Upload photo", "Subir foto")}
         </Button>
         {purpose === "avatar" && savedId && (
-          <Button type="button" disabled={!available || busy} onClick={remove}>
+          <Button type="button" variant="outline" disabled={!available || busy} onClick={remove}>
             {text("Remove photo", "Eliminar foto")}
           </Button>
         )}

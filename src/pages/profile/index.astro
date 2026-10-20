@@ -1,5 +1,5 @@
 ---
-import { CalendarIcon, FileTextIcon, GearIcon, HeartIcon, LockClosedIcon, Pencil1Icon, ReaderIcon } from '@radix-ui/react-icons';
+import { CalendarIcon, FileTextIcon, HeartIcon, LockClosedIcon, Pencil1Icon, ReaderIcon } from '@radix-ui/react-icons';
 import AppLayout from '../../layouts/AppLayout.astro';
 import { Badge } from '../../components/ui/badge';
 import { buttonVariants } from '../../components/ui/button';
@@ -39,8 +39,8 @@ const drafts = draftsResult.ok ? draftsResult.value.map((recipe) => card(recipe,
 const name = actor.displayName ?? (spanish ? 'Miembro' : 'Member');
 const memberSince = actor.memberSince ? new Intl.DateTimeFormat(language, { month: 'long', year: 'numeric' }).format(new Date(actor.memberSince)) : null;
 const t = spanish
-  ? { title: 'Mi perfil', edit: 'Editar perfil', settings: 'Configuración', since: 'Miembro desde', saved: 'Recetas guardadas', published: 'Recetas publicadas', drafts: 'Borradores', privateList: 'Favoritos privados', publicList: 'Favoritos públicos', suspended: 'Las contribuciones no están disponibles para esta cuenta. Puedes seguir explorando y guardando recetas.', unavailable: 'No pudimos cargar tus recetas. Inténtalo de nuevo en un momento.', admin: 'Administración', owner: 'Propietaria/o', noBio: 'Cuéntale a la comunidad sobre tu cocina en Editar perfil.' }
-  : { title: 'My profile', edit: 'Edit profile', settings: 'Settings', since: 'Member since', saved: 'Saved recipes', published: 'Published recipes', drafts: 'Drafts', privateList: 'Private favorites', publicList: 'Public favorites', suspended: 'Contributions are currently unavailable for this account. You can keep browsing and saving recipes.', unavailable: 'We couldn’t load your recipes. Please try again in a moment.', admin: 'Admin', owner: 'Owner', noBio: 'Tell the community about your cooking in Edit profile.' };
+  ? { title: 'Mi perfil', edit: 'Editar perfil', since: 'Miembro desde', saved: 'Recetas guardadas', published: 'Recetas publicadas', drafts: 'Borradores', privateList: 'Favoritos privados', publicList: 'Favoritos públicos', suspended: 'Las contribuciones no están disponibles para esta cuenta. Puedes seguir explorando y guardando recetas.', unavailable: 'No pudimos cargar tus recetas. Inténtalo de nuevo en un momento.', admin: 'Administración', owner: 'Propietaria/o', noBio: 'Cuéntale a la comunidad sobre tu cocina en Editar perfil.' }
+  : { title: 'My profile', edit: 'Edit profile', since: 'Member since', saved: 'Saved recipes', published: 'Published recipes', drafts: 'Drafts', privateList: 'Private favorites', publicList: 'Public favorites', suspended: 'Contributions are currently unavailable for this account. You can keep browsing and saving recipes.', unavailable: 'We couldn’t load your recipes. Please try again in a moment.', admin: 'Admin', owner: 'Owner', noBio: 'Tell the community about your cooking in Edit profile.' };
 const stats = [
   { label: t.saved, value: 0, icon: HeartIcon, tone: 'bg-primary/10 text-primary-ink' },
   { label: t.published, value: published.length, icon: ReaderIcon, tone: 'bg-secondary-soft text-secondary' },
@@ -72,7 +72,6 @@ const stats = [
         </div>
         <div class="flex flex-wrap gap-3">
           <a href={href('/profile/settings')} data-slot="button" class={buttonVariants()}><Pencil1Icon aria-hidden="true" />{t.edit}</a>
-          <a href={href('/profile/settings#privacy')} data-slot="button" class={buttonVariants({ variant: 'outline' })}><GearIcon aria-hidden="true" />{t.settings}</a>
         </div>
       </div>
       <dl class="m-0 mt-8 grid gap-4 rounded-xl bg-muted p-4 sm:grid-cols-3">

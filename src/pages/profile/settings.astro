@@ -3,14 +3,10 @@ import { ArrowLeftIcon } from '@radix-ui/react-icons';
 import AppLayout from '../../layouts/AppLayout.astro';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { Badge } from '../../components/ui/badge';
-import { Button, buttonVariants } from '../../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
-import { Separator } from '../../components/ui/separator';
-import { ProfileFields, SavedListField } from '../../features/accounts/ProfileFields';
+import ProfileSettingsForm from '../../features/accounts/ProfileSettingsForm';
 import { accounts, type Actor } from '../../features/accounts/service';
 import { AccountError, assertSameOriginWrite, signInHref } from '../../features/accounts/permissions';
 import { accountFailure } from '../../features/accounts/routes';
-import ImageUploader from '../../features/media/ImageUploader';
 import { mediaReadiness } from '../../features/media/service';
 import { accountConfiguration, ClerkResponseError } from '../../server/clerk';
 const spanish = Astro.url.searchParams.get('lang') === 'es';
@@ -18,10 +14,12 @@ const href = (path: string) => spanish ? `${path}?lang=es` : path;
 const origin = accountConfiguration()?.origin ?? Astro.url.origin;
 let actor: Actor | undefined;
 let errorMessage = '';
+let submitted: Record<string, unknown> | undefined;
 if (Astro.request.method === 'POST') {
   try {
     assertSameOriginWrite(Astro.request, origin);
-    await accounts().updateProfile(Astro.request, Object.fromEntries(await Astro.request.formData()));
+    submitted = Object.fromEntries(await Astro.request.formData());
+    await accounts().updateProfile(Astro.request, submitted);
     return Astro.redirect(href('/profile'), 303);
   } catch (error) {
     if (!(error instanceof AccountError && error.status === 400)) return accountFailure(error);
@@ -36,9 +34,13 @@ catch (error) {
   return accountFailure(error);
 }
 if (!actor.onboarded) return Astro.redirect(`/onboarding?${new URLSearchParams({ returnTo: '/profile', ...(spanish ? { lang: 'es' } : {}) })}`, 303);
+// A rejected save re-renders with what the member typed, not the stored values.
+const field = (key: string) => typeof submitted?.[key] === 'string' ? submitted[key] as string : undefined;
+const presetValue = field('avatarPreset');
+const preset = presetValue === undefined ? actor.avatarPreset : (['chile', 'corn', 'lime'].includes(presetValue) ? presetValue as Actor['avatarPreset'] : null);
 const t = spanish
-  ? { title: 'Configuración', eyebrow: 'Tu cuenta', intro: 'Elige cómo apareces en la comunidad y quién puede ver tus recetas guardadas.', back: 'Volver a mi perfil', profile: 'Perfil público', profileIntro: 'Tu nombre, biografía y avatar aparecen junto a tus recetas.', privacy: 'Privacidad', privacyIntro: 'Tu correo electrónico nunca se muestra públicamente.', save: 'Guardar cambios', cancel: 'Cancelar', device: 'Configuración de privacidad del dispositivo' }
-  : { title: 'Settings', eyebrow: 'Your account', intro: 'Choose how you appear in the community and who can see your saved recipes.', back: 'Back to my profile', profile: 'Public profile', profileIntro: 'Your name, bio and avatar appear alongside your recipes.', privacy: 'Privacy', privacyIntro: 'Your email address is never shown publicly.', save: 'Save changes', cancel: 'Cancel', device: 'Device privacy settings' };
+  ? { title: 'Editar perfil', eyebrow: 'Tu cuenta', intro: 'Elige cómo apareces en la comunidad y quién puede ver tus recetas guardadas.', back: 'Volver a mi perfil' }
+  : { title: 'Edit profile', eyebrow: 'Your account', intro: 'Choose how you appear in the community and who can see your saved recipes.', back: 'Back to my profile' };
 ---
 <AppLayout title={t.title}>
   <a href={href('/profile')} class="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary-ink no-underline hover:underline"><ArrowLeftIcon aria-hidden="true" />{t.back}</a>
@@ -48,31 +50,19 @@ const t = spanish
     <p class="intro">{t.intro}</p>
   </div>
   {errorMessage && <Alert variant="destructive" id="settings-error" className="mt-6 max-w-3xl"><AlertDescription><a href="#display-name">{errorMessage}</a></AlertDescription></Alert>}
-  <form method="post" class="mt-8 flex max-w-3xl flex-col gap-6" aria-describedby={errorMessage ? 'settings-error' : undefined}>
-    <Card>
-      <CardHeader>
-        <CardTitle><h2 class="type-headline-sm m-0">{t.profile}</h2></CardTitle>
-        <CardDescription>{t.profileIntro}</CardDescription>
-      </CardHeader>
-      <CardContent className="account-form">
-        <ProfileFields spanish={spanish} displayName={actor.displayName} bio={actor.bio} avatarPreset={actor.avatarPreset} />
-        <ImageUploader client:load purpose="avatar" available={mediaReadiness().enabled} spanish={spanish} currentAssetId={actor.avatarAssetId} />
-      </CardContent>
-    </Card>
-    <Card id="privacy" className="scroll-mt-6">
-      <CardHeader>
-        <CardTitle><h2 class="type-headline-sm m-0">{t.privacy}</h2></CardTitle>
-        <CardDescription>{t.privacyIntro}</CardDescription>
-      </CardHeader>
-      <CardContent className="account-form">
-        <SavedListField spanish={spanish} isPublic={actor.savedListPublic} />
-        <Separator />
-        <a href={href('/privacy')} class="text-sm font-semibold text-primary-ink">{t.device}</a>
-      </CardContent>
-    </Card>
-    <div class="flex flex-wrap gap-3">
-      <Button type="submit">{t.save}</Button>
-      <a href={href('/profile')} data-slot="button" class={buttonVariants({ variant: 'outline' })}>{t.cancel}</a>
-    </div>
-  </form>
+  <div class="mt-8">
+    <ProfileSettingsForm
+      client:load
+      language={spanish ? 'es' : 'en'}
+      displayName={field('displayName') ?? actor.displayName}
+      bio={field('bio') ?? actor.bio}
+      avatarPreset={preset}
+      avatarAssetId={actor.avatarAssetId ?? null}
+      savedListPublic={field('savedListPublic') === undefined ? actor.savedListPublic : field('savedListPublic') === 'true'}
+      mediaAvailable={mediaReadiness().enabled}
+      error={errorMessage || undefined}
+      cancelHref={href('/profile')}
+      privacyHref={href('/privacy')}
+    />
+  </div>
 </AppLayout>
