@@ -315,6 +315,21 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
     await page.getByRole("option", { name: /^Main/ }).click();
     await page.getByLabel("Origin", { exact: true }).click();
     await page.getByRole("option", { name: /not sure/i }).click();
+    await page.getByLabel("Origin", { exact: true }).click();
+    await page.getByRole("option", { name: "Choose…" }).click();
+    await expect(page.getByLabel("Origin", { exact: true })).toHaveText(
+      "Choose…",
+    );
+    await page.getByRole("button", { name: "Save Draft", exact: true }).click();
+    await expect(
+      page.getByRole("status").filter({ hasText: /Saved/ }),
+    ).toBeVisible();
+    expect(
+      (await pool.query("SELECT input->>'origin' AS origin FROM recipes"))
+        .rows[0].origin,
+    ).toBe("");
+    await page.getByLabel("Origin", { exact: true }).click();
+    await page.getByRole("option", { name: /not sure/i }).click();
     await page.getByLabel("Servings / yield").fill("4–6 servings");
     await page.getByLabel("Scaling baseline").fill("4");
     await page.getByLabel("I confirm this numeric baseline").check();

@@ -89,6 +89,7 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
   if (!res.ok) throw new Error("Request failed");
   return data.value;
 }
+const NONE_VALUE = "__none__";
 const fieldId = (field: string) => `field-${field.replaceAll(".", "-")}`;
 export default function RecipeEditor({
   accountId,
@@ -550,12 +551,19 @@ export default function RecipeEditor({
     options: { value: string; label: string }[],
     placeholder?: string,
   ) {
+    const known = options.some((option) => option.value === value);
     return (
-      <Select value={value || undefined} onValueChange={onChange}>
+      <Select
+        value={known ? (value ?? "") : ""}
+        onValueChange={(next) => onChange(next === NONE_VALUE ? "" : next)}
+      >
         <SelectTrigger className="w-full" {...controlProps(field)}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent position="popper">
+          {placeholder && (
+            <SelectItem value={NONE_VALUE}>{placeholder}</SelectItem>
+          )}
           {options.map((option) => (
             <SelectItem key={option.value} value={option.value}>
               {option.label}
