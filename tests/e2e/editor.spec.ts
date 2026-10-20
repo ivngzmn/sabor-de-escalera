@@ -468,18 +468,47 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
         await route.abort("connectionfailed");
       else await route.continue();
     });
-    await page
-      .getByRole("button", { name: "Delete draft", exact: true })
+    const deleteId = new URL(page.url()).searchParams.get("draft");
+    const rowState = async () =>
+      (await pool.query("SELECT state FROM recipes WHERE id=$1", [deleteId]))
+        .rows[0].state;
+    const openDelete = async () => {
+      await page
+        .getByRole("button", { name: "Delete draft", exact: true })
+        .click();
+      return page.getByRole("alertdialog", { name: "Delete draft" });
+    };
+    let dialog = await openDelete();
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText("This permanently removes the draft");
+    await expect(
+      dialog.getByRole("button", { name: "Keep draft" }),
+    ).toBeFocused();
+    expect(
+      (await new AxeBuilder({ page }).include('[role="alertdialog"]').analyze())
+        .violations,
+    ).toEqual([]);
+    await dialog
+      .getByRole("button", { name: "Delete permanently", exact: true })
       .click();
-    await page
-      .getByRole("button", { name: "Confirm delete", exact: true })
-      .click();
-    await expect(page.getByRole("alert")).toContainText(
+    await expect(dialog.getByRole("alert")).toContainText(
       "Could not confirm deletion",
     );
+    await dialog
+      .getByRole("button", { name: "Keep draft", exact: true })
+      .click();
+    await expect(dialog).toBeHidden();
+    expect(await rowState()).toBe("draft");
     await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
-    await page.getByRole("button", { name: "Cancel", exact: true }).click();
     await page.unroute("**/api/drafts/*");
+    dialog = await openDelete();
+    await dialog
+      .getByRole("button", { name: "Delete permanently", exact: true })
+      .click();
+    await expect.poll(rowState).toBe("deleted");
+    await expect(dialog).toBeHidden();
+    await page.goto(`${base}/add-recipe`);
+    await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
     await page.context().setOffline(true);
     await page
       .getByLabel("Title", { exact: true })

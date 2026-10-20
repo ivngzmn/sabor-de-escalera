@@ -52,6 +52,7 @@ import {
   type Result,
 } from "./validation";
 import RecipePreview from "./RecipePreview";
+import DeleteDraftDialog from "./DeleteDraftDialog";
 import "./editor.css";
 interface Props {
   accountId: string;
@@ -686,8 +687,8 @@ export default function RecipeEditor({
       setPublishing(false);
     }
   }
-  async function remove() {
-    if (!draft) return;
+  async function remove(): Promise<string | null> {
+    if (!draft) return null;
     try {
       await request(`/api/drafts/${draft.id}`, {
         action: "delete",
@@ -703,10 +704,11 @@ export default function RecipeEditor({
           "Borrador eliminado. Se ha borrado la copia del dispositivo.",
         ),
       });
-    } catch (e) {
-      failOperation(
-        e,
-        "Could not confirm deletion. Your work is preserved. Use Confirm delete to retry.",
+      return null;
+    } catch {
+      return t(
+        "Could not confirm deletion. Your work is preserved. Try again.",
+        "No se pudo confirmar la eliminación. Tu trabajo se conserva. Inténtalo de nuevo.",
       );
     }
   }
@@ -774,6 +776,7 @@ export default function RecipeEditor({
           <Button
             type="button"
             variant="outline"
+            className="text-destructive border-destructive/40"
             disabled={!ready || !draft || blocked || publishing}
             onClick={() => setConfirmDelete(true)}
           >
@@ -836,21 +839,21 @@ export default function RecipeEditor({
           {t("Start a new recipe", "Empezar otra receta")}
         </a>
       )}
-      {confirmDelete && !blocked && (
-        <section aria-label={t("Confirm deletion", "Confirmar eliminación")}>
-          <p>
-            {t(
-              "Delete this draft and its device recovery copy?",
-              "¿Eliminar este borrador y su copia de recuperación?",
-            )}
-          </p>
-          <Button onClick={remove}>
-            {t("Confirm delete", "Confirmar eliminación")}
-          </Button>{" "}
-          <Button onClick={() => setConfirmDelete(false)}>
-            {t("Cancel", "Cancelar")}
-          </Button>
-        </section>
+      {draft && (
+        <DeleteDraftDialog
+          open={confirmDelete && !blocked}
+          onOpenChange={setConfirmDelete}
+          title={input.title}
+          photoCount={input.photos.length}
+          ingredientCount={input.ingredients.length}
+          updatedAt={draft.updatedAt}
+          lang={lang}
+          onConfirm={async () => {
+            const message = await remove();
+            if (message === null) setConfirmDelete(false);
+            return message;
+          }}
+        />
       )}
       {recovery && !blocked && (
         <section>
