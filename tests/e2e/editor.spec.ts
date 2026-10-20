@@ -650,6 +650,136 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
     await expect(restart).toBeVisible();
     await expect(restart).toHaveCSS("color", "rgb(255, 255, 255)");
     await expect(restart).toHaveCSS("background-color", "rgb(200, 75, 49)");
+    // Leaving through an in-site link asks to save or discard unsaved work.
+    const discover = page.getByRole("link", { name: "Discover", exact: true });
+    const leaveDialog = page.getByRole("dialog", {
+      name: "Save your recipe before leaving?",
+    });
+    const titleOf = async (id: string | null) =>
+      (
+        await pool.query(
+          "SELECT input->>'title' AS title, state FROM recipes WHERE id=$1",
+          [id],
+        )
+      ).rows[0];
+    // A saved, unchanged draft leaves without asking.
+    await startDraft("Leave unchanged");
+    await expect(
+      page.getByRole("status").filter({ hasText: /^Saved$/ }),
+    ).toBeVisible({ timeout: 10000 });
+    await discover.click();
+    await expect(page).toHaveURL(`${base}/`);
+    await expect(leaveDialog).toHaveCount(0);
+    // Typed but not yet saved: the dialog asks; Keep editing stays put.
+    await page.goto(`${base}/add-recipe`);
+    await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
+    await page
+      .getByLabel("Title", { exact: true })
+      .fill("Saved on the way out");
+    const editorUrl = page.url();
+    await discover.click();
+    await expect(leaveDialog).toBeVisible();
+    await expect(leaveDialog).toContainText(
+      "You've started “Saved on the way out”. Save it as a draft to finish later, or discard it.",
+    );
+    expect(
+      (await new AxeBuilder({ page }).include('[role="dialog"]').analyze())
+        .violations,
+    ).toEqual([]);
+    await leaveDialog
+      .getByRole("button", { name: "Keep editing", exact: true })
+      .click();
+    await expect(leaveDialog).toBeHidden();
+    expect(page.url()).toBe(editorUrl);
+    // Save draft creates the draft, then continues to the link.
+    await discover.click();
+    await leaveDialog
+      .getByRole("button", { name: "Save draft", exact: true })
+      .click();
+    await expect(page).toHaveURL(`${base}/`, { timeout: 15000 });
+    expect(
+      (
+        await pool.query(
+          "SELECT input->>'title' AS title FROM recipes ORDER BY created_at DESC LIMIT 1",
+        )
+      ).rows[0].title,
+    ).toBe("Saved on the way out");
+    // Hold autosave back so the typed change is still unsaved when leaving.
+    await page.route("**/api/drafts/*", async (route) => {
+      if (
+        route.request().method() === "POST" &&
+        route.request().postDataJSON().action === "save"
+      )
+        await route.abort("connectionfailed");
+      else await route.continue();
+    });
+    // Discarding a draft created in this visit deletes it.
+    await startDraft("Discard what I started");
+    const startedId = new URL(page.url()).searchParams.get("draft");
+    await page
+      .getByLabel("Title", { exact: true })
+      .fill("Discard what I started, more");
+    await discover.click();
+    await leaveDialog
+      .getByRole("button", { name: "Discard", exact: true })
+      .click();
+    await expect(page).toHaveURL(`${base}/`, { timeout: 15000 });
+    expect((await titleOf(startedId)).state).toBe("deleted");
+    // Discarding changes to a re-opened draft keeps the draft as it was saved.
+    const reopenedId = (
+      await pool.query(
+        "SELECT id FROM recipes WHERE state='draft' AND input->>'title'=$1",
+        ["Saved on the way out"],
+      )
+    ).rows[0].id;
+    await page.goto(`${base}/add-recipe?draft=${reopenedId}`);
+    await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
+    await page.getByLabel("Title", { exact: true }).fill("Changes to discard");
+    await discover.click();
+    await leaveDialog
+      .getByRole("button", { name: "Discard", exact: true })
+      .click();
+    await expect(page).toHaveURL(`${base}/`, { timeout: 15000 });
+    expect(await titleOf(reopenedId)).toEqual({
+      title: "Saved on the way out",
+      state: "draft",
+    });
+    expect(
+      await page.evaluate(
+        (id) =>
+          Object.keys(localStorage).filter(
+            (k) => k.startsWith("escalera:recovery:") && k.includes(id),
+          ).length,
+        reopenedId,
+      ),
+    ).toBe(0);
+    await page.unroute("**/api/drafts/*");
+    // A failed save stays in the editor and shows the failure.
+    await page.goto(`${base}/add-recipe?draft=${reopenedId}`);
+    await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
+    await page.route("**/api/drafts/*", async (route) => {
+      if (route.request().method() === "POST")
+        await route.fulfill({ status: 503, body: "unavailable" });
+      else await route.continue();
+    });
+    await page.getByLabel("Title", { exact: true }).fill("Server is down");
+    const reopenedUrl = page.url();
+    await discover.click();
+    await leaveDialog
+      .getByRole("button", { name: "Save draft", exact: true })
+      .click();
+    await expect(leaveDialog).toBeHidden({ timeout: 15000 });
+    await expect(
+      page.getByRole("alert").filter({ hasText: "Your draft needs attention" }),
+    ).toBeVisible();
+    expect(page.url()).toBe(reopenedUrl);
+    // A modifier click opens a new tab and leaves this one alone.
+    const opened = page.context().waitForEvent("page");
+    await discover.click({ modifiers: ["ControlOrMeta"] });
+    await (await opened).close();
+    await expect(leaveDialog).toHaveCount(0);
+    expect(page.url()).toBe(reopenedUrl);
+    await page.unroute("**/api/drafts/*");
     await startDraft("Logout draft");
     await page.context().setOffline(true);
     await page

@@ -53,7 +53,9 @@ import {
 } from "./validation";
 import RecipePreview from "./RecipePreview";
 import DeleteDraftDialog from "./DeleteDraftDialog";
-import { hasContent } from "./draft-intent";
+import LeaveDraftDialog from "./LeaveDraftDialog";
+import { hasContent, hasUnsavedWork } from "./draft-intent";
+import { useLeaveGuard } from "./useLeaveGuard";
 import "./editor.css";
 interface Props {
   accountId: string;
@@ -108,12 +110,15 @@ export default function RecipeEditor({
     >([]),
     [paste, setPaste] = useState(""),
     [pasteLines, setPasteLines] = useState<string[] | null>(null),
-    [confirmDelete, setConfirmDelete] = useState(false);
+    [confirmDelete, setConfirmDelete] = useState(false),
+    [leaving, setLeaving] = useState<string | null>(null);
   const current = useRef(input),
     saved = useRef(initial?.input ?? null),
     record = useRef(initial),
     busy = useRef(false),
     creating = useRef<Promise<Draft | null> | null>(null),
+    saving = useRef<Promise<Draft | null> | null>(null),
+    retryAfter = useRef<number | null>(null),
     createdHere = useRef<boolean>(false),
     stopped = useRef(false),
     publicationPending = useRef(false),
@@ -208,7 +213,8 @@ export default function RecipeEditor({
         const next = await request<Draft>("/api/drafts", { input: snapshot });
         createdHere.current = true;
         remember(next);
-        saved.current = next.input;
+        // Stopped meanwhile (logout, discard): don't rewrite a recovery copy.
+        if (stopped.current) return next;
         if (sameRecipe(current.current, snapshot)) {
           current.current = next.input;
           setInput(next.input);
@@ -242,64 +248,96 @@ export default function RecipeEditor({
     setPaste("");
     if (!record.current && hasContent(current.current)) void ensureDraft();
   }
-  async function save(): Promise<Draft | null> {
+  /** `force` skips the client-side five-second wait (leaving the editor). */
+  function save({ force = false } = {}): Promise<Draft | null> {
     if (!record.current || busy.current || stopped.current || conflict)
-      return null;
+      return Promise.resolve(null);
+    const draft = record.current;
     const snapshot = current.current;
+    retryAfter.current = null;
     if (sameRecipe(snapshot, saved.current)) {
       setStatus("saved");
-      return record.current;
+      return Promise.resolve(draft);
     }
     const wait = 5000 - (Date.now() - lastWrite.current);
-    if (wait > 0) {
+    if (wait > 0 && !force) {
       setStatus("waiting");
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => {
         void saveAction.current();
       }, wait);
-      return null;
+      return Promise.resolve(null);
     }
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
     busy.current = true;
     setStatus("saving");
     setFailure(null);
-    try {
-      const next = await request<Draft>(`/api/drafts/${record.current.id}`, {
-        action: "save",
-        version: record.current.version,
-        input: snapshot,
-      });
-      remember(next);
-      lastWrite.current = Date.now();
-      if (sameRecipe(current.current, snapshot)) {
-        current.current = next.input;
-        setInput(next.input);
-        setStatus("saved");
-        forget(next.id);
-      } else setStatus("unsaved");
-      return next;
-    } catch (e) {
-      const error =
-        e instanceof RequestError
-          ? e.details
-          : {
-              status: 503,
-              message: t(
-                "Could not save. Your text and photos are preserved. Retry.",
-                "No se pudo guardar. Se conservan el texto y las fotos. Reintenta.",
-              ),
-            };
-      stop(error);
-      if (error.status === 429) {
-        lastWrite.current = Date.now() - 5000 + (error.retryAfter ?? 5) * 1000;
-        setStatus("waiting");
+    const pending = (async () => {
+      try {
+        const next = await request<Draft>(`/api/drafts/${draft.id}`, {
+          action: "save",
+          version: draft.version,
+          input: snapshot,
+        });
+        remember(next);
+        lastWrite.current = Date.now();
+        if (sameRecipe(current.current, snapshot)) {
+          current.current = next.input;
+          setInput(next.input);
+          setStatus("saved");
+          forget(next.id);
+        } else setStatus("unsaved");
+        return next;
+      } catch (e) {
+        const error =
+          e instanceof RequestError
+            ? e.details
+            : {
+                status: 503,
+                message: t(
+                  "Could not save. Your text and photos are preserved. Retry.",
+                  "No se pudo guardar. Se conservan el texto y las fotos. Reintenta.",
+                ),
+              };
+        stop(error);
+        if (error.status === 429) {
+          retryAfter.current = error.retryAfter ?? 5;
+          lastWrite.current = Date.now() - 5000 + retryAfter.current * 1000;
+          setStatus("waiting");
+        }
+        return null;
+      } finally {
+        busy.current = false;
+        saving.current = null;
       }
-      return null;
-    } finally {
-      busy.current = false;
-    }
+    })();
+    saving.current = pending;
+    return pending;
   }
+  /** Resolves once no save, create or copy request is in flight. */
+  async function idle() {
+    while (busy.current)
+      await (saving.current ??
+        creating.current ??
+        new Promise((resolve) => setTimeout(resolve, 50)));
+  }
+  /** Saves without the five-second wait; a 429 is waited out and retried once. */
+  async function saveNow(): Promise<Draft | null> {
+    await idle();
+    const next = await save({ force: true });
+    if (next || retryAfter.current === null) return next;
+    await new Promise((resolve) =>
+      setTimeout(resolve, (retryAfter.current ?? 5) * 1000),
+    );
+    await idle();
+    return save({ force: true });
+  }
+  // Autosave holds while the leave dialog is open, so Discard can't race it.
   saveAction.current = () =>
-    publicationPending.current ? Promise.resolve(null) : save();
+    publicationPending.current || leaving !== null
+      ? Promise.resolve(null)
+      : save();
   useEffect(() => {
     if (!initial) return;
     try {
@@ -324,23 +362,23 @@ export default function RecipeEditor({
       Math.max(700, 5000 - (Date.now() - lastWrite.current)),
     );
     return () => clearTimeout(scheduled);
-  }, [input, status]);
-  useEffect(() => {
-    const leave = (e: BeforeUnloadEvent) => {
-      if (
-        record.current &&
-        !stopped.current &&
-        !sameRecipe(current.current, saved.current)
-      ) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener("beforeunload", leave);
-    return () => {
-      window.removeEventListener("beforeunload", leave);
+  }, [input, status, leaving]);
+  const guard = useLeaveGuard({
+    shouldGuard: () =>
+      hasUnsavedWork({
+        stopped: stopped.current,
+        hasDraft: !!record.current,
+        current: current.current,
+        saved: saved.current,
+      }),
+    onIntercept: setLeaving,
+  });
+  useEffect(
+    () => () => {
       if (timer.current) clearTimeout(timer.current);
-    };
-  }, []);
+    },
+    [],
+  );
   useEffect(() => {
     const withdraw = registerConsentCleanup("recovery", () =>
       setRecovery(null),
@@ -714,8 +752,17 @@ export default function RecipeEditor({
       setPublishing(false);
     }
   }
-  async function remove(): Promise<string | null> {
-    if (!draft) return null;
+  /**
+   * Deletes the current draft. `deleted` is true when it is gone (including an
+   * earlier deletion, 410); `message` is set when the member should retry.
+   */
+  async function deleteDraft(): Promise<{
+    deleted: boolean;
+    message: string | null;
+    status?: number;
+  }> {
+    const draft = record.current;
+    if (!draft) return { deleted: false, message: null };
     try {
       await request(`/api/drafts/${draft.id}`, {
         action: "delete",
@@ -727,14 +774,17 @@ export default function RecipeEditor({
         if (status === 401 || status === 409 || status === 410) {
           stop(e.details);
           setConfirmDelete(false);
-          return null;
+          return { deleted: status === 410, message: null, status };
         }
-        return e.details.message;
+        return { deleted: false, message: e.details.message, status };
       }
-      return t(
-        "Could not confirm deletion. Your work is preserved. Try again.",
-        "No se pudo confirmar la eliminación. Tu trabajo se conserva. Inténtalo de nuevo.",
-      );
+      return {
+        deleted: false,
+        message: t(
+          "Could not confirm deletion. Your work is preserved. Try again.",
+          "No se pudo confirmar la eliminación. Tu trabajo se conserva. Inténtalo de nuevo.",
+        ),
+      };
     }
     forget(draft.id);
     stopped.current = true;
@@ -746,7 +796,57 @@ export default function RecipeEditor({
         "Borrador eliminado. Se ha borrado la copia del dispositivo.",
       ),
     });
-    return null;
+    return { deleted: true, message: null };
+  }
+  async function remove(): Promise<string | null> {
+    return (await deleteDraft()).message;
+  }
+  function leave(href: string) {
+    guard.release();
+    location.assign(href);
+  }
+  async function saveAndLeave(): Promise<boolean> {
+    const href = leaving;
+    if (!href) return false;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    await idle();
+    if (conflict) await copy();
+    else {
+      if (!record.current) await ensureDraft();
+      if (record.current) await saveNow();
+    }
+    if (record.current && sameRecipe(current.current, saved.current)) {
+      leave(href);
+      return true;
+    }
+    setLeaving(null);
+    return false;
+  }
+  async function discardAndLeave() {
+    const href = leaving;
+    if (!href) return;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    stopped.current = true;
+    // A create or save may still land; wait so the right draft is removed.
+    await idle();
+    const draft = record.current;
+    if (draft && createdHere.current) {
+      const { deleted, message, status } = await deleteDraft();
+      if (!deleted) {
+        // A sign-out (401) keeps the editor stopped; anything else resumes.
+        if (status !== 401) stopped.current = false;
+        if (message) {
+          setFailure({ status: 503, message });
+          setStatus("error");
+          setOperationError(true);
+        }
+        setLeaving(null);
+        return;
+      }
+    } else if (draft) forget(draft.id);
+    leave(href);
   }
   if (published)
     return (
@@ -899,6 +999,15 @@ export default function RecipeEditor({
           }}
         />
       )}
+      <LeaveDraftDialog
+        open={leaving !== null}
+        title={input.title}
+        lang={lang}
+        conflict={conflict}
+        onKeepEditing={() => setLeaving(null)}
+        onDiscard={discardAndLeave}
+        onSave={saveAndLeave}
+      />
       {recovery && !blocked && (
         <section>
           <p>
