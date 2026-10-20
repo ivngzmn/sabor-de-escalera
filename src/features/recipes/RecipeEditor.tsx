@@ -694,23 +694,32 @@ export default function RecipeEditor({
         action: "delete",
         version: draft.version,
       });
-      forget(draft.id);
-      stopped.current = true;
-      setBlocked(true);
-      setFailure({
-        status: 410,
-        message: t(
-          "Draft deleted. Its device copy has been removed.",
-          "Borrador eliminado. Se ha borrado la copia del dispositivo.",
-        ),
-      });
-      return null;
-    } catch {
+    } catch (e) {
+      if (e instanceof RequestError) {
+        const { status } = e.details;
+        if (status === 401 || status === 409 || status === 410) {
+          stop(e.details);
+          setConfirmDelete(false);
+          return null;
+        }
+        return e.details.message;
+      }
       return t(
         "Could not confirm deletion. Your work is preserved. Try again.",
         "No se pudo confirmar la eliminación. Tu trabajo se conserva. Inténtalo de nuevo.",
       );
     }
+    forget(draft.id);
+    stopped.current = true;
+    setBlocked(true);
+    setFailure({
+      status: 410,
+      message: t(
+        "Draft deleted. Its device copy has been removed.",
+        "Borrador eliminado. Se ha borrado la copia del dispositivo.",
+      ),
+    });
+    return null;
   }
   if (published)
     return (

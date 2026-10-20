@@ -501,6 +501,40 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
     expect(await rowState()).toBe("draft");
     await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
     await page.unroute("**/api/drafts/*");
+    await page.route("**/api/drafts/*", async (route) => {
+      if (
+        route.request().method() === "POST" &&
+        route.request().postDataJSON().action === "delete"
+      )
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ok: false,
+            error: {
+              status: 409,
+              message:
+                "A newer version exists. Load latest or save your work as a separate draft.",
+            },
+          }),
+        });
+      else await route.continue();
+    });
+    dialog = await openDelete();
+    await dialog
+      .getByRole("button", { name: "Delete permanently", exact: true })
+      .click();
+    await expect(dialog).toBeHidden();
+    await expect(
+      page.getByRole("button", { name: "Load latest" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Save as separate draft" }),
+    ).toBeVisible();
+    expect(await rowState()).toBe("draft");
+    await page.unroute("**/api/drafts/*");
+    await page.reload();
+    await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
     dialog = await openDelete();
     await dialog
       .getByRole("button", { name: "Delete permanently", exact: true })
