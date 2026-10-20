@@ -305,14 +305,16 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
       "field-category-error",
     );
     await expect(
-      page.getByLabel("Primary category").locator("..").locator(".."),
+      page.getByLabel("Primary category").locator(".."),
     ).toHaveAttribute("data-invalid", "true");
 
     await expect(page.getByLabel("Title", { exact: true })).toHaveValue(
       "<img src=x onerror=alert(1)> Frijoles",
     );
-    await page.getByLabel("Primary category").selectOption("main");
-    await page.getByLabel("Origin", { exact: true }).selectOption("not-sure");
+    await page.getByLabel("Primary category").click();
+    await page.getByRole("option", { name: /^Main/ }).click();
+    await page.getByLabel("Origin", { exact: true }).click();
+    await page.getByRole("option", { name: /not sure/i }).click();
     await page.getByLabel("Servings / yield").fill("4–6 servings");
     await page.getByLabel("Scaling baseline").fill("4");
     await page.getByLabel("I confirm this numeric baseline").check();

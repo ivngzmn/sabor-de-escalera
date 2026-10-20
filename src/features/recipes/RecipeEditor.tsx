@@ -16,11 +16,18 @@ import {
   FieldSet,
   FieldLegend,
   FieldLabel as Label,
+  FieldDescription,
   FieldError as FieldErrorMessage,
 } from "@/components/ui/field";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
-import { NativeSelect } from "@/components/ui/native-select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useEffect, useRef, useState, type ClipboardEvent } from "react";
 import ImageUploader from "../media/ImageUploader";
 import {
@@ -534,6 +541,28 @@ export default function RecipeEditor({
           </FieldErrorMessage>
         )}
       </>
+    );
+  }
+  function selectField(
+    field: string,
+    value: string | undefined,
+    onChange: (value: string) => void,
+    options: { value: string; label: string }[],
+    placeholder?: string,
+  ) {
+    return (
+      <Select value={value || undefined} onValueChange={onChange}>
+        <SelectTrigger className="w-full" {...controlProps(field)}>
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent position="popper">
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     );
   }
   function textField(
@@ -1153,18 +1182,16 @@ export default function RecipeEditor({
                             "Primary category",
                             "Categoría principal",
                           )}
-                          <NativeSelect
-                            {...controlProps("category")}
-                            value={input.category}
-                            onChange={(e) => set("category", e.target.value)}
-                          >
-                            <option value="">{t("Choose…", "Elegir…")}</option>
-                            {categories.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c[lang]}
-                              </option>
-                            ))}
-                          </NativeSelect>
+                          {selectField(
+                            "category",
+                            input.category,
+                            (value) => set("category", value),
+                            categories.map((c) => ({
+                              value: c.id,
+                              label: c[lang],
+                            })),
+                            t("Choose…", "Elegir…"),
+                          )}
                         </Field>
                         <Field
                           data-invalid={errors.some(
@@ -1172,18 +1199,16 @@ export default function RecipeEditor({
                           )}
                         >
                           {label("origin", "Origin", "Origen")}
-                          <NativeSelect
-                            {...controlProps("origin")}
-                            value={input.origin}
-                            onChange={(e) => set("origin", e.target.value)}
-                          >
-                            <option value="">{t("Choose…", "Elegir…")}</option>
-                            {origins.map((o) => (
-                              <option key={o.id} value={o.id}>
-                                {o[lang === "es" ? "label_es" : "label_en"]}
-                              </option>
-                            ))}
-                          </NativeSelect>
+                          {selectField(
+                            "origin",
+                            input.origin,
+                            (value) => set("origin", value),
+                            origins.map((o) => ({
+                              value: o.id,
+                              label: o[lang === "es" ? "label_es" : "label_en"],
+                            })),
+                            t("Choose…", "Elegir…"),
+                          )}
                         </Field>
                       </div>
                       {textField(
@@ -1231,12 +1256,12 @@ export default function RecipeEditor({
                             "Confirmo esta base numérica",
                           )}
                         </Label>
-                        <p>
+                        <FieldDescription>
                           {t(
                             "Keep your yield range above; choose the number the written quantities serve. Quantities such as ½, 2–3 and “to taste” remain as written.",
                             "Conserva arriba el rango; elige cuántas porciones representan las cantidades. Se conservan ½, 2–3 y «al gusto».",
                           )}
-                        </p>
+                        </FieldDescription>
                       </Field>
                       <Field
                         data-invalid={errors.some(
@@ -1248,26 +1273,28 @@ export default function RecipeEditor({
                           "Timing method",
                           "Cómo indicar el tiempo",
                         )}
-                        <NativeSelect
-                          {...controlProps("timing")}
-                          value={input.timing.mode}
-                          onChange={(e) =>
+                        {selectField(
+                          "timing",
+                          input.timing.mode,
+                          (value) =>
                             set("timing", {
                               ...input.timing,
-                              mode: e.target.value as "total" | "parts",
-                            })
-                          }
-                        >
-                          <option value="total">
-                            {t("Total time", "Tiempo total")}
-                          </option>
-                          <option value="parts">
-                            {t(
-                              "Prep + cook + rest",
-                              "Preparación + cocción + reposo",
-                            )}
-                          </option>
-                        </NativeSelect>
+                              mode: value as "total" | "parts",
+                            }),
+                          [
+                            {
+                              value: "total",
+                              label: t("Total time", "Tiempo total"),
+                            },
+                            {
+                              value: "parts",
+                              label: t(
+                                "Prep + cook + rest",
+                                "Preparación + cocción + reposo",
+                              ),
+                            },
+                          ],
+                        )}
                       </Field>
                       <div className="editor-grid">
                         {(input.timing.mode === "total"
@@ -1303,13 +1330,13 @@ export default function RecipeEditor({
                           </Field>
                         ))}
                       </div>
-                      <p>
+                      <FieldDescription>
                         {t(
                           "Total includes all preparation, cooking and rest/chill time.",
                           "El total incluye preparación, cocción y reposo/frío.",
                         )}{" "}
                         {totalMinutes(input) ?? "—"} {t("minutes", "minutos")}
-                      </p>
+                      </FieldDescription>
                       {textField(
                         "story",
                         "Story (optional)",
@@ -1342,23 +1369,22 @@ export default function RecipeEditor({
                           "Original recipe language",
                           "Idioma original de la receta",
                         )}
-                        <NativeSelect
-                          {...controlProps("language")}
-                          value={input.language}
-                          onChange={(e) =>
-                            set("language", e.target.value as "en" | "es")
-                          }
-                        >
-                          <option value="en">English</option>
-                          <option value="es">Español</option>
-                        </NativeSelect>
+                        {selectField(
+                          "language",
+                          input.language,
+                          (value) => set("language", value as "en" | "es"),
+                          [
+                            { value: "en", label: "English" },
+                            { value: "es", label: "Español" },
+                          ],
+                        )}
                       </Field>
-                      <p>
+                      <FieldDescription>
                         {t(
                           "Optional dietary tags are author provided.",
                           "Las etiquetas opcionales las indica el autor.",
                         )}
-                      </p>
+                      </FieldDescription>
                       {["vegan", "vegetarian"].map((tag) => (
                         <Label key={tag} htmlFor={`dietary-${tag}`}>
                           <Checkbox
@@ -1436,7 +1462,9 @@ export default function RecipeEditor({
                               )
                             }
                           />
-                          <p>{Array.from(p.caption).length}/400</p>
+                          <FieldDescription>
+                            {Array.from(p.caption).length}/400
+                          </FieldDescription>
                         </Field>
                         <Field
                           data-invalid={errors.some(
@@ -1463,12 +1491,12 @@ export default function RecipeEditor({
                               )
                             }
                           />
-                          <p>
+                          <FieldDescription>
                             {t(
                               "The caption is the default alt text.",
                               "La descripción se usa como texto alternativo por defecto.",
                             )}
-                          </p>
+                          </FieldDescription>
                         </Field>
                         {i === 0 &&
                           (["x", "y", "zoom"] as const).map((k) => (
