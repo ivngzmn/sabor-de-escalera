@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,6 +22,7 @@ export default function LeaveDraftDialog(props: Props) {
   const { open, lang, conflict } = props;
   const t = (en: string, es: string) => (lang === "es" ? es : en);
   const [pending, setPending] = useState(false);
+  const save = useRef<HTMLButtonElement>(null);
   // Success navigates away, so buttons stay disabled; failure closes the dialog.
   useEffect(() => {
     if (!open) setPending(false);
@@ -42,7 +43,14 @@ export default function LeaveDraftDialog(props: Props) {
         if (!next && !pending) props.onKeepEditing();
       }}
     >
-      <DialogContent showCloseButton={false}>
+      <DialogContent
+        showCloseButton={false}
+        // Focus the safe primary action, never Discard: Enter must not delete.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          save.current?.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>
             {t(
@@ -82,6 +90,7 @@ export default function LeaveDraftDialog(props: Props) {
               {t("Keep editing", "Seguir editando")}
             </Button>
             <Button
+              ref={save}
               type="button"
               disabled={pending}
               onClick={() => void run(props.onSave)}

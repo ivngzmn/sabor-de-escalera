@@ -679,6 +679,9 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
     const editorUrl = page.url();
     await discover.click();
     await expect(leaveDialog).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Save draft" }),
+    ).toBeFocused();
     await expect(leaveDialog).toContainText(
       "You've started “Saved on the way out”. Save it as a draft to finish later, or discard it.",
     );
