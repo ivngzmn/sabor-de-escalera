@@ -25,7 +25,8 @@
   --masa: var(--color-masa);
   --masa-soft: var(--color-masa-soft);
   --masa-foreground: var(--color-masa-ink);
-  --destructive: var(--color-terracotta);
+  --destructive: #b42318;
+  --destructive-soft: #fef3f2;
   --destructive-foreground: #fff;
   --border: var(--color-border);
   --input: var(--color-outline);
@@ -53,6 +54,7 @@
   --color-masa-soft: var(--masa-soft);
   --color-masa-foreground: var(--masa-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-soft: var(--destructive-soft);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
