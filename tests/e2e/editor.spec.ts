@@ -85,8 +85,11 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
   });
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
+  // Counted so a second native prompt after the leave dialog can't slip by.
+  let unloadPrompts = 0;
   page.on("dialog", async (d) => {
     if (d.type() !== "beforeunload") errors.push("Unexpected author dialog");
+    else unloadPrompts++;
     await d.accept();
   });
   try {
@@ -679,6 +682,16 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
           [id],
         )
       ).rows[0];
+    // Before any draft exists, a browser-level exit still gets the native prompt.
+    await page.goto(`${base}/add-recipe`);
+    await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
+    await page.getByLabel("Title", { exact: true }).click();
+    await page.keyboard.type("Typed before any draft");
+    unloadPrompts = 0;
+    await page.goto(`${base}/`);
+    await expect(page).toHaveURL(`${base}/`);
+    expect(unloadPrompts).toBe(1);
+    unloadPrompts = 0;
     // A saved, unchanged draft leaves without asking.
     await startDraft("Leave unchanged");
     await expect(
@@ -724,6 +737,7 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
         )
       ).rows[0].title,
     ).toBe("Saved on the way out");
+    expect(unloadPrompts).toBe(0);
     // Hold autosave back so the typed change is still unsaved when leaving.
     await page.route("**/api/drafts/*", async (route) => {
       if (
@@ -740,11 +754,13 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
       .getByLabel("Title", { exact: true })
       .fill("Discard what I started, more");
     await discover.click();
+    await expect(leaveDialog).toContainText("Discarding deletes this draft.");
     await leaveDialog
       .getByRole("button", { name: "Discard", exact: true })
       .click();
     await expect(page).toHaveURL(`${base}/`, { timeout: 15000 });
     expect((await titleOf(startedId)).state).toBe("deleted");
+    expect(unloadPrompts).toBe(0);
     // Discarding changes to a re-opened draft keeps the draft as it was saved.
     const reopenedId = (
       await pool.query(
@@ -756,6 +772,7 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
     await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
     await page.getByLabel("Title", { exact: true }).fill("Changes to discard");
     await discover.click();
+    await expect(leaveDialog).not.toContainText("Discarding deletes");
     await leaveDialog
       .getByRole("button", { name: "Discard", exact: true })
       .click();
@@ -773,6 +790,7 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
         reopenedId,
       ),
     ).toBe(0);
+    expect(unloadPrompts).toBe(0);
     await page.unroute("**/api/drafts/*");
     // A failed save stays in the editor and shows the failure.
     await page.goto(`${base}/add-recipe?draft=${reopenedId}`);
@@ -800,6 +818,93 @@ test("actual Astro editor saves, preserves language/steps, focuses errors, confi
     await expect(leaveDialog).toHaveCount(0);
     expect(page.url()).toBe(reopenedUrl);
     await page.unroute("**/api/drafts/*");
+    // Sign out from the account menu goes through the same leave dialog. A
+    // session cookie hint makes the header render the member menu; Clerk's
+    // browser SDK can't load here, so its signOut is stubbed per page.
+    await page.context().addCookies([
+      { name: "__client_uat", value: "1700000000", url: base },
+    ]);
+    const signOutCalls = () =>
+      page.evaluate(
+        () => (window as unknown as { signOuts?: string[] }).signOuts ?? [],
+      );
+    const openEditor = async (path: string) => {
+      await page.goto(`${base}${path}`);
+      await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
+      await page.evaluate(() => {
+        const w = window as unknown as {
+          signOuts: string[];
+          Clerk?: Record<string, unknown>;
+        };
+        w.signOuts = [];
+        w.Clerk = {
+          ...w.Clerk,
+          signOut: async (options: { redirectUrl: string }) => {
+            w.signOuts.push(options.redirectUrl);
+            location.assign(options.redirectUrl);
+          },
+        };
+      });
+    };
+    const signOut = async () => {
+      await page.getByRole("button", { name: /^Account menu/ }).click();
+      await page.getByRole("menuitem", { name: "Sign out" }).click();
+    };
+    await openEditor("/add-recipe");
+    unloadPrompts = 0;
+    await page.getByLabel("Title", { exact: true }).fill("Signed out mid-edit");
+    await signOut();
+    await expect(leaveDialog).toBeVisible();
+    await leaveDialog
+      .getByRole("button", { name: "Keep editing", exact: true })
+      .click();
+    await expect(leaveDialog).toBeHidden();
+    expect(await signOutCalls()).toEqual([]);
+    await expect(page.getByLabel("Title", { exact: true })).toBeEnabled();
+    // Save draft keeps the work, then signs out.
+    await signOut();
+    await leaveDialog
+      .getByRole("button", { name: "Save draft", exact: true })
+      .click();
+    await expect(page).toHaveURL(`${base}/`, { timeout: 15000 });
+    expect(
+      (
+        await pool.query(
+          "SELECT state FROM recipes WHERE input->>'title'=$1",
+          ["Signed out mid-edit"],
+        )
+      ).rows,
+    ).toEqual([{ state: "draft" }]);
+    expect(
+      await page.evaluate(
+        () =>
+          Object.keys(localStorage).filter((k) =>
+            k.startsWith("escalera:recovery:"),
+          ).length,
+      ),
+    ).toBe(0);
+    // Discard on a fresh editor signs out without creating a draft.
+    await openEditor("/add-recipe");
+    await page.getByLabel("Title", { exact: true }).fill("Never kept");
+    await signOut();
+    await leaveDialog
+      .getByRole("button", { name: "Discard", exact: true })
+      .click();
+    await expect(page).toHaveURL(`${base}/`, { timeout: 15000 });
+    expect(
+      (
+        await pool.query("SELECT id FROM recipes WHERE input->>'title'=$1", [
+          "Never kept",
+        ])
+      ).rowCount,
+    ).toBe(0);
+    // Nothing unsaved: sign out goes straight through.
+    await openEditor("/add-recipe");
+    await signOut();
+    await expect(page).toHaveURL(`${base}/`, { timeout: 15000 });
+    await expect(leaveDialog).toHaveCount(0);
+    expect(unloadPrompts).toBe(0);
+    await page.context().clearCookies({ name: "__client_uat" });
     await startDraft("Logout draft");
     await page.context().setOffline(true);
     await page
