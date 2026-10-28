@@ -40,7 +40,7 @@
   --color-masa-ink: #735801;
   --color-text: #231a12;
   --color-espresso: #1a120b;
-  --color-muted: #58413c;
+  --color-text-muted: #58413c;
   --color-outline: #8c716b;
   --color-border: rgba(38, 28, 20, .08);
   --color-border-strong: #e0bfb9;
@@ -52,22 +52,33 @@
   --space-md: 1rem;
   --space-lg: 1.5rem;
   --space-xl: 2.5rem;
-  --radius: .5rem;
+  /* DESIGN.md radius steps; global.css maps them onto Tailwind's rounded-*. */
+  --radius-accent: 4px;
+  --radius-control: 8px;
+  --radius-group: 12px;
+  --radius-card: 16px;
+  --radius-tile: 24px;
+  --radius-pill: 9999px;
   --content-width: 80rem;
   --shadow-level-1: 0 2px 8px -2px rgba(38, 28, 20, .06), 0 1px 3px 0 rgba(38, 28, 20, .04);
   --shadow-level-2: 0 8px 24px -4px rgba(38, 28, 20, .10), 0 4px 10px -2px rgba(38, 28, 20, .05);
+  --color-scrim: rgba(26, 18, 11, .5);
   --shadow-level-3: 0 20px 32px -6px rgba(38, 28, 20, .16), 0 8px 16px -4px rgba(38, 28, 20, .08);
 }
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--color-cream); color: var(--color-text); font: 1rem/1.6 var(--font-body); }
-a:not([data-slot]) { color: var(--color-terracotta); text-underline-offset: .2em; }
-a:hover { text-decoration-thickness: .15em; }
-:focus-visible:not([data-slot]) { outline: 3px solid var(--color-focus); outline-offset: 4px; }
-h1, h2, h3 { font-family: var(--font-heading); font-weight: 600; color: var(--color-text); }
-/* headline-xl / headline-lg / headline-sm from the Stitch type scale. */
-h1 { font-size: clamp(2.25rem, 2.5vw + 1.25rem, 3rem); line-height: 1.17; margin: .5rem 0 1rem; }
-h2 { font-size: clamp(1.75rem, 1.5vw + 1.2rem, 2.25rem); line-height: 1.22; }
-h3 { font-size: 1.375rem; line-height: 1.27; }
+/* Element defaults live in the base layer so Tailwind utilities and third-party
+   widgets (Clerk, OpenUI) win over them, while class rules below stay unlayered. */
+@layer base {
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--color-cream); color: var(--color-text); font: 1rem/1.6 var(--font-body); }
+  a:not([data-slot]) { color: var(--color-terracotta); text-underline-offset: .2em; }
+  a:hover { text-decoration-thickness: .15em; }
+  :focus-visible:not([data-slot]) { outline: 3px solid var(--color-focus); outline-offset: 4px; }
+  h1, h2, h3 { font-family: var(--font-heading); font-weight: 600; color: var(--color-text); }
+  /* headline-xl / headline-lg / headline-sm from the Stitch type scale. */
+  h1 { font-size: clamp(2.25rem, 2.5vw + 1.25rem, 3rem); line-height: 1.17; margin: .5rem 0 1rem; }
+  h2 { font-size: clamp(1.75rem, 1.5vw + 1.2rem, 2.25rem); line-height: 1.22; }
+  h3 { font-size: 1.375rem; line-height: 1.27; }
+}
 .container { width: min(var(--content-width), calc(100% - 2rem)); margin-inline: auto; }
 @media (min-width: 768px) { .container { width: min(var(--content-width), calc(100% - 3rem)); } }
 @media (min-width: 1200px) { .container { width: min(var(--content-width), calc(100% - 5rem)); } }
@@ -82,30 +93,30 @@ a.brand:not([data-slot]) { color: var(--color-terracotta); }
 .site-nav a:not([data-slot]):hover { color: var(--color-terracotta); }
 .site-nav a[aria-current]:not([data-slot]) { color: var(--color-terracotta); font-weight: 600; border-bottom-color: currentColor; }
 .header-actions { display: flex; align-items: center; gap: .75rem; }
-.language-switch { display: flex; padding: .25rem; gap: .25rem; border-radius: 9999px; background: var(--color-warm); }
-.language-switch a:not([data-slot]) { display: inline-flex; align-items: center; min-height: 36px; padding: .25rem .875rem; border-radius: 9999px; color: var(--color-muted); font-size: .8125rem; font-weight: 600; text-decoration: none; }
+.language-switch { display: flex; padding: .25rem; gap: .25rem; border-radius: var(--radius-pill); background: var(--color-warm); }
+.language-switch a:not([data-slot]) { display: inline-flex; align-items: center; min-height: 36px; padding: .25rem .875rem; border-radius: var(--radius-pill); color: var(--color-text-muted); font-size: .8125rem; font-weight: 600; text-decoration: none; }
 .language-switch a[aria-current]:not([data-slot]) { background: var(--color-surface); color: var(--color-terracotta); box-shadow: var(--shadow-level-1); }
 main { min-height: 58vh; padding-block: clamp(2rem, 5vw, 4rem); }
-/* label-sm micro-label used above section titles. */
-.eyebrow { margin: 0; color: var(--color-terracotta); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; font-size: .75rem; line-height: 1.4; }
-.intro { max-width: 46rem; color: var(--color-muted); font-size: 1.125rem; line-height: 1.56; }
+.intro { max-width: 46rem; color: var(--color-text-muted); font-size: 1.125rem; line-height: 1.56; }
 .site-footer { background: var(--color-warm); border-top: 1px solid var(--color-border); padding-block: 3rem 2rem; }
 .footer-inner { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 1.5rem 3rem; }
 .footer-brand { display: flex; flex-direction: column; gap: .75rem; max-width: 30rem; }
 .footer-brand .brand { font-size: 1.375rem; color: var(--color-terracotta); min-height: 0; }
-.footer-copy { margin: 0; color: var(--color-muted); }
+.footer-copy { margin: 0; color: var(--color-text-muted); }
 .footer-nav { display: flex; flex-wrap: wrap; gap: .25rem 1.5rem; }
-.site-footer a:not([data-slot]) { display: inline-flex; align-items: center; min-height: 44px; padding: .5rem .125rem; color: var(--color-muted); text-decoration: none; }
+.site-footer a:not([data-slot]) { display: inline-flex; align-items: center; min-height: 44px; padding: .5rem .125rem; color: var(--color-text-muted); text-decoration: none; }
 .site-footer a:not([data-slot]):hover { color: var(--color-terracotta); text-decoration: underline; }
 .site-footer a.brand:not([data-slot]) { color: var(--color-terracotta); font-family: var(--font-heading); }
-.footer-legal { margin: 2rem 0 0; padding-top: 1.25rem; border-top: 1px solid var(--color-border); color: var(--color-muted); font-size: .8125rem; }
+.footer-legal { margin: 2rem 0 0; padding-top: 1.25rem; border-top: 1px solid var(--color-border); color: var(--color-text-muted); font-size: .8125rem; }
 @media (max-width: 640px) { .header-inner { align-items: flex-start; } .brand { flex-basis: 100%; } .site-nav { gap: .25rem .875rem; } }
 @media print { .site-header, .site-footer, .skip-link { display: none; } body { background: white; } main { padding: 0; } }
 .account-form { display: grid; gap: .75rem; max-width: 36rem; }
 .account-form label:not([data-slot]) { font-weight: 600; }
-input:not([data-slot]), textarea:not([data-slot]), select:not([data-slot]), button:not([data-slot]) { font: inherit; padding: .75rem; border: 1px solid var(--color-muted); border-radius: .35rem; min-height: 44px; max-width: 100%; }
-button:not([data-slot]) { cursor: pointer; color: white; background: var(--color-terracotta); }
-textarea:not([data-slot]) { resize: vertical; }
-/* Native server forms and native checkbox/range controls use the same theme.
-   React data-slot primitives own their variants and state styles. */
-input[type=checkbox]:not([data-slot]) { width:1.5rem; height:1.5rem; min-height:1.5rem; padding:0; accent-color:var(--primary); }
+@layer base {
+  input:not([data-slot]), textarea:not([data-slot]), select:not([data-slot]), button:not([data-slot]) { font: inherit; padding: .75rem; border: 1px solid var(--color-text-muted); border-radius: var(--radius-control); min-height: 44px; max-width: 100%; }
+  button:not([data-slot]) { cursor: pointer; color: white; background: var(--color-terracotta); }
+  textarea:not([data-slot]) { resize: vertical; }
+  /* Native server forms and native checkbox/range controls use the same theme.
+     React data-slot primitives own their variants and state styles. */
+  input[type=checkbox]:not([data-slot]) { width:1.5rem; height:1.5rem; min-height:1.5rem; padding:0; accent-color:var(--primary); }
+}

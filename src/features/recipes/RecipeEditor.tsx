@@ -8,6 +8,7 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
@@ -941,7 +942,7 @@ export default function RecipeEditor({
     <div className="recipe-editor">
       <header className="editor-header">
         <div className="flex flex-col gap-1">
-          <p className="eyebrow">{t("From your kitchen", "Desde tu cocina")}</p>
+          <Badge variant="eyebrow">{t("From your kitchen", "Desde tu cocina")}</Badge>
           <h1>{t("Share your recipe", "Comparte tu receta")}</h1>
           <p className="intro">
             {draft?.label ?? t("New recipe", "Receta nueva")}
@@ -1178,7 +1179,7 @@ export default function RecipeEditor({
                 {step === 0 && (
                   <section>
                     <FieldGroup>
-                      <h2>{t("Details", "Detalles")}</h2>
+                      <h2 className="m-0 type-headline-md">{t("Details", "Detalles")}</h2>
                       {textField("title", "Title", "Título")}
                       {similar.length > 0 && (
                         <aside>
@@ -1437,7 +1438,11 @@ export default function RecipeEditor({
                 )}
                 {step === 1 && (
                   <section>
-                    <h2 id={fieldId("photos")} tabIndex={-1}>
+                    <h2
+                      id={fieldId("photos")}
+                      tabIndex={-1}
+                      className="m-0 type-headline-md"
+                    >
                       {t("Photos", "Fotos")}
                     </h2>
                     <p>
@@ -1620,6 +1625,7 @@ export default function RecipeEditor({
                 {(step === 2 || step === 3) && (
                   <section>
                     <h2
+                      className="m-0 type-headline-md"
                       {...controlProps(
                         step === 2 ? "ingredients" : "instructions",
                       )}

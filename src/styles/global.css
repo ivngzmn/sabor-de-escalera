@@ -19,7 +19,7 @@
   --secondary-foreground: #fff;
   --secondary-soft: var(--color-green-soft);
   --muted: var(--color-warm);
-  --muted-foreground: var(--color-muted);
+  --muted-foreground: var(--color-text-muted);
   --accent: var(--color-warm-strong);
   --accent-foreground: var(--color-text);
   --masa: var(--color-masa);
@@ -59,12 +59,14 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-overlay: var(--color-scrim);
   /* DESIGN.md radius steps pinned to the classes the components use. */
-  --radius-sm: 4px; /* accents */
-  --radius-md: 8px; /* buttons, inputs, step cards */
-  --radius-lg: 12px; /* grouped controls */
-  --radius-xl: 16px; /* recipe cards, modals, hero banners */
-  --radius-2xl: 24px; /* gallery tiles, spotlight panels */
+  --radius-xs: var(--radius-accent);
+  --radius-sm: var(--radius-accent); /* accents */
+  --radius-md: var(--radius-control); /* buttons, inputs, step cards */
+  --radius-lg: var(--radius-group); /* grouped controls */
+  --radius-xl: var(--radius-card); /* recipe cards, modals, hero banners */
+  --radius-2xl: var(--radius-tile); /* gallery tiles, spotlight panels */
   --font-sans: var(--font-body);
   --font-serif: var(--font-heading);
   --font-weight-medium: 600;

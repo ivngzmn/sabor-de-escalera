@@ -130,7 +130,7 @@ function RecipeCard({
         )}
       </div>
       <CardHeader className="pt-5">
-        <CardTitle className="type-headline-sm">
+        <CardTitle>
           <a
             href={href}
             className="text-foreground no-underline after:absolute after:inset-0 hover:text-primary-ink focus-visible:outline-none"

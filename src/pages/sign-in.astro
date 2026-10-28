@@ -18,10 +18,18 @@ if (config) {
   } catch (error) { if (error instanceof ClerkResponseError) return error.response; if (!(error instanceof AccountError && error.status === 401)) available = false; }
 }
 if (!available) Astro.response.status = 503;
-// Clerk's widget follows the Stitch tokens (terracotta CTA, 8px radius, warm borders).
+// Clerk's widget reads the app tokens directly so it can't drift from them. It
+// sits inside the page Card, so its own card chrome is removed and its primary
+// button drops Clerk's gradient to match the app Button.
 const appearance = {
-  variables: { colorPrimary: '#c84b31', colorText: '#231a12', colorTextSecondary: '#58413c', colorBackground: '#ffffff', colorInputBackground: '#ffffff', borderRadius: '0.5rem', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' },
-  elements: { rootBox: 'w-full', cardBox: 'w-full shadow-none border-0', card: 'shadow-none border-0 p-0' },
+  variables: { colorPrimary: 'var(--primary)', colorText: 'var(--foreground)', colorTextSecondary: 'var(--muted-foreground)', colorBackground: 'var(--card)', colorInputBackground: 'var(--card)', colorInputText: 'var(--foreground)', borderRadius: 'var(--radius-control)', fontFamily: 'var(--font-body)', fontSize: '1rem' },
+  elements: {
+    rootBox: { width: '100%' },
+    cardBox: { width: '100%', boxShadow: 'none', border: 0 },
+    card: { boxShadow: 'none', border: 0, padding: 0 },
+    footer: { background: 'none' },
+    formButtonPrimary: { minHeight: '2.75rem', backgroundImage: 'none', backgroundColor: 'var(--primary)', boxShadow: 'var(--shadow-level-1)', fontSize: '.875rem', fontWeight: 600, textTransform: 'none', '&::after': { display: 'none' }, '&:hover': { backgroundColor: 'var(--primary-hover)' } },
+  },
 };
 ---
 <AppLayout title={spanish ? 'Iniciar sesión' : 'Sign in'}>
@@ -31,7 +39,7 @@ const appearance = {
       <h1>{spanish ? 'Iniciar sesión' : 'Sign in'}</h1>
       <p class="intro">{spanish ? 'Usa tu correo electrónico y el código de verificación para compartir recetas y guardar favoritos.' : 'Use your email and verification code to share recipes and save favorites.'}</p>
       <figure class="m-0 mt-6 w-full rounded-xl bg-primary p-6 text-primary-foreground shadow-md">
-        <blockquote class="m-0 font-serif text-2xl leading-snug">“{spanish ? 'Donde come uno, comen dos.' : 'Where one can eat, two can eat.'}”</blockquote>
+        <blockquote class="m-0 type-headline-lg">“{spanish ? 'Donde come uno, comen dos.' : 'Where one can eat, two can eat.'}”</blockquote>
         <figcaption class="type-label-sm mt-2 text-primary-foreground">{spanish ? 'Refrán tradicional' : 'Traditional proverb'}</figcaption>
       </figure>
     </section>

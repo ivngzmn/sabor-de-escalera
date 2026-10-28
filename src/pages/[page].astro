@@ -1,5 +1,6 @@
 ---
 import RecipePlaceholder from '../components/RecipePlaceholder';
+import { Badge } from '../components/ui/badge';
 import AppLayout from '../layouts/AppLayout.astro';
 import { accountConfiguration } from '../server/clerk';
 import { requireActor } from '../features/accounts/service';
@@ -30,7 +31,7 @@ const [title, description] = page?.[spanish ? 'es' : 'en'] ?? (spanish ? ['Pági
 ---
 <AppLayout title={title}>
   <section class="flex flex-col items-start gap-2 rounded-xl border border-border bg-muted p-6 md:p-10">
-    {page && <p class="eyebrow">Sabor de Escalera</p>}
+    {page && <Badge variant="eyebrow">Sabor de Escalera</Badge>}
     <h1>{title}</h1>
     <p class="intro">{description}</p>
   </section>
