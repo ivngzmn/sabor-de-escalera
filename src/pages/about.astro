@@ -1,0 +1,139 @@
+---
+import { BookmarkIcon, GlobeIcon, Pencil2Icon } from '@radix-ui/react-icons';
+import { Badge } from '../components/ui/badge';
+import { buttonVariants } from '../components/ui/button';
+import { Card, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Separator } from '../components/ui/separator';
+import AppLayout from '../layouts/AppLayout.astro';
+const spanish = Astro.url.searchParams.get('lang') === 'es';
+const href = (path: string) => spanish ? `${path}?lang=es` : path;
+// Editors credited in the Escalera Recipe Book acknowledgments.
+const editors = ['Stephanie Perez', 'Joanna Pineda', 'Jose Rivera'];
+const initials = (name: string) => name.split(' ').map((part) => part[0]).join('');
+const t = spanish ? {
+  title: 'Acerca de',
+  eyebrow: 'Nuestra historia',
+  heading: 'Recetas de casa, compartidas en una sola mesa.',
+  intro: 'Sabor de Escalera es un recetario comunitario en línea para guardar los platillos de nuestras familias y las historias que los acompañan.',
+  discover: 'Descubrir recetas',
+  share: 'Compartir tu receta',
+  proverb: 'Donde come uno, comen dos.',
+  proverbNote: 'Refrán tradicional',
+  bookEyebrow: 'El libro detrás del sitio',
+  bookHeading: 'Nació del Recetario Escalera',
+  book: [
+    'Todo empezó con un libro de recetas impreso, reunido receta por receta por los miembros de Escalera. Cada página trae ingredientes auténticos, mezclas de culturas y la variedad de la cocina latinoamericana.',
+    'Sabor de Escalera lleva ese libro a la web para que la colección siga creciendo: cualquiera puede leer, cocinar y sumar la receta de su familia.',
+  ],
+  bookNote: 'Provecho.',
+  pillarsHeading: 'Qué puedes hacer aquí',
+  pillars: [
+    { title: 'Comparte tu sazón', body: 'Publica la receta de tu familia con sus pasos, tiempos y la historia de dónde viene.' },
+    { title: 'Guarda tus favoritas', body: 'Reúne las recetas que quieres cocinar y vuelve a ellas cuando quieras.' },
+    { title: 'Cocina en dos idiomas', body: 'Lee y comparte recetas en español o en inglés, como se cocinan en casa.' },
+  ],
+  thanksEyebrow: 'Agradecimientos',
+  thanksHeading: 'Gracias a quienes lo hicieron posible',
+  thanks: 'A cada miembro que compartió una receta y a quienes editaron el Recetario Escalera: este sitio existe gracias a su compromiso.',
+  editorRole: 'Equipo editorial del Recetario Escalera',
+  ctaHeading: 'Hay un lugar para ti en nuestra mesa',
+  cta: '¿Tienes una receta que siempre piden en las reuniones? Compártela.',
+} : {
+  title: 'About',
+  eyebrow: 'Our story',
+  heading: 'Home recipes, shared at one table.',
+  intro: 'Sabor de Escalera is an online community cookbook for keeping our families’ dishes and the stories that come with them.',
+  discover: 'Discover recipes',
+  share: 'Share your recipe',
+  proverb: 'Where one can eat, two can eat.',
+  proverbNote: 'Traditional proverb',
+  bookEyebrow: 'The book behind the site',
+  bookHeading: 'Born from the Escalera Recipe Book',
+  book: [
+    'It started as a printed recipe book, gathered one recipe at a time by Escalera members. Its pages are full of authentic ingredients, blended cultures and the range of Latin American cooking.',
+    'Sabor de Escalera brings that book online so the collection can keep growing: anyone can read, cook and add their family’s recipe.',
+  ],
+  bookNote: '¡Provecho! Enjoy!',
+  pillarsHeading: 'What you can do here',
+  pillars: [
+    { title: 'Share your sazón', body: 'Post your family recipe with its steps, timings and the story of where it comes from.' },
+    { title: 'Save your favorites', body: 'Collect the recipes you want to cook and come back to them anytime.' },
+    { title: 'Cook in two languages', body: 'Read and share recipes in English or Spanish, the way they’re cooked at home.' },
+  ],
+  thanksEyebrow: 'Acknowledgments',
+  thanksHeading: 'Thank you to everyone who made it happen',
+  thanks: 'To every member who shared a recipe, and to the editors of the Escalera Recipe Book: this site exists because of your commitment.',
+  editorRole: 'Escalera Recipe Book editor',
+  ctaHeading: 'There’s a place for you at our table',
+  cta: 'Have a recipe everyone asks for at gatherings? Share it.',
+};
+const icons = [Pencil2Icon, BookmarkIcon, GlobeIcon];
+---
+<AppLayout title={t.title}>
+  <section class="grid items-center gap-8 overflow-hidden rounded-xl border border-border bg-muted p-6 shadow-sm md:p-10 lg:grid-cols-[1.1fr_1fr] lg:gap-12">
+    <div class="flex flex-col items-start gap-2">
+      <Badge variant="eyebrow">{t.eyebrow}</Badge>
+      <h1>{t.heading}</h1>
+      <p class="intro">{t.intro}</p>
+      <div class="mt-4 flex flex-wrap gap-3">
+        <a href={href('/')} data-slot="button" class={buttonVariants()}>{t.discover}</a>
+        <a href={href('/add-recipe')} data-slot="button" class={buttonVariants({ variant: 'outline' })}>{t.share}</a>
+      </div>
+    </div>
+    <figure class="m-0 flex flex-col justify-end gap-3 rounded-xl bg-primary p-8 text-primary-foreground shadow-md md:min-h-72 md:p-10">
+      <blockquote class="m-0 type-headline-lg">“{t.proverb}”</blockquote>
+      <figcaption class="type-label-sm text-primary-foreground">{t.proverbNote}</figcaption>
+    </figure>
+  </section>
+
+  <section aria-labelledby="book-heading" class="mt-14 grid gap-8 lg:grid-cols-[1fr_1.4fr] lg:gap-12">
+    <div class="flex flex-col items-start gap-2">
+      <Badge variant="eyebrow">{t.bookEyebrow}</Badge>
+      <h2 id="book-heading" class="m-0">{t.bookHeading}</h2>
+    </div>
+    <div class="flex flex-col gap-4 type-body-lg text-muted-foreground">
+      {t.book.map((paragraph) => <p class="m-0">{paragraph}</p>)}
+      <p class="m-0 font-serif text-xl text-primary-ink">{t.bookNote}</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="pillars-heading" class="mt-14 flex flex-col gap-6">
+    <h2 id="pillars-heading" class="m-0">{t.pillarsHeading}</h2>
+    <ul class="m-0 grid list-none gap-6 p-0 md:grid-cols-3">
+      {t.pillars.map((pillar, index) => {
+        const Icon = icons[index];
+        return <li><Card className="h-full"><CardHeader>
+          <span aria-hidden="true" class="mb-2 flex size-11 items-center justify-center rounded-lg bg-secondary-soft text-secondary"><Icon className="size-5" /></span>
+          <CardTitle><h3 class="m-0">{pillar.title}</h3></CardTitle>
+          <CardDescription className="text-base">{pillar.body}</CardDescription>
+        </CardHeader></Card></li>;
+      })}
+    </ul>
+  </section>
+
+  <section aria-labelledby="thanks-heading" class="mt-14 rounded-xl border border-border bg-card p-6 shadow-sm md:p-10">
+    <div class="flex max-w-2xl flex-col items-start gap-2">
+      <Badge variant="eyebrow">{t.thanksEyebrow}</Badge>
+      <h2 id="thanks-heading" class="m-0">{t.thanksHeading}</h2>
+      <p class="intro m-0">{t.thanks}</p>
+    </div>
+    <Separator className="my-8" />
+    <ul class="m-0 grid list-none gap-6 p-0 sm:grid-cols-3">
+      {editors.map((name) => <li class="flex items-center gap-3">
+        <span aria-hidden="true" class="flex size-12 shrink-0 items-center justify-center rounded-full bg-masa-soft font-semibold text-masa-foreground">{initials(name)}</span>
+        <span class="flex flex-col">
+          <span class="font-semibold">{name}</span>
+          <span class="text-sm text-muted-foreground">{t.editorRole}</span>
+        </span>
+      </li>)}
+    </ul>
+  </section>
+
+  <section aria-labelledby="cta-heading" class="mt-14 flex flex-col items-start gap-4 rounded-xl bg-secondary p-6 text-secondary-foreground shadow-md md:flex-row md:items-center md:justify-between md:p-10">
+    <div class="flex flex-col gap-1">
+      <h2 id="cta-heading" class="m-0 text-secondary-foreground">{t.ctaHeading}</h2>
+      <p class="m-0 type-body-lg">{t.cta}</p>
+    </div>
+    <a href={href('/add-recipe')} data-slot="button" class={buttonVariants({ variant: 'outline' })}>{t.share}</a>
+  </section>
+</AppLayout>
