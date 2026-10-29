@@ -20,7 +20,8 @@ if (config) {
 if (!available) Astro.response.status = 503;
 // Clerk's widget reads the app tokens directly so it can't drift from them. It
 // sits inside the page Card, so its own card chrome is removed and its primary
-// button drops Clerk's gradient to match the app Button.
+// button drops Clerk's gradient to match the app Button. Inputs swap Clerk's
+// shadow-drawn border for the app Input's border, shadow and focus ring.
 const appearance = {
   variables: { colorPrimary: 'var(--primary)', colorText: 'var(--foreground)', colorTextSecondary: 'var(--muted-foreground)', colorBackground: 'var(--card)', colorInputBackground: 'var(--card)', colorInputText: 'var(--foreground)', borderRadius: 'var(--radius-control)', fontFamily: 'var(--font-body)', fontSize: '1rem' },
   elements: {
@@ -28,6 +29,15 @@ const appearance = {
     cardBox: { width: '100%', boxShadow: 'none', border: 0 },
     card: { boxShadow: 'none', border: 0, padding: 0 },
     footer: { background: 'none' },
+    formFieldLabel: { fontSize: '.875rem', fontWeight: 600 },
+    // Clerk's [data-variant] rules outrank a bare class, so match their specificity.
+    formFieldInput: {
+      minHeight: '2.75rem', paddingInline: '.75rem', backgroundColor: 'var(--card)', transition: 'border-color .15s, box-shadow .15s',
+      // shadow-xs from global.css; @theme inline doesn't emit it as a variable.
+      '&[data-variant="default"], &[data-variant="default"]:hover': { border: '1px solid var(--input)', boxShadow: '0 1px 3px 0 rgba(38, 28, 20, .04)' },
+      '&[data-variant="default"]:focus, &[data-variant="default"]:focus-within, &[data-variant="default"][data-focus-within="true"]': { outline: 'none', borderColor: 'var(--ring)', boxShadow: '0 0 0 3px color-mix(in srgb, var(--ring) 20%, transparent)' },
+      '&[data-variant="default"][data-feedback="error"], &[data-variant="default"][data-feedback="error"]:focus-within': { borderColor: 'var(--destructive)', boxShadow: '0 0 0 3px color-mix(in srgb, var(--destructive) 20%, transparent)' },
+    },
     formButtonPrimary: { minHeight: '2.75rem', backgroundImage: 'none', backgroundColor: 'var(--primary)', boxShadow: 'var(--shadow-level-1)', fontSize: '.875rem', fontWeight: 600, textTransform: 'none', '&::after': { display: 'none' }, '&:hover': { backgroundColor: 'var(--primary-hover)' } },
   },
 };
