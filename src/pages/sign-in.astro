@@ -26,8 +26,10 @@ const appearance = {
   variables: { colorPrimary: 'var(--primary)', colorText: 'var(--foreground)', colorTextSecondary: 'var(--muted-foreground)', colorBackground: 'var(--card)', colorInputBackground: 'var(--card)', colorInputText: 'var(--foreground)', borderRadius: 'var(--radius-control)', fontFamily: 'var(--font-body)', fontSize: '1rem' },
   elements: {
     rootBox: { width: '100%' },
-    cardBox: { width: '100%', boxShadow: 'none', border: 0 },
-    card: { boxShadow: 'none', border: 0, padding: 0 },
+    // Clerk clips the cardBox and pulls the card 1px over its (removed) border,
+    // which cut off the input edges and focus ring.
+    cardBox: { width: '100%', boxShadow: 'none', border: 0, overflow: 'visible' },
+    card: { boxShadow: 'none', border: 0, padding: 0, margin: 0 },
     footer: { background: 'none' },
     formFieldLabel: { fontSize: '.875rem', fontWeight: 600 },
     // Clerk's [data-variant] rules outrank a bare class, so match their specificity.
