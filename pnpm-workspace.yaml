@@ -5,6 +5,8 @@ overrides:
 # Only this pinned installer needs to validate/provision its optional binary.
 # Sharp 0.35.5 ships platform binaries through optional dependencies and has no
 # install lifecycle script; real decoding is verified after frozen installation.
+# OpenUI lang-core's postinstall only sends install telemetry, so it stays off.
 allowBuilds:
+  '@openuidev/lang-core': false
   esbuild@0.28.2: true
 strictDepBuilds: true

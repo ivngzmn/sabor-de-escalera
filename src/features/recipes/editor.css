@@ -1,7 +1,3 @@
-.recipe-editor {
-  max-width: 64rem;
-  margin: auto;
-}
 .editor-header {
   display: flex;
   flex-wrap: wrap;
@@ -17,7 +13,7 @@
 }
 .editor-status {
   margin: 0.75rem 0 0;
-  color: var(--color-muted);
+  color: var(--color-text-muted);
   font-size: 0.875rem;
 }
 /* Stitch "Paso 01 … 05" stepper: one white card, active step on warm fill. */
@@ -29,7 +25,7 @@
   padding: 0.75rem 0.75rem 1.25rem;
   gap: 0.5rem;
   border: 1px solid var(--color-border);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: var(--color-surface);
   box-shadow: var(--shadow-level-1);
 }
@@ -50,9 +46,9 @@
   justify-content: center;
   width: 1.75rem;
   height: 1.75rem;
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
   background: var(--color-warm);
-  color: var(--color-muted);
+  color: var(--color-text-muted);
   font-size: 0.75rem;
 }
 [aria-current="step"] > .editor-step-number {
@@ -63,7 +59,7 @@
   position: absolute;
   inset: auto 1rem 0.5rem;
   height: 4px;
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
   background: var(--color-warm);
   overflow: hidden;
 }
@@ -94,12 +90,6 @@
 }
 .editor-fields section > [data-slot="field-set"] {
   padding-block: 1rem;
-}
-/* Section titles inside the workspace use headline-md. */
-.editor-fields h2 {
-  margin: 0;
-  font-size: clamp(1.5rem, 0.75vw + 1.25rem, 1.75rem);
-  line-height: 1.29;
 }
 .editor-grid {
   display: grid;
@@ -135,7 +125,7 @@
   overflow: hidden;
   aspect-ratio: 4/3;
   max-width: 100%;
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: var(--color-warm);
   box-shadow: var(--shadow-level-2);
 }
@@ -143,12 +133,12 @@
   margin-block: 1.5rem;
   padding: 1.25rem 1.5rem;
   border: 1px solid var(--color-border);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   background: var(--color-warm);
 }
 .recipe-story .author-text {
   margin: 0.5rem 0 0;
-  color: var(--color-muted);
+  color: var(--color-text-muted);
   font-size: 1.0625rem;
 }
 .recipe-columns h2 {
@@ -177,7 +167,7 @@
   justify-content: center;
   width: 2rem;
   height: 2rem;
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
   background: var(--color-terracotta-fill);
   color: #fff;
   font-size: 0.875rem;

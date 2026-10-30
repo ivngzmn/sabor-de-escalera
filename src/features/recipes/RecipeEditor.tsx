@@ -8,6 +8,7 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,11 +17,18 @@ import {
   FieldSet,
   FieldLegend,
   FieldLabel as Label,
+  FieldDescription,
   FieldError as FieldErrorMessage,
 } from "@/components/ui/field";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
-import { NativeSelect } from "@/components/ui/native-select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useEffect, useRef, useState, type ClipboardEvent } from "react";
 import ImageUploader from "../media/ImageUploader";
 import {
@@ -52,7 +60,19 @@ import {
   type Result,
 } from "./validation";
 import RecipePreview from "./RecipePreview";
+import DeleteDraftDialog from "./DeleteDraftDialog";
+import LeaveDraftDialog from "./LeaveDraftDialog";
+import { hasContent, hasUnsavedWork } from "./draft-intent";
+import { useLeaveGuard } from "./useLeaveGuard";
+import {
+  BEFORE_LOGOUT,
+  LOGOUT,
+  performSignOut,
+} from "@/features/accounts/sign-out";
 import "./editor.css";
+
+/** Where a held-back exit goes once the member saves or discards. */
+type LeaveTarget = { kind: "href"; href: string } | { kind: "signout" };
 interface Props {
   accountId: string;
   initial: Draft | null;
@@ -78,6 +98,7 @@ async function request<T>(path: string, body?: unknown): Promise<T> {
   if (!res.ok) throw new Error("Request failed");
   return data.value;
 }
+const NONE_VALUE = "__none__";
 const fieldId = (field: string) => `field-${field.replaceAll(".", "-")}`;
 export default function RecipeEditor({
   accountId,
@@ -92,7 +113,7 @@ export default function RecipeEditor({
     [lang, setLang] = useState(language);
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
-  const [status, setStatus] = useState(initial ? "saved" : "creating"),
+  const [status, setStatus] = useState(initial ? "saved" : "new"),
     [failure, setFailure] = useState<Failure | null>(null),
     [operationError, setOperationError] = useState(false),
     [errors, setErrors] = useState<FieldError[]>([]),
@@ -106,11 +127,16 @@ export default function RecipeEditor({
     >([]),
     [paste, setPaste] = useState(""),
     [pasteLines, setPasteLines] = useState<string[] | null>(null),
-    [confirmDelete, setConfirmDelete] = useState(false);
+    [confirmDelete, setConfirmDelete] = useState(false),
+    [leaving, setLeaving] = useState<LeaveTarget | null>(null);
   const current = useRef(input),
     saved = useRef(initial?.input ?? null),
     record = useRef(initial),
     busy = useRef(false),
+    creating = useRef<Promise<Draft | null> | null>(null),
+    saving = useRef<Promise<Draft | null> | null>(null),
+    retryAfter = useRef<number | null>(null),
+    createdHere = useRef<boolean>(false),
     stopped = useRef(false),
     publicationPending = useRef(false),
     lastWrite = useRef(0),
@@ -121,7 +147,11 @@ export default function RecipeEditor({
   function update(next: RecipeInput) {
     current.current = next;
     setInput(next);
-    setStatus("unsaved");
+    // Without a draft nothing is pending on the server yet: keep "new" until the
+    // member continues, or "creating" while that first request is in flight.
+    setStatus(
+      record.current ? "unsaved" : creating.current ? "creating" : "new",
+    );
     setFailure(null);
     if (record.current) {
       try {
@@ -186,95 +216,147 @@ export default function RecipeEditor({
       return false;
     }
   }
-  async function create() {
-    if (busy.current) return;
+  function ensureDraft(): Promise<Draft | null> {
+    if (record.current) return Promise.resolve(record.current);
+    if (creating.current) return creating.current;
+    if (busy.current || stopped.current || !hasContent(current.current))
+      return Promise.resolve(null);
     busy.current = true;
-    setStatus("creating");
-    try {
-      const next = await request<Draft>("/api/drafts", {});
-      remember(next);
-      current.current = next.input;
-      setInput(next.input);
-      setStatus("saved");
-    } catch (e) {
-      stop(
-        e instanceof RequestError
-          ? e.details
-          : {
-              status: 503,
-              message: t(
-                "Could not create the draft. Retry.",
-                "No se pudo crear el borrador. Reintenta.",
-              ),
-            },
-      );
-    } finally {
-      busy.current = false;
-    }
-  }
-  async function save(): Promise<Draft | null> {
-    if (!record.current || busy.current || stopped.current || conflict)
-      return null;
     const snapshot = current.current;
+    setStatus("creating");
+    setFailure(null);
+    const pending = (async () => {
+      try {
+        const next = await request<Draft>("/api/drafts", { input: snapshot });
+        createdHere.current = true;
+        remember(next);
+        // Stopped meanwhile (logout, discard): don't rewrite a recovery copy.
+        if (stopped.current) return next;
+        if (sameRecipe(current.current, snapshot)) {
+          current.current = next.input;
+          setInput(next.input);
+          setStatus("saved");
+        } else update(current.current);
+        return next;
+      } catch (e) {
+        stop(
+          e instanceof RequestError
+            ? e.details
+            : {
+                status: 503,
+                message: t(
+                  "Could not save the draft. Your work is preserved. Retry.",
+                  "No se pudo guardar el borrador. Tu trabajo se conserva. Reintenta.",
+                ),
+              },
+        );
+        return null;
+      } finally {
+        busy.current = false;
+        creating.current = null;
+      }
+    })();
+    creating.current = pending;
+    return pending;
+  }
+  function goToStep(index: number) {
+    setStep(index);
+    setPasteLines(null);
+    setPaste("");
+    if (!record.current && hasContent(current.current)) void ensureDraft();
+  }
+  /** `force` skips the client-side five-second wait (leaving the editor). */
+  function save({ force = false } = {}): Promise<Draft | null> {
+    if (!record.current || busy.current || stopped.current || conflict)
+      return Promise.resolve(null);
+    const draft = record.current;
+    const snapshot = current.current;
+    retryAfter.current = null;
     if (sameRecipe(snapshot, saved.current)) {
       setStatus("saved");
-      return record.current;
+      return Promise.resolve(draft);
     }
     const wait = 5000 - (Date.now() - lastWrite.current);
-    if (wait > 0) {
+    if (wait > 0 && !force) {
       setStatus("waiting");
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(() => {
         void saveAction.current();
       }, wait);
-      return null;
+      return Promise.resolve(null);
     }
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
     busy.current = true;
     setStatus("saving");
     setFailure(null);
-    try {
-      const next = await request<Draft>(`/api/drafts/${record.current.id}`, {
-        action: "save",
-        version: record.current.version,
-        input: snapshot,
-      });
-      remember(next);
-      lastWrite.current = Date.now();
-      if (sameRecipe(current.current, snapshot)) {
-        current.current = next.input;
-        setInput(next.input);
-        setStatus("saved");
-        forget(next.id);
-      } else setStatus("unsaved");
-      return next;
-    } catch (e) {
-      const error =
-        e instanceof RequestError
-          ? e.details
-          : {
-              status: 503,
-              message: t(
-                "Could not save. Your text and photos are preserved. Retry.",
-                "No se pudo guardar. Se conservan el texto y las fotos. Reintenta.",
-              ),
-            };
-      stop(error);
-      if (error.status === 429) {
-        lastWrite.current = Date.now() - 5000 + (error.retryAfter ?? 5) * 1000;
-        setStatus("waiting");
+    const pending = (async () => {
+      try {
+        const next = await request<Draft>(`/api/drafts/${draft.id}`, {
+          action: "save",
+          version: draft.version,
+          input: snapshot,
+        });
+        remember(next);
+        lastWrite.current = Date.now();
+        if (sameRecipe(current.current, snapshot)) {
+          current.current = next.input;
+          setInput(next.input);
+          setStatus("saved");
+          forget(next.id);
+        } else setStatus("unsaved");
+        return next;
+      } catch (e) {
+        const error =
+          e instanceof RequestError
+            ? e.details
+            : {
+                status: 503,
+                message: t(
+                  "Could not save. Your text and photos are preserved. Retry.",
+                  "No se pudo guardar. Se conservan el texto y las fotos. Reintenta.",
+                ),
+              };
+        stop(error);
+        if (error.status === 429) {
+          retryAfter.current = error.retryAfter ?? 5;
+          lastWrite.current = Date.now() - 5000 + retryAfter.current * 1000;
+          setStatus("waiting");
+        }
+        return null;
+      } finally {
+        busy.current = false;
+        saving.current = null;
       }
-      return null;
-    } finally {
-      busy.current = false;
-    }
+    })();
+    saving.current = pending;
+    return pending;
   }
+  /** Resolves once no save, create or copy request is in flight. */
+  async function idle() {
+    while (busy.current)
+      await (saving.current ??
+        creating.current ??
+        new Promise((resolve) => setTimeout(resolve, 50)));
+  }
+  /** Saves without the five-second wait; a 429 is waited out and retried once. */
+  async function saveNow(): Promise<Draft | null> {
+    await idle();
+    const next = await save({ force: true });
+    if (next || retryAfter.current === null) return next;
+    await new Promise((resolve) =>
+      setTimeout(resolve, (retryAfter.current ?? 5) * 1000),
+    );
+    await idle();
+    return save({ force: true });
+  }
+  // Autosave holds while the leave dialog is open, so Discard can't race it.
   saveAction.current = () =>
-    publicationPending.current ? Promise.resolve(null) : save();
+    publicationPending.current || leaving !== null
+      ? Promise.resolve(null)
+      : save();
   useEffect(() => {
-    if (!initial) {
-      void create();
-      return;
-    }
+    if (!initial) return;
     try {
       const r = readRecovery(
         localStorage,
@@ -297,23 +379,25 @@ export default function RecipeEditor({
       Math.max(700, 5000 - (Date.now() - lastWrite.current)),
     );
     return () => clearTimeout(scheduled);
-  }, [input, status]);
-  useEffect(() => {
-    const leave = (e: BeforeUnloadEvent) => {
-      if (
-        record.current &&
-        !stopped.current &&
-        !sameRecipe(current.current, saved.current)
-      ) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener("beforeunload", leave);
-    return () => {
-      window.removeEventListener("beforeunload", leave);
+  }, [input, status, leaving]);
+  // Reads refs only, so listeners registered once can call it.
+  const unsavedWork = () =>
+    hasUnsavedWork({
+      stopped: stopped.current,
+      hasDraft: !!record.current,
+      current: current.current,
+      saved: saved.current,
+    });
+  const guard = useLeaveGuard({
+    shouldGuard: unsavedWork,
+    onIntercept: (href) => setLeaving({ kind: "href", href }),
+  });
+  useEffect(
+    () => () => {
       if (timer.current) clearTimeout(timer.current);
-    };
-  }, []);
+    },
+    [],
+  );
   useEffect(() => {
     const withdraw = registerConsentCleanup("recovery", () =>
       setRecovery(null),
@@ -345,7 +429,14 @@ export default function RecipeEditor({
     const removeClerk = clerk?.addListener((state) => {
       if (!state.user) logout();
     });
-    window.addEventListener("escalera:logout", logout);
+    window.addEventListener(LOGOUT, logout);
+    // Sign out from the account menu: hold it and ask, like a link would.
+    const beforeLogout = (event: Event) => {
+      if (!unsavedWork()) return;
+      event.preventDefault();
+      setLeaving({ kind: "signout" });
+    };
+    window.addEventListener(BEFORE_LOGOUT, beforeLogout);
     const check = async () => {
       if (
         !record.current ||
@@ -371,7 +462,8 @@ export default function RecipeEditor({
       subscription();
       removeClerk?.();
       window.removeEventListener("storage", storage);
-      window.removeEventListener("escalera:logout", logout);
+      window.removeEventListener(LOGOUT, logout);
+      window.removeEventListener(BEFORE_LOGOUT, beforeLogout);
       window.removeEventListener("focus", check);
       document.removeEventListener("visibilitychange", check);
       clearInterval(poll);
@@ -469,6 +561,35 @@ export default function RecipeEditor({
           </FieldErrorMessage>
         )}
       </>
+    );
+  }
+  function selectField(
+    field: string,
+    value: string | undefined,
+    onChange: (value: string) => void,
+    options: { value: string; label: string }[],
+    placeholder?: string,
+  ) {
+    const known = options.some((option) => option.value === value);
+    return (
+      <Select
+        value={known ? (value ?? "") : ""}
+        onValueChange={(next) => onChange(next === NONE_VALUE ? "" : next)}
+      >
+        <SelectTrigger className="w-full" {...controlProps(field)}>
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+        <SelectContent position="popper">
+          {placeholder && (
+            <SelectItem value={NONE_VALUE}>{placeholder}</SelectItem>
+          )}
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     );
   }
   function textField(
@@ -658,6 +779,7 @@ export default function RecipeEditor({
         setStatus("waiting");
         await new Promise((resolve) => setTimeout(resolve, wait));
       }
+      if (!record.current) await ensureDraft();
       const next = await save();
       if (
         !next ||
@@ -686,29 +808,102 @@ export default function RecipeEditor({
       setPublishing(false);
     }
   }
-  async function remove() {
-    if (!draft) return;
+  /**
+   * Deletes the current draft. `deleted` is true when it is gone (including an
+   * earlier deletion, 410); `message` is set when the member should retry.
+   */
+  async function deleteDraft(): Promise<{
+    deleted: boolean;
+    message: string | null;
+    status?: number;
+  }> {
+    const draft = record.current;
+    if (!draft) return { deleted: false, message: null };
     try {
       await request(`/api/drafts/${draft.id}`, {
         action: "delete",
         version: draft.version,
       });
-      forget(draft.id);
-      stopped.current = true;
-      setBlocked(true);
-      setFailure({
-        status: 410,
-        message: t(
-          "Draft deleted. Its device copy has been removed.",
-          "Borrador eliminado. Se ha borrado la copia del dispositivo.",
-        ),
-      });
     } catch (e) {
-      failOperation(
-        e,
-        "Could not confirm deletion. Your work is preserved. Use Confirm delete to retry.",
-      );
+      if (e instanceof RequestError) {
+        const { status } = e.details;
+        if (status === 401 || status === 409 || status === 410) {
+          stop(e.details);
+          setConfirmDelete(false);
+          return { deleted: status === 410, message: null, status };
+        }
+        return { deleted: false, message: e.details.message, status };
+      }
+      return {
+        deleted: false,
+        message: t(
+          "Could not confirm deletion. Your work is preserved. Try again.",
+          "No se pudo confirmar la eliminación. Tu trabajo se conserva. Inténtalo de nuevo.",
+        ),
+      };
     }
+    forget(draft.id);
+    stopped.current = true;
+    setBlocked(true);
+    setFailure({
+      status: 410,
+      message: t(
+        "Draft deleted. Its device copy has been removed.",
+        "Borrador eliminado. Se ha borrado la copia del dispositivo.",
+      ),
+    });
+    return { deleted: true, message: null };
+  }
+  async function remove(): Promise<string | null> {
+    return (await deleteDraft()).message;
+  }
+  function leave(target: LeaveTarget) {
+    guard.release();
+    if (target.kind === "href") location.assign(target.href);
+    else void performSignOut(accountId, lang === "es" ? "/?lang=es" : "/");
+  }
+  async function saveAndLeave(): Promise<boolean> {
+    const target = leaving;
+    if (!target) return false;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    await idle();
+    if (conflict) await copy();
+    else {
+      if (!record.current) await ensureDraft();
+      if (record.current) await saveNow();
+    }
+    if (record.current && sameRecipe(current.current, saved.current)) {
+      leave(target);
+      return true;
+    }
+    setLeaving(null);
+    return false;
+  }
+  async function discardAndLeave() {
+    const target = leaving;
+    if (!target) return;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    stopped.current = true;
+    // A create or save may still land; wait so the right draft is removed.
+    await idle();
+    const draft = record.current;
+    if (draft && createdHere.current) {
+      const { deleted, message, status } = await deleteDraft();
+      if (!deleted) {
+        // A sign-out (401) keeps the editor stopped; anything else resumes.
+        if (status !== 401) stopped.current = false;
+        if (message) {
+          setFailure({ status: 503, message });
+          setStatus("error");
+          setOperationError(true);
+        }
+        setLeaving(null);
+        return;
+      }
+    } else if (draft) forget(draft.id);
+    leave(target);
   }
   if (published)
     return (
@@ -747,11 +942,10 @@ export default function RecipeEditor({
     <div className="recipe-editor">
       <header className="editor-header">
         <div className="flex flex-col gap-1">
-          <p className="eyebrow">{t("From your kitchen", "Desde tu cocina")}</p>
+          <Badge variant="eyebrow">{t("From your kitchen", "Desde tu cocina")}</Badge>
           <h1>{t("Share your recipe", "Comparte tu receta")}</h1>
           <p className="intro">
-            {draft?.label ??
-              t("Preparing your draft…", "Preparando tu borrador…")}
+            {draft?.label ?? t("New recipe", "Receta nueva")}
           </p>
           <p className="text-sm text-muted-foreground">
             {t(
@@ -765,15 +959,21 @@ export default function RecipeEditor({
             type="button"
             variant="outline"
             disabled={
-              !ready || busy.current || blocked || conflict || publishing
+              !ready ||
+              busy.current ||
+              blocked ||
+              conflict ||
+              publishing ||
+              (!draft && !hasContent(input))
             }
-            onClick={() => (draft ? void save() : void create())}
+            onClick={() => (draft ? void save() : void ensureDraft())}
           >
             {t("Save Draft", "Guardar borrador")}
           </Button>
           <Button
             type="button"
             variant="outline"
+            className="text-destructive border-destructive/40"
             disabled={!ready || !draft || blocked || publishing}
             onClick={() => setConfirmDelete(true)}
           >
@@ -791,7 +991,11 @@ export default function RecipeEditor({
               "Saving shortly — at most once every five seconds.",
               "Se guardará pronto: como máximo una vez cada cinco segundos.",
             ),
-            creating: t("Creating draft…", "Creando borrador…"),
+            creating: t("Saving…", "Guardando…"),
+            new: t(
+              "Not saved yet — your draft is saved when you continue.",
+              "Aún no guardado: el borrador se guarda al continuar.",
+            ),
             error: t("Not saved", "No guardado"),
           }[status]
         }
@@ -813,7 +1017,7 @@ export default function RecipeEditor({
             {!blocked && !conflict && !operationError && (
               <Button
                 type="button"
-                onClick={() => (draft ? void save() : void create())}
+                onClick={() => (draft ? void save() : void ensureDraft())}
               >
                 {t("Retry save", "Reintentar guardado")}
               </Button>
@@ -836,22 +1040,32 @@ export default function RecipeEditor({
           {t("Start a new recipe", "Empezar otra receta")}
         </a>
       )}
-      {confirmDelete && !blocked && (
-        <section aria-label={t("Confirm deletion", "Confirmar eliminación")}>
-          <p>
-            {t(
-              "Delete this draft and its device recovery copy?",
-              "¿Eliminar este borrador y su copia de recuperación?",
-            )}
-          </p>
-          <Button onClick={remove}>
-            {t("Confirm delete", "Confirmar eliminación")}
-          </Button>{" "}
-          <Button onClick={() => setConfirmDelete(false)}>
-            {t("Cancel", "Cancelar")}
-          </Button>
-        </section>
+      {draft && (
+        <DeleteDraftDialog
+          open={confirmDelete && !blocked}
+          onOpenChange={setConfirmDelete}
+          title={input.title}
+          photoCount={input.photos.length}
+          ingredientCount={input.ingredients.length}
+          updatedAt={draft.updatedAt}
+          lang={lang}
+          onConfirm={async () => {
+            const message = await remove();
+            if (message === null) setConfirmDelete(false);
+            return message;
+          }}
+        />
       )}
+      <LeaveDraftDialog
+        open={leaving !== null}
+        title={input.title}
+        lang={lang}
+        conflict={conflict}
+        discardDeletes={createdHere.current && !!record.current}
+        onKeepEditing={() => setLeaving(null)}
+        onDiscard={discardAndLeave}
+        onSave={saveAndLeave}
+      />
       {recovery && !blocked && (
         <section>
           <p>
@@ -904,11 +1118,7 @@ export default function RecipeEditor({
             disabled={!ready}
             variant="ghost"
             aria-current={step === index ? "step" : undefined}
-            onClick={() => {
-              setStep(index);
-              setPasteLines(null);
-              setPaste("");
-            }}
+            onClick={() => goToStep(index)}
           >
             <span aria-hidden="true" className="editor-step-number">
               {String(index + 1).padStart(2, "0")}
@@ -941,10 +1151,10 @@ export default function RecipeEditor({
           </ul>
         </section>
       )}
-      {!draft && status === "creating" && (
+      {!draft && !ready && (
         <RecipePlaceholder variant="editor" state="loading" language={lang} />
       )}
-      <Card className={cn(!draft && status === "creating" && "hidden")}>
+      <Card className={cn(!draft && !ready && "hidden")}>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>
             {t("Recipe workspace", "Tu receta")}
@@ -959,9 +1169,7 @@ export default function RecipeEditor({
         <CardContent>
           <form onSubmit={(e) => e.preventDefault()} onPaste={plainPaste}>
             <FieldSet
-              disabled={
-                !ready || !draft || blocked || !!published || publishing
-              }
+              disabled={!ready || blocked || !!published || publishing}
               className="editor-fields"
             >
               <FieldLegend className="sr-only">
@@ -971,7 +1179,7 @@ export default function RecipeEditor({
                 {step === 0 && (
                   <section>
                     <FieldGroup>
-                      <h2>{t("Details", "Detalles")}</h2>
+                      <h2 className="m-0 type-headline-md">{t("Details", "Detalles")}</h2>
                       {textField("title", "Title", "Título")}
                       {similar.length > 0 && (
                         <aside>
@@ -1003,18 +1211,16 @@ export default function RecipeEditor({
                             "Primary category",
                             "Categoría principal",
                           )}
-                          <NativeSelect
-                            {...controlProps("category")}
-                            value={input.category}
-                            onChange={(e) => set("category", e.target.value)}
-                          >
-                            <option value="">{t("Choose…", "Elegir…")}</option>
-                            {categories.map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c[lang]}
-                              </option>
-                            ))}
-                          </NativeSelect>
+                          {selectField(
+                            "category",
+                            input.category,
+                            (value) => set("category", value),
+                            categories.map((c) => ({
+                              value: c.id,
+                              label: c[lang],
+                            })),
+                            t("Choose…", "Elegir…"),
+                          )}
                         </Field>
                         <Field
                           data-invalid={errors.some(
@@ -1022,18 +1228,16 @@ export default function RecipeEditor({
                           )}
                         >
                           {label("origin", "Origin", "Origen")}
-                          <NativeSelect
-                            {...controlProps("origin")}
-                            value={input.origin}
-                            onChange={(e) => set("origin", e.target.value)}
-                          >
-                            <option value="">{t("Choose…", "Elegir…")}</option>
-                            {origins.map((o) => (
-                              <option key={o.id} value={o.id}>
-                                {o[lang === "es" ? "label_es" : "label_en"]}
-                              </option>
-                            ))}
-                          </NativeSelect>
+                          {selectField(
+                            "origin",
+                            input.origin,
+                            (value) => set("origin", value),
+                            origins.map((o) => ({
+                              value: o.id,
+                              label: o[lang === "es" ? "label_es" : "label_en"],
+                            })),
+                            t("Choose…", "Elegir…"),
+                          )}
                         </Field>
                       </div>
                       {textField(
@@ -1054,8 +1258,9 @@ export default function RecipeEditor({
                         <Input
                           {...controlProps("baseline")}
                           type="number"
-                          min="0.01"
-                          step="any"
+                          // Arrows count whole servings; typed decimals still save.
+                          min="1"
+                          step="1"
                           value={input.baseline ?? ""}
                           onChange={(e) =>
                             update({
@@ -1081,12 +1286,12 @@ export default function RecipeEditor({
                             "Confirmo esta base numérica",
                           )}
                         </Label>
-                        <p>
+                        <FieldDescription>
                           {t(
                             "Keep your yield range above; choose the number the written quantities serve. Quantities such as ½, 2–3 and “to taste” remain as written.",
                             "Conserva arriba el rango; elige cuántas porciones representan las cantidades. Se conservan ½, 2–3 y «al gusto».",
                           )}
-                        </p>
+                        </FieldDescription>
                       </Field>
                       <Field
                         data-invalid={errors.some(
@@ -1098,26 +1303,28 @@ export default function RecipeEditor({
                           "Timing method",
                           "Cómo indicar el tiempo",
                         )}
-                        <NativeSelect
-                          {...controlProps("timing")}
-                          value={input.timing.mode}
-                          onChange={(e) =>
+                        {selectField(
+                          "timing",
+                          input.timing.mode,
+                          (value) =>
                             set("timing", {
                               ...input.timing,
-                              mode: e.target.value as "total" | "parts",
-                            })
-                          }
-                        >
-                          <option value="total">
-                            {t("Total time", "Tiempo total")}
-                          </option>
-                          <option value="parts">
-                            {t(
-                              "Prep + cook + rest",
-                              "Preparación + cocción + reposo",
-                            )}
-                          </option>
-                        </NativeSelect>
+                              mode: value as "total" | "parts",
+                            }),
+                          [
+                            {
+                              value: "total",
+                              label: t("Total time", "Tiempo total"),
+                            },
+                            {
+                              value: "parts",
+                              label: t(
+                                "Prep + cook + rest",
+                                "Preparación + cocción + reposo",
+                              ),
+                            },
+                          ],
+                        )}
                       </Field>
                       <div className="editor-grid">
                         {(input.timing.mode === "total"
@@ -1153,13 +1360,13 @@ export default function RecipeEditor({
                           </Field>
                         ))}
                       </div>
-                      <p>
+                      <FieldDescription>
                         {t(
                           "Total includes all preparation, cooking and rest/chill time.",
                           "El total incluye preparación, cocción y reposo/frío.",
                         )}{" "}
                         {totalMinutes(input) ?? "—"} {t("minutes", "minutos")}
-                      </p>
+                      </FieldDescription>
                       {textField(
                         "story",
                         "Story (optional)",
@@ -1192,23 +1399,22 @@ export default function RecipeEditor({
                           "Original recipe language",
                           "Idioma original de la receta",
                         )}
-                        <NativeSelect
-                          {...controlProps("language")}
-                          value={input.language}
-                          onChange={(e) =>
-                            set("language", e.target.value as "en" | "es")
-                          }
-                        >
-                          <option value="en">English</option>
-                          <option value="es">Español</option>
-                        </NativeSelect>
+                        {selectField(
+                          "language",
+                          input.language,
+                          (value) => set("language", value as "en" | "es"),
+                          [
+                            { value: "en", label: "English" },
+                            { value: "es", label: "Español" },
+                          ],
+                        )}
                       </Field>
-                      <p>
+                      <FieldDescription>
                         {t(
                           "Optional dietary tags are author provided.",
                           "Las etiquetas opcionales las indica el autor.",
                         )}
-                      </p>
+                      </FieldDescription>
                       {["vegan", "vegetarian"].map((tag) => (
                         <Label key={tag} htmlFor={`dietary-${tag}`}>
                           <Checkbox
@@ -1233,7 +1439,11 @@ export default function RecipeEditor({
                 )}
                 {step === 1 && (
                   <section>
-                    <h2 id={fieldId("photos")} tabIndex={-1}>
+                    <h2
+                      id={fieldId("photos")}
+                      tabIndex={-1}
+                      className="m-0 type-headline-md"
+                    >
                       {t("Photos", "Fotos")}
                     </h2>
                     <p>
@@ -1286,7 +1496,9 @@ export default function RecipeEditor({
                               )
                             }
                           />
-                          <p>{Array.from(p.caption).length}/400</p>
+                          <FieldDescription>
+                            {Array.from(p.caption).length}/400
+                          </FieldDescription>
                         </Field>
                         <Field
                           data-invalid={errors.some(
@@ -1313,12 +1525,12 @@ export default function RecipeEditor({
                               )
                             }
                           />
-                          <p>
+                          <FieldDescription>
                             {t(
                               "The caption is the default alt text.",
                               "La descripción se usa como texto alternativo por defecto.",
                             )}
-                          </p>
+                          </FieldDescription>
                         </Field>
                         {i === 0 &&
                           (["x", "y", "zoom"] as const).map((k) => (
@@ -1414,6 +1626,7 @@ export default function RecipeEditor({
                 {(step === 2 || step === 3) && (
                   <section>
                     <h2
+                      className="m-0 type-headline-md"
                       {...controlProps(
                         step === 2 ? "ingredients" : "instructions",
                       )}
@@ -1694,7 +1907,7 @@ export default function RecipeEditor({
             variant="outline"
             type="button"
             disabled={!ready}
-            onClick={() => setStep(step - 1)}
+            onClick={() => goToStep(step - 1)}
           >
             {t("Back", "Atrás")}
           </Button>
@@ -1703,7 +1916,7 @@ export default function RecipeEditor({
           <Button
             type="button"
             disabled={!ready}
-            onClick={() => setStep(step + 1)}
+            onClick={() => goToStep(step + 1)}
           >
             {t("Continue", "Continuar")}
           </Button>

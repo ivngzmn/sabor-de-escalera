@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   FileTextIcon,
   HeartIcon,
   PlusIcon,
   ReaderIcon,
+  TrashIcon,
 } from "@radix-ui/react-icons";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -23,6 +24,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import DeleteDraftDialog from "@/features/recipes/DeleteDraftDialog";
 
 export type ProfileTab = "favorites" | "recipes" | "drafts";
 export interface ProfileRecipe {
@@ -32,6 +34,9 @@ export interface ProfileRecipe {
   cover: string | null;
   coverAlt: string;
   date: string;
+  version: number;
+  photoCount: number;
+  ingredientCount: number;
 }
 
 const copy = {
@@ -41,13 +46,15 @@ const copy = {
     recipes: "My recipes",
     drafts: "Drafts",
     favoritesTitle: "Dishes I want to cook",
-    favoritesIntro: "Your personal collection of flavors shared by the community.",
+    favoritesIntro:
+      "Your personal collection of flavors shared by the community.",
     recipesTitle: "Recipes I’ve shared",
     recipesIntro: "Published recipes everyone can read, print and cook.",
     draftsTitle: "Still simmering",
     draftsIntro: "Private drafts only you can see. They save automatically.",
     noFavorites: "No favorites yet",
-    noFavoritesBody: "Saving recipes is on its way. Recipes you save will gather here.",
+    noFavoritesBody:
+      "Saving recipes is on its way. Recipes you save will gather here.",
     noRecipes: "You haven’t published a recipe yet",
     noRecipesBody: "Share a family recipe so the community can cook it too.",
     noDrafts: "No drafts in progress",
@@ -59,6 +66,13 @@ const copy = {
     published: "Published",
     edited: "Last edited",
     draft: "Draft",
+    delete: "Delete",
+    deleteLabel: (title: string) => `Delete draft: ${title}`,
+    deleted: (title: string) => `Deleted draft “${title}”.`,
+    conflict:
+      "This draft changed in another tab. Reload the page to see the latest version.",
+    signedOut: "Your session ended. Sign in again to delete this draft.",
+    failed: "Could not confirm deletion. Your draft is preserved. Try again.",
   },
   es: {
     tabs: "Secciones del perfil",
@@ -66,15 +80,20 @@ const copy = {
     recipes: "Mis recetas",
     drafts: "Borradores",
     favoritesTitle: "Platillos que quiero cocinar",
-    favoritesIntro: "Tu colección personal de sabores compartidos por la comunidad.",
+    favoritesIntro:
+      "Tu colección personal de sabores compartidos por la comunidad.",
     recipesTitle: "Recetas que he compartido",
-    recipesIntro: "Recetas publicadas que todos pueden leer, imprimir y cocinar.",
+    recipesIntro:
+      "Recetas publicadas que todos pueden leer, imprimir y cocinar.",
     draftsTitle: "Todavía en el fuego",
-    draftsIntro: "Borradores privados que solo tú puedes ver. Se guardan automáticamente.",
+    draftsIntro:
+      "Borradores privados que solo tú puedes ver. Se guardan automáticamente.",
     noFavorites: "Aún no tienes favoritos",
-    noFavoritesBody: "Pronto podrás guardar recetas. Las que guardes se reunirán aquí.",
+    noFavoritesBody:
+      "Pronto podrás guardar recetas. Las que guardes se reunirán aquí.",
     noRecipes: "Aún no has publicado una receta",
-    noRecipesBody: "Comparte una receta familiar para que la comunidad también la cocine.",
+    noRecipesBody:
+      "Comparte una receta familiar para que la comunidad también la cocine.",
     noDrafts: "No hay borradores en curso",
     noDraftsBody: "Empieza una receta y vuelve a ella cuando quieras.",
     discover: "Descubrir recetas",
@@ -84,6 +103,15 @@ const copy = {
     published: "Publicada",
     edited: "Última edición",
     draft: "Borrador",
+    delete: "Eliminar",
+    deleteLabel: (title: string) => `Eliminar borrador: ${title}`,
+    deleted: (title: string) => `Se eliminó el borrador «${title}».`,
+    conflict:
+      "Este borrador cambió en otra pestaña. Recarga la página para ver la versión más reciente.",
+    signedOut:
+      "Tu sesión terminó. Inicia sesión de nuevo para eliminar este borrador.",
+    failed:
+      "No pudimos confirmar la eliminación. Tu borrador se conserva. Inténtalo de nuevo.",
   },
 };
 
@@ -95,16 +123,18 @@ function RecipeCard({
   kind,
   language,
   href,
+  onDelete,
 }: {
   recipe: ProfileRecipe;
   kind: "recipes" | "drafts";
   language: "en" | "es";
   href: string;
+  onDelete?: () => void;
 }) {
   const t = copy[language];
-  const date = new Intl.DateTimeFormat(language, { dateStyle: "medium" }).format(
-    new Date(recipe.date),
-  );
+  const date = new Intl.DateTimeFormat(language, {
+    dateStyle: "medium",
+  }).format(new Date(recipe.date));
   return (
     <Card className="group gap-0 overflow-hidden py-0 shadow-md transition-shadow hover:shadow-lg">
       <div className="relative aspect-[16/10] overflow-hidden bg-muted">
@@ -130,7 +160,7 @@ function RecipeCard({
         )}
       </div>
       <CardHeader className="pt-5">
-        <CardTitle className="type-headline-sm">
+        <CardTitle>
           <a
             href={href}
             className="text-foreground no-underline after:absolute after:inset-0 hover:text-primary-ink focus-visible:outline-none"
@@ -142,8 +172,22 @@ function RecipeCard({
           {kind === "drafts" ? t.edited : t.published}: {date}
         </CardDescription>
       </CardHeader>
-      <CardFooter className="pt-4 pb-5 text-sm font-semibold text-primary-ink">
-        {kind === "drafts" ? t.continue : t.view} →
+      <CardFooter className="justify-between gap-3 pt-4 pb-5 text-sm font-semibold text-primary-ink">
+        <span>{kind === "drafts" ? t.continue : t.view} →</span>
+        {onDelete && (
+          // Sits above the card's stretched link so it stays its own target.
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-label={t.deleteLabel(recipe.label)}
+            onClick={onDelete}
+            className="relative z-10 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          >
+            <TrashIcon aria-hidden="true" />
+            {t.delete}
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );
@@ -179,7 +223,7 @@ export default function ProfileTabs({
   initialTab,
   language,
   published,
-  drafts,
+  drafts: initialDrafts,
 }: {
   initialTab: ProfileTab;
   language: "en" | "es";
@@ -188,6 +232,45 @@ export default function ProfileTabs({
 }) {
   const t = copy[language];
   const [tab, setTab] = useState<ProfileTab>(initialTab);
+  const [drafts, setDrafts] = useState(initialDrafts);
+  // Kept after close so the dialog can animate out and return focus on cancel.
+  const [deleting, setDeleting] = useState<ProfileRecipe | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
+  // The deleted card's button is gone, so focus lands on the Drafts tab instead.
+  const draftsTab = useRef<HTMLButtonElement>(null);
+  const removeDraft = (draft: ProfileRecipe) => {
+    const remaining = drafts.filter((d) => d.id !== draft.id);
+    setDrafts(remaining);
+    setConfirming(false);
+    requestAnimationFrame(() => draftsTab.current?.focus());
+    setAnnouncement(t.deleted(draft.label));
+    // The header stat is server-rendered outside this island.
+    const stat = document.querySelector('[data-profile-stat="drafts"]');
+    if (stat) stat.textContent = String(remaining.length);
+  };
+  async function confirmDelete(draft: ProfileRecipe): Promise<string | null> {
+    try {
+      const res = await fetch(`/api/drafts/${encodeURIComponent(draft.id)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        redirect: "error",
+        body: JSON.stringify({ action: "delete", version: draft.version }),
+      });
+      // 410: already deleted elsewhere, so the card is stale either way.
+      if (res.ok || res.status === 410) {
+        removeDraft(draft);
+        return null;
+      }
+      if (res.status === 409) return t.conflict;
+      if (res.status === 401) return t.signedOut;
+      const data = await res.json().catch(() => null);
+      return data?.error?.message ?? t.failed;
+    } catch {
+      return t.failed;
+    }
+  }
   const href = (path: string) =>
     language === "es"
       ? `${path}${path.includes("?") ? "&" : "?"}lang=es`
@@ -201,7 +284,11 @@ export default function ProfileTabs({
     history.replaceState(history.state, "", url);
   };
   const shareLink = (
-    <a href={href("/add-recipe")} data-slot="button" className={buttonVariants()}>
+    <a
+      href={href("/add-recipe")}
+      data-slot="button"
+      className={buttonVariants()}
+    >
       <PlusIcon aria-hidden="true" />
       {t.share}
     </a>
@@ -225,6 +312,14 @@ export default function ProfileTabs({
                 ? href(`/add-recipe?draft=${encodeURIComponent(recipe.id)}`)
                 : href(recipe.url ?? "/")
             }
+            onDelete={
+              kind === "drafts"
+                ? () => {
+                    setDeleting(recipe);
+                    setConfirming(true);
+                  }
+                : undefined
+            }
           />
         </li>
       ))}
@@ -232,67 +327,84 @@ export default function ProfileTabs({
   );
 
   return (
-    <Tabs value={tab} onValueChange={change} className="gap-6">
-      <TabsList
-        aria-label={t.tabs}
-        className="w-full justify-start group-data-[orientation=horizontal]/tabs:h-auto gap-1 overflow-x-auto rounded-xl bg-card p-1.5 shadow-sm"
-      >
-        <TabsTrigger value="favorites" className={triggerClass}>
-          <HeartIcon aria-hidden="true" />
-          {t.favorites} (0)
-        </TabsTrigger>
-        <TabsTrigger value="recipes" className={triggerClass}>
-          <ReaderIcon aria-hidden="true" />
-          {t.recipes} ({published.length})
-        </TabsTrigger>
-        <TabsTrigger value="drafts" className={triggerClass}>
-          <FileTextIcon aria-hidden="true" />
-          {t.drafts} ({drafts.length})
-        </TabsTrigger>
-      </TabsList>
-      <TabsContent value="favorites" className="flex flex-col gap-6">
-        {heading(t.favoritesTitle, t.favoritesIntro)}
-        <EmptyState
-          icon={<HeartIcon aria-hidden="true" />}
-          title={t.noFavorites}
-          body={t.noFavoritesBody}
-          action={
-            <a
-              href={href("/")}
-              data-slot="button"
-              className={buttonVariants({ variant: "outline" })}
-            >
-              {t.discover}
-            </a>
-          }
+    <>
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
+      {deleting && (
+        <DeleteDraftDialog
+          open={confirming}
+          onOpenChange={setConfirming}
+          title={deleting.label}
+          photoCount={deleting.photoCount}
+          ingredientCount={deleting.ingredientCount}
+          updatedAt={deleting.date}
+          lang={language}
+          onConfirm={() => confirmDelete(deleting)}
         />
-      </TabsContent>
-      <TabsContent value="recipes" className="flex flex-col gap-6">
-        {heading(t.recipesTitle, t.recipesIntro)}
-        {published.length ? (
-          grid(published, "recipes")
-        ) : (
+      )}
+      <Tabs value={tab} onValueChange={change} className="gap-6">
+        <TabsList
+          aria-label={t.tabs}
+          className="w-full justify-start group-data-[orientation=horizontal]/tabs:h-auto gap-1 overflow-x-auto rounded-xl bg-card p-1.5 shadow-sm"
+        >
+          <TabsTrigger value="favorites" className={triggerClass}>
+            <HeartIcon aria-hidden="true" />
+            {t.favorites} (0)
+          </TabsTrigger>
+          <TabsTrigger value="recipes" className={triggerClass}>
+            <ReaderIcon aria-hidden="true" />
+            {t.recipes} ({published.length})
+          </TabsTrigger>
+          <TabsTrigger ref={draftsTab} value="drafts" className={triggerClass}>
+            <FileTextIcon aria-hidden="true" />
+            {t.drafts} ({drafts.length})
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="favorites" className="flex flex-col gap-6">
+          {heading(t.favoritesTitle, t.favoritesIntro)}
           <EmptyState
-            icon={<ReaderIcon aria-hidden="true" />}
-            title={t.noRecipes}
-            body={t.noRecipesBody}
-            action={shareLink}
+            icon={<HeartIcon aria-hidden="true" />}
+            title={t.noFavorites}
+            body={t.noFavoritesBody}
+            action={
+              <a
+                href={href("/")}
+                data-slot="button"
+                className={buttonVariants({ variant: "outline" })}
+              >
+                {t.discover}
+              </a>
+            }
           />
-        )}
-      </TabsContent>
-      <TabsContent value="drafts" className="flex flex-col gap-6">
-        {heading(t.draftsTitle, t.draftsIntro)}
-        {drafts.length ? (
-          grid(drafts, "drafts")
-        ) : (
-          <EmptyState
-            icon={<FileTextIcon aria-hidden="true" />}
-            title={t.noDrafts}
-            body={t.noDraftsBody}
-            action={shareLink}
-          />
-        )}
-      </TabsContent>
-    </Tabs>
+        </TabsContent>
+        <TabsContent value="recipes" className="flex flex-col gap-6">
+          {heading(t.recipesTitle, t.recipesIntro)}
+          {published.length ? (
+            grid(published, "recipes")
+          ) : (
+            <EmptyState
+              icon={<ReaderIcon aria-hidden="true" />}
+              title={t.noRecipes}
+              body={t.noRecipesBody}
+              action={shareLink}
+            />
+          )}
+        </TabsContent>
+        <TabsContent value="drafts" className="flex flex-col gap-6">
+          {heading(t.draftsTitle, t.draftsIntro)}
+          {drafts.length ? (
+            grid(drafts, "drafts")
+          ) : (
+            <EmptyState
+              icon={<FileTextIcon aria-hidden="true" />}
+              title={t.noDrafts}
+              body={t.noDraftsBody}
+              action={shareLink}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
+    </>
   );
 }

@@ -231,11 +231,13 @@ export function createDraftService(options: {
     return dto(r);
   }
   const api = {
-    createDraft: (actor: Actor | null) =>
+    createDraft: (actor: Actor | null, input?: unknown) =>
       result(() =>
         transaction(pool, async (client) => {
           await authorize(client, actor);
-          return insert(client, actor!, emptyRecipe());
+          const v =
+            input === undefined ? emptyRecipe() : await validate(client, input);
+          return insert(client, actor!, v);
         }),
       ),
     readDraft: (actor: Actor | null, id: string) =>

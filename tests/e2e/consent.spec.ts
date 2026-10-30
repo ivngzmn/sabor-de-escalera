@@ -176,7 +176,7 @@ test('floating privacy surfaces leave mobile footer links reachable without maki
   await page.setViewportSize({ width: 390, height: 568 });
   await page.goto('/');
   await page.getByRole('contentinfo').getByRole('link', { name: 'About', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'About', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Home recipes, shared at one table.' })).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('escalera:consent'))).toBeNull();
   await page.getByRole('button', { name: 'Reject optional', exact: true }).click();
   await page.getByRole('button', { name: 'Privacy preferences', exact: true }).click();

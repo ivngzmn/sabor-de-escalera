@@ -82,7 +82,7 @@ export async function handleDraftRequest(
     const action = id ? (input.action ?? "save") : "create";
     const allowed =
       action === "create"
-        ? []
+        ? ["input"]
         : action === "save"
           ? ["action", "version", "input"]
           : action === "copy"
@@ -94,7 +94,7 @@ export async function handleDraftRequest(
       throw new DraftError(405, "Method not allowed.");
     const output =
       action === "create"
-        ? await svc.createDraft(actor)
+        ? await svc.createDraft(actor, input.input)
         : action === "save"
           ? await svc.saveDraft(actor, id!, Number(input.version), input.input)
           : action === "publish"
