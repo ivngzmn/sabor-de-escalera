@@ -1258,8 +1258,9 @@ export default function RecipeEditor({
                         <Input
                           {...controlProps("baseline")}
                           type="number"
-                          min="0.01"
-                          step="any"
+                          // Arrows count whole servings; typed decimals still save.
+                          min="1"
+                          step="1"
                           value={input.baseline ?? ""}
                           onChange={(e) =>
                             update({
