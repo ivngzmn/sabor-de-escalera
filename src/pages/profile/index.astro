@@ -32,7 +32,7 @@ const listUnavailable = !publishedResult.ok || !draftsResult.ok;
 const card = (recipe: Draft, kind: 'recipes' | 'drafts'): ProfileRecipe => {
   const photo = recipe.input.photos[0];
   const cover = photo ? (kind === 'recipes' ? `/api/recipes/${recipe.id}/photos/${photo.assetId}?variant=card` : `/api/media/${photo.assetId}?variant=card`) : null;
-  return { id: recipe.id, label: recipe.label === 'Untitled recipe' && spanish ? 'Receta sin título' : recipe.label, url: recipe.url, cover, coverAlt: photo?.alt ?? '', date: (kind === 'recipes' ? recipe.publishedAt : null) ?? recipe.updatedAt };
+  return { id: recipe.id, label: recipe.label === 'Untitled recipe' && spanish ? 'Receta sin título' : recipe.label, url: recipe.url, cover, coverAlt: photo?.alt ?? '', date: (kind === 'recipes' ? recipe.publishedAt : null) ?? recipe.updatedAt, version: recipe.version, photoCount: recipe.input.photos.length, ingredientCount: recipe.input.ingredients.length };
 };
 const published = publishedResult.ok ? publishedResult.value.map((recipe) => card(recipe, 'recipes')) : [];
 const drafts = draftsResult.ok ? draftsResult.value.map((recipe) => card(recipe, 'drafts')) : [];
@@ -42,9 +42,9 @@ const t = spanish
   ? { title: 'Mi perfil', edit: 'Editar perfil', since: 'Miembro desde', saved: 'Recetas guardadas', published: 'Recetas publicadas', drafts: 'Borradores', privateList: 'Favoritos privados', publicList: 'Favoritos públicos', suspended: 'Las contribuciones no están disponibles para esta cuenta. Puedes seguir explorando y guardando recetas.', unavailable: 'No pudimos cargar tus recetas. Inténtalo de nuevo en un momento.', admin: 'Administración', owner: 'Propietaria/o', noBio: 'Cuéntale a la comunidad sobre tu cocina en Editar perfil.' }
   : { title: 'My profile', edit: 'Edit profile', since: 'Member since', saved: 'Saved recipes', published: 'Published recipes', drafts: 'Drafts', privateList: 'Private favorites', publicList: 'Public favorites', suspended: 'Contributions are currently unavailable for this account. You can keep browsing and saving recipes.', unavailable: 'We couldn’t load your recipes. Please try again in a moment.', admin: 'Admin', owner: 'Owner', noBio: 'Tell the community about your cooking in Edit profile.' };
 const stats = [
-  { label: t.saved, value: 0, icon: HeartIcon, tone: 'bg-primary/10 text-primary-ink' },
-  { label: t.published, value: published.length, icon: ReaderIcon, tone: 'bg-secondary-soft text-secondary' },
-  { label: t.drafts, value: drafts.length, icon: FileTextIcon, tone: 'bg-masa-soft text-masa-foreground' },
+  { key: 'saved', label: t.saved, value: 0, icon: HeartIcon, tone: 'bg-primary/10 text-primary-ink' },
+  { key: 'published', label: t.published, value: published.length, icon: ReaderIcon, tone: 'bg-secondary-soft text-secondary' },
+  { key: 'drafts', label: t.drafts, value: drafts.length, icon: FileTextIcon, tone: 'bg-masa-soft text-masa-foreground' },
 ];
 ---
 <AppLayout title={t.title}>
@@ -75,12 +75,13 @@ const stats = [
         </div>
       </div>
       <dl class="m-0 mt-8 grid gap-4 rounded-xl bg-muted p-4 sm:grid-cols-3">
-        {stats.map(({ label, value, icon: Icon, tone }) => (
+        {stats.map(({ key, label, value, icon: Icon, tone }) => (
           <div class="flex items-center gap-4 px-2">
             <span aria-hidden="true" class:list={['flex size-12 shrink-0 items-center justify-center rounded-lg', tone]}><Icon className="size-6" /></span>
             <div class="flex flex-col-reverse">
               <dt class="text-sm text-muted-foreground">{label}</dt>
-              <dd class="m-0 type-headline-md leading-none tabular-nums">{value}</dd>
+              {/* ProfileTabs updates the drafts count after a delete. */}
+              <dd data-profile-stat={key} class="m-0 type-headline-md leading-none tabular-nums">{value}</dd>
             </div>
           </div>
         ))}
