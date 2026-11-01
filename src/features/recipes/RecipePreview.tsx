@@ -61,9 +61,9 @@ export default function RecipePreview({
       )}
       {input.story && (
         <div className="recipe-story">
-          <p className="eyebrow">
+          <Badge variant="eyebrow">
             {t("The story behind the dish", "La historia detrás del platillo")}
-          </p>
+          </Badge>
           <p className="author-text">{input.story}</p>
         </div>
       )}

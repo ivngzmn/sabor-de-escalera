@@ -21,9 +21,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { clearAccountRecovery } from "@/features/recipes/recovery";
 import { MemberAvatar } from "./MemberAvatar";
 import type { Actor } from "./permissions";
+import { performSignOut, requestSignOut } from "./sign-out";
 
 export type Me = Pick<
   Actor,
@@ -151,18 +151,9 @@ export default function AccountMenu({
 
   const name = me?.displayName ?? null;
   const signOut = async () => {
-    try {
-      if (me) clearAccountRecovery(localStorage, me.id);
-    } catch {
-      /* Optional storage. */
-    }
-    window.dispatchEvent(new Event("escalera:logout"));
-    const clerk = (
-      window as Window & {
-        Clerk?: { signOut: (options?: { redirectUrl?: string }) => Promise<unknown> };
-      }
-    ).Clerk;
-    await clerk?.signOut({ redirectUrl: href("/") });
+    // An editor with unsaved work holds sign-out and asks first.
+    if (!requestSignOut()) return;
+    await performSignOut(me?.id ?? null, href("/"));
   };
 
   return (

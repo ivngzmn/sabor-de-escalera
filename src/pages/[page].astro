@@ -1,5 +1,6 @@
 ---
 import RecipePlaceholder from '../components/RecipePlaceholder';
+import { Badge } from '../components/ui/badge';
 import AppLayout from '../layouts/AppLayout.astro';
 import { accountConfiguration } from '../server/clerk';
 import { requireActor } from '../features/accounts/service';
@@ -7,7 +8,6 @@ import { AccountError, canContribute, signInHref } from '../features/accounts/pe
 import { accountFailure } from '../features/accounts/routes';
 const spanish = Astro.url.searchParams.get('lang') === 'es';
 const pages: Record<string, { en: [string, string]; es: [string, string] }> = {
-  'about': { en: ['About', 'Sabor de Escalera is a place to share recipes and the stories behind them.'], es: ['Acerca de', 'Sabor de Escalera es un lugar para compartir recetas y sus historias.'] },
   'add-recipe': { en: ['Add Recipe', 'Your account is ready. Recipe creation is being prepared.'], es: ['Añadir receta', 'Tu cuenta está lista. Estamos preparando la creación de recetas.'] },
   'favorites': { en: ['Favorites', 'Your account is ready. Saved recipes will appear here.'], es: ['Favoritos', 'Tu cuenta está lista. Tus recetas guardadas aparecerán aquí.'] },
 };
@@ -30,7 +30,7 @@ const [title, description] = page?.[spanish ? 'es' : 'en'] ?? (spanish ? ['Pági
 ---
 <AppLayout title={title}>
   <section class="flex flex-col items-start gap-2 rounded-xl border border-border bg-muted p-6 md:p-10">
-    {page && <p class="eyebrow">Sabor de Escalera</p>}
+    {page && <Badge variant="eyebrow">Sabor de Escalera</Badge>}
     <h1>{title}</h1>
     <p class="intro">{description}</p>
   </section>

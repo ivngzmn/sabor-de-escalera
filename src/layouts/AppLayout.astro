@@ -5,6 +5,7 @@ import headingFont from '@fontsource/playfair-display/files/playfair-display-lat
 import bodyFont from '@fontsource/plus-jakarta-sans/files/plus-jakarta-sans-latin-400-normal.woff2?url';
 import bodyStrongFont from '@fontsource/plus-jakarta-sans/files/plus-jakarta-sans-latin-600-normal.woff2?url';
 import ConsentBanner from '../features/consent/ConsentBanner';
+import { Cross1Icon, HamburgerMenuIcon } from '@radix-ui/react-icons';
 import { buttonVariants } from '../components/ui/button';
 import { readServerConfig } from '../server/config';
 import { accountConfiguration } from '../server/clerk';
@@ -17,8 +18,8 @@ const { title } = Astro.props;
 readServerConfig();
 const language = Astro.url.searchParams.get('lang') === 'es' ? 'es' : 'en';
 const copy = language === 'es'
-  ? { skip: 'Saltar al contenido', discover: 'Descubrir', add: 'Añadir receta', favorites: 'Favoritos', about: 'Acerca de', privacy: 'Configuración de privacidad', footer: 'Recetas, historias y sabores para compartir.' }
-  : { skip: 'Skip to content', discover: 'Discover', add: 'Add Recipe', favorites: 'Favorites', about: 'About', privacy: 'Privacy settings', footer: 'Recipes, stories, and flavors to share.' };
+  ? { skip: 'Saltar al contenido', menu: 'Menú', discover: 'Descubrir', add: 'Añadir receta', favorites: 'Favoritos', about: 'Acerca de', privacy: 'Configuración de privacidad', footer: 'Recetas, historias y sabores para compartir.' }
+  : { skip: 'Skip to content', menu: 'Menu', discover: 'Discover', add: 'Add Recipe', favorites: 'Favorites', about: 'About', privacy: 'Privacy settings', footer: 'Recipes, stories, and flavors to share.' };
 const href = (path: string) => language === 'es' ? `${path}?lang=es` : path;
 const languageHref = (value: string) => {
   const params = new URLSearchParams(Astro.url.searchParams);
@@ -50,20 +51,40 @@ const initialMe = showAccount && sessionHint ? await readHeaderIdentity(Astro.re
     <header class="site-header">
       <div class="container header-inner">
         <a class="brand" href={href('/')}>Sabor de Escalera</a>
-        <nav class="site-nav" aria-label={language === 'es' ? 'Navegación principal' : 'Main navigation'}>
-          <a href={href('/')} aria-current={Astro.url.pathname === '/' ? 'page' : undefined} data-en="Discover" data-es="Descubrir">{copy.discover}</a>
-          <a href={href('/favorites')} aria-current={Astro.url.pathname === '/favorites' ? 'page' : undefined} data-en="Favorites" data-es="Favoritos">{copy.favorites}</a>
-          <a href={href('/add-recipe')} data-slot="button" class={buttonVariants()} aria-current={Astro.url.pathname === '/add-recipe' ? 'page' : undefined} data-en="Add Recipe" data-es="Añadir receta">{copy.add}</a>
-        </nav>
-        <div class="header-actions">
+        <div id="site-menu" class="site-menu">
+          <nav class="site-nav" aria-label={language === 'es' ? 'Navegación principal' : 'Main navigation'}>
+            <a href={href('/')} aria-current={Astro.url.pathname === '/' ? 'page' : undefined} data-en="Discover" data-es="Descubrir">{copy.discover}</a>
+            <a href={href('/favorites')} aria-current={Astro.url.pathname === '/favorites' ? 'page' : undefined} data-en="Favorites" data-es="Favoritos">{copy.favorites}</a>
+            <a href={href('/add-recipe')} data-slot="button" class={buttonVariants()} aria-current={Astro.url.pathname === '/add-recipe' ? 'page' : undefined} data-en="Add Recipe" data-es="Añadir receta">{copy.add}</a>
+          </nav>
           <nav class="language-switch" aria-label={language === 'es' ? 'Idioma' : 'Language'}>
             <a href={languageHref('en')} lang="en" hreflang="en" aria-current={language === 'en' ? 'true' : undefined}>English</a>
             <a href={languageHref('es')} lang="es" hreflang="es" aria-current={language === 'es' ? 'true' : undefined}>Español</a>
           </nav>
+        </div>
+        <div class="header-actions">
           {showAccount && (authEnabled ? <AccountMenu client:load authEnabled={authEnabled} sessionHint={sessionHint} initialMe={initialMe} language={language} signInHref={accountHref} /> : <a href={accountHref} data-slot="button" class={buttonVariants({ variant: 'outline' })}>{language === 'es' ? 'Iniciar sesión' : 'Sign in'}</a>)}
+          <button type="button" data-slot="button" class={`menu-toggle ${buttonVariants({ variant: 'ghost', size: 'icon' })}`} aria-label={copy.menu} aria-expanded="false" aria-controls="site-menu">
+            <HamburgerMenuIcon className="menu-open-icon size-5" aria-hidden="true" />
+            <Cross1Icon className="menu-close-icon size-5" aria-hidden="true" />
+          </button>
         </div>
       </div>
     </header>
+    <script is:inline>
+      // Runs before paint so the phone menu starts closed; without JavaScript the links simply stay visible.
+      (() => {
+        const header = document.querySelector('.site-header');
+        const toggle = header?.querySelector('.menu-toggle');
+        if (!header || !toggle) return;
+        const setOpen = (open) => { header.dataset.menu = open ? 'open' : 'closed'; toggle.setAttribute('aria-expanded', String(open)); };
+        setOpen(false);
+        toggle.addEventListener('click', () => setOpen(header.dataset.menu !== 'open'));
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && header.dataset.menu === 'open') { setOpen(false); toggle.focus(); }
+        });
+      })();
+    </script>
     <main id="main-content" tabindex="-1" class="container"><slot /></main>
     {!Astro.props.privacySettings && <ConsentBanner client:load language={language} />}
     <footer class="site-footer">

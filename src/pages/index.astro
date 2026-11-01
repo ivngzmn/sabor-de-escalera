@@ -19,12 +19,12 @@ const href = (path: string) => spanish ? `${path}?lang=es` : path;
       </div>
     </div>
     <figure class="m-0 flex flex-col justify-end gap-3 rounded-xl bg-primary p-8 text-primary-foreground shadow-md md:min-h-72 md:p-10">
-      <blockquote class="m-0 font-serif text-3xl leading-tight md:text-4xl">“{spanish ? 'Donde come uno, comen dos.' : 'Where one can eat, two can eat.'}”</blockquote>
+      <blockquote class="m-0 type-headline-lg">“{spanish ? 'Donde come uno, comen dos.' : 'Where one can eat, two can eat.'}”</blockquote>
       <figcaption class="type-label-sm text-primary-foreground">{spanish ? 'Refrán tradicional' : 'Traditional proverb'}</figcaption>
     </figure>
   </section>
   <section aria-labelledby="recipes-heading" class="mt-14 flex flex-col gap-2">
-    <p class="eyebrow">{spanish ? 'Nuestra mesa compartida' : 'Our shared table'}</p>
+    <Badge variant="eyebrow">{spanish ? 'Nuestra mesa compartida' : 'Our shared table'}</Badge>
     <Empty className="mt-2 rounded-xl border border-dashed border-input/40 bg-card/60"><EmptyHeader>
     <EmptyTitle><h2 id="recipes-heading">{spanish ? 'Las recetas están en camino' : 'Recipes are on their way'}</h2></EmptyTitle>
     <EmptyDescription>{spanish ? 'Estamos preparando la colección. Las recetas aparecerán aquí después de su revisión.' : 'We’re preparing the collection. Recipes will appear here after review.'}</EmptyDescription>
