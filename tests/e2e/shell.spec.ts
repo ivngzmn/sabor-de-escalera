@@ -15,28 +15,46 @@ for (const [name, width, height] of [
   test(`${name}: guest navigation, languages, footer and keyboard focus`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await page.goto('/');
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('main')).toBeFocused();
+    // Below 1024px the links sit behind the menu button.
+    const menu = page.getByRole('button', { name: 'Menu' });
+    const collapsed = width < 1024;
+    await expect(menu).toBeVisible({ visible: collapsed });
+    if (collapsed) {
+      await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeHidden();
+      await menu.click();
+      await expect(menu).toHaveAttribute('aria-expanded', 'true');
+    }
     const navigation = page.getByRole('navigation', { name: 'Main navigation' });
     await expect(navigation.getByRole('link', { name: 'Discover', exact: true })).toBeVisible();
     await expect(navigation.getByRole('link', { name: 'Add Recipe' })).toBeVisible();
     await expect(navigation.getByRole('link', { name: 'Favorites' })).toBeVisible();
     await expect(page.getByRole('contentinfo').getByRole('link', { name: 'About' })).toBeVisible();
     await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Privacy settings' })).toBeVisible();
-    await page.keyboard.press('Tab');
-    await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
-    await page.keyboard.press('Enter');
-    await expect(page.getByRole('main')).toBeFocused();
     const language = page.getByRole('navigation', { name: 'Language' });
     await expect(language.getByRole('link', { name: 'English', exact: true })).toBeVisible();
     await language.getByRole('link', { name: 'Español', exact: true }).click();
     await expect(page.locator('html')).toHaveAttribute('lang', 'es');
+    if (collapsed) await page.getByRole('button', { name: 'Menú' }).click();
     await expect(page.getByRole('link', { name: 'Descubrir', exact: true })).toBeVisible();
     await page.getByRole('link', { name: 'English', exact: true }).click();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    if (collapsed) {
+      await menu.click();
+      await page.keyboard.press('Escape');
+      await expect(menu).toHaveAttribute('aria-expanded', 'false');
+      await expect(menu).toBeFocused();
+      await menu.click();
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
     await page.getByRole('link', { name: 'Add Recipe', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
     expect(new URL(page.url()).searchParams.get('returnTo')).toBe('/add-recipe');
+    if (collapsed) await menu.click();
     await page.getByRole('link', { name: 'Favorites', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
     expect(new URL(page.url()).searchParams.get('returnTo')).toBe('/favorites');
