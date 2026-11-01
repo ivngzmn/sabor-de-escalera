@@ -3,10 +3,14 @@ import { readFile, readdir } from 'node:fs/promises';
 import { Pool, type PoolClient } from 'pg';
 import { AccountError } from '../features/accounts/permissions.ts';
 let pool: Pool | undefined;
+// pg already treats these SSL modes as verify-full; naming it keeps that behavior and silences pg's deprecation warning.
+export function pinSslMode(databaseUrl: string): string {
+  return databaseUrl.replace(/([?&]sslmode=)(prefer|require|verify-ca)(?=&|$)/, '$1verify-full');
+}
 export function getPool(): Pool {
   const databaseUrl = process.env.DATABASE_URL ?? import.meta.env?.DATABASE_URL;
   if (!databaseUrl) throw new AccountError(503, 'Account service is temporarily unavailable');
-  return pool ??= new Pool({ connectionString: databaseUrl, max: 5, idleTimeoutMillis: 10000, connectionTimeoutMillis: 5000 });
+  return pool ??= new Pool({ connectionString: pinSslMode(databaseUrl), max: 5, idleTimeoutMillis: 10000, connectionTimeoutMillis: 5000 });
 }
 export async function transaction<T>(pool: Pool, operation: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await pool.connect();
