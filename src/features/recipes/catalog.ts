@@ -138,6 +138,16 @@ export interface PublicMember {
 
 export function createCatalogService({ pool }: { pool: Pool }) {
   return {
+    /** Saved recipes that are currently visible; hidden ones keep their row but are not counted. */
+    async countFavorites(memberId: string): Promise<number> {
+      if (!isId(memberId)) return 0;
+      return (
+        await pool.query<{ n: number }>(
+          "SELECT count(*)::int AS n FROM recipe_favorites f JOIN recipes r ON r.id=f.recipe_id AND r.state='published' WHERE f.member_id=$1",
+          [memberId],
+        )
+      ).rows[0].n;
+    },
     /** Public profile fields only; email and role never leave this query. */
     async member(id: string): Promise<PublicMember | null> {
       if (!isId(id)) return null;

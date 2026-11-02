@@ -26,6 +26,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DeleteDraftDialog from "@/features/recipes/DeleteDraftDialog";
 import RecipeLifecycleActions from "@/features/recipes/RecipeLifecycleActions";
+import DiscoverFeed from "@/features/recipes/DiscoverFeed";
+import type { CatalogPage } from "@/features/recipes/catalog";
+import type { Origin } from "@/features/recipes/validation";
 
 export type ProfileTab = "favorites" | "recipes" | "drafts";
 export interface ProfileRecipe {
@@ -239,16 +242,14 @@ export default function ProfileTabs({
   deleted = [],
   drafts: initialDrafts,
   favorites,
-  favoriteCount = 0,
 }: {
   initialTab: ProfileTab;
   language: "en" | "es";
   published: ProfileRecipe[];
   deleted?: ProfileRecipe[];
   drafts: ProfileRecipe[];
-  /** The Favorites feed, rendered by the page so it can be server-seeded. */
-  favorites?: ReactNode;
-  favoriteCount?: number;
+  /** Server-seeded Favorites feed; omitted when the list could not be loaded. */
+  favorites?: { initial: CatalogPage | null; origins: Origin[]; signInBase: string };
 }) {
   const t = copy[language];
   const [tab, setTab] = useState<ProfileTab>(initialTab);
@@ -383,7 +384,7 @@ export default function ProfileTabs({
         >
           <TabsTrigger value="favorites" className={triggerClass}>
             <HeartIcon aria-hidden="true" />
-            {t.favorites} ({favoriteCount})
+            {t.favorites}
           </TabsTrigger>
           <TabsTrigger value="recipes" className={triggerClass}>
             <ReaderIcon aria-hidden="true" />
@@ -396,7 +397,16 @@ export default function ProfileTabs({
         </TabsList>
         <TabsContent value="favorites" className="flex flex-col gap-6">
           {heading(t.favoritesTitle, t.favoritesIntro)}
-          {favorites ?? <EmptyState
+          {favorites && (favorites.initial === null || favorites.initial.items.length > 0) ? (
+            <DiscoverFeed
+              initial={favorites.initial}
+              params={{}}
+              language={language}
+              origins={favorites.origins}
+              scope="favorites"
+              signInBase={favorites.signInBase}
+            />
+          ) : <EmptyState
             icon={<HeartIcon aria-hidden="true" />}
             title={t.noFavorites}
             body={t.noFavoritesBody}

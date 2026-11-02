@@ -10,6 +10,7 @@ import { accounts, type Actor } from '../../features/accounts/service';
 import { AccountError, signInHref } from '../../features/accounts/permissions';
 import { accountFailure } from '../../features/accounts/routes';
 import { draftsService } from '../../features/recipes/drafts';
+import { catalogService } from '../../features/recipes/catalog';
 import type { Draft } from '../../features/recipes/validation';
 import { accountConfiguration, ClerkResponseError } from '../../server/clerk';
 const spanish = Astro.url.searchParams.get('lang') === 'es';
@@ -27,7 +28,8 @@ catch (error) {
 }
 if (!actor.onboarded) return Astro.redirect(`/onboarding?${new URLSearchParams({ returnTo: `${Astro.url.pathname}${Astro.url.search}`, ...(spanish ? { lang: 'es' } : {}) })}`, 303);
 const service = draftsService();
-const [publishedResult, draftsResult, deletedResult] = await Promise.all([service.listPublished(actor), service.listDrafts(actor), service.listDeleted(actor)]);
+const [publishedResult, draftsResult, deletedResult, favoritesResult, origins, favoriteCount] = await Promise.all([service.listPublished(actor), service.listDrafts(actor), service.listDeleted(actor), catalogService().list({ scope: { kind: 'favorites', memberId: actor.id }, language }, actor.id).catch(() => null), service.origins().catch(() => []), catalogService().countFavorites(actor.id).catch(() => 0)]);
+const favorites = { initial: favoritesResult?.ok ? favoritesResult.value : null, origins, signInBase: signInHref(`${Astro.url.pathname}${Astro.url.search}`, origin) };
 const listUnavailable = !publishedResult.ok || !draftsResult.ok;
 const card = (recipe: Draft, kind: 'recipes' | 'drafts'): ProfileRecipe => {
   const photo = recipe.input.photos[0];
@@ -43,7 +45,7 @@ const t = spanish
   ? { title: 'Mi perfil', edit: 'Editar perfil', since: 'Miembro desde', saved: 'Recetas guardadas', published: 'Recetas publicadas', drafts: 'Borradores', privateList: 'Favoritos privados', publicList: 'Favoritos públicos', suspended: 'Las contribuciones no están disponibles para esta cuenta. Puedes seguir explorando y guardando recetas.', unavailable: 'No pudimos cargar tus recetas. Inténtalo de nuevo en un momento.', admin: 'Administración', owner: 'Propietaria/o', noBio: 'Cuéntale a la comunidad sobre tu cocina en Editar perfil.' }
   : { title: 'My profile', edit: 'Edit profile', since: 'Member since', saved: 'Saved recipes', published: 'Published recipes', drafts: 'Drafts', privateList: 'Private favorites', publicList: 'Public favorites', suspended: 'Contributions are currently unavailable for this account. You can keep browsing and saving recipes.', unavailable: 'We couldn’t load your recipes. Please try again in a moment.', admin: 'Admin', owner: 'Owner', noBio: 'Tell the community about your cooking in Edit profile.' };
 const stats = [
-  { key: 'saved', label: t.saved, value: 0, icon: HeartIcon, tone: 'bg-primary/10 text-primary-ink' },
+  { key: 'saved', label: t.saved, value: favoriteCount, icon: HeartIcon, tone: 'bg-primary/10 text-primary-ink' },
   { key: 'published', label: t.published, value: published.length, icon: ReaderIcon, tone: 'bg-secondary-soft text-secondary' },
   { key: 'drafts', label: t.drafts, value: drafts.length, icon: FileTextIcon, tone: 'bg-masa-soft text-masa-foreground' },
 ];
@@ -92,6 +94,6 @@ const stats = [
   {actor.suspended && <Alert className="mt-6"><AlertDescription>{t.suspended}</AlertDescription></Alert>}
   {listUnavailable && <Alert variant="destructive" className="mt-6"><AlertDescription>{t.unavailable}</AlertDescription></Alert>}
   <div class="mt-10">
-    <ProfileTabs client:load initialTab={initialTab} language={language} published={published} deleted={deleted} drafts={drafts} />
+    <ProfileTabs client:load initialTab={initialTab} language={language} published={published} deleted={deleted} drafts={drafts} favorites={favorites} />
   </div>
 </AppLayout>

@@ -78,6 +78,7 @@ test("unavailable recipes vanish from favorites but keep the row", async () => {
   await pool.query("UPDATE recipes SET state='hidden' WHERE id=$1", [id]);
   expect(await favoritesOf(saver.id)).toEqual([]);
   expect((await pool.query("SELECT count(*)::int AS n FROM recipe_favorites")).rows[0].n).toBe(1);
+  expect(await (await services()).catalog.countFavorites(saver.id)).toBe(0);
   expect(await favorites.add(saver, id)).toMatchObject({ ok: false, error: { status: 404 } });
   await pool.query("UPDATE recipes SET state='published' WHERE id=$1", [id]);
   expect((await favoritesOf(saver.id)).map((r) => r.id)).toEqual([id]);
