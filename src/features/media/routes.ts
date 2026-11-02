@@ -1,7 +1,9 @@
 import { accounts, type createAccountService } from '../accounts/service';
 import { AccountError, assertSameOriginWrite } from '../accounts/permissions';
 import { ClerkResponseError, accountConfiguration } from '../../server/clerk';
-import { mediaService, MediaError, type createMediaService } from './service';
+import { mediaReadiness, mediaService, MediaError, type createMediaService } from './service';
+import { MAX_INPUT_BYTES } from './contracts';
+import { createLocalMediaProvider, LocalUploadError, localMediaRoot } from '../../server/local-media';
 const headers = { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' };
 interface Dependencies { accounts: ReturnType<typeof createAccountService>; media: ReturnType<typeof createMediaService>; origin: string; }
 function failure(error: unknown) {
@@ -42,4 +44,25 @@ export async function handleMediaRead(request: Request, assetId: string, depende
     if (!result.ok) return Response.json(result, { status: result.error.status, headers });
     return new Response(new Uint8Array(result.value), { headers: { ...headers, 'Content-Type': 'image/webp', 'Content-Length': String(result.value.length) } });
   } catch (error) { return failure(error); }
+}
+interface LocalUploadDependencies { enabled: boolean; provider: ReturnType<typeof createLocalMediaProvider>; origin: string; }
+/** Receives development uploads that would otherwise go straight to ImageKit. Absent unless MEDIA_PROVIDER=local. */
+export async function handleLocalUpload(request: Request, dependencies?: LocalUploadDependencies) {
+  const readiness = mediaReadiness();
+  const enabled = dependencies?.enabled ?? (readiness.provider === 'local' && readiness.enabled);
+  if (!enabled) return new Response(null, { status: 404, headers });
+  try {
+    assertSameOriginWrite(request, dependencies?.origin ?? accountConfiguration()?.origin ?? new URL(request.url).origin);
+    if (Number(request.headers.get('Content-Length') ?? 0) > MAX_INPUT_BYTES + 65536) throw new LocalUploadError(400, 'Choose a photo up to 20 MB.');
+    const form = await request.formData().catch(() => null);
+    const file = form?.get('file');
+    const token = form?.get('token');
+    if (!(file instanceof File) || typeof token !== 'string') throw new LocalUploadError(400, 'Invalid request');
+    const provider = dependencies?.provider ?? createLocalMediaProvider({ root: localMediaRoot() });
+    await provider.acceptUpload(token, { type: file.type, bytes: Buffer.from(await file.arrayBuffer()) });
+    return Response.json({ ok: true }, { headers });
+  } catch (error) {
+    const status = error instanceof LocalUploadError || error instanceof AccountError ? error.status : 503;
+    return Response.json({ ok: false, error: { status, message: error instanceof LocalUploadError ? error.message : 'Photo upload failed.' } }, { status, headers });
+  }
 }

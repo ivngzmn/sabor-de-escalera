@@ -4,6 +4,7 @@ import type { Actor } from '../accounts/service';
 import { getPool, transaction } from '../../server/db';
 import { inspectStoredImage, preTransform, variants } from '../../server/media-policy';
 import { imageKitProvider, type MediaProvider } from '../../server/imagekit';
+import { createLocalMediaProvider, localMediaRoot } from '../../server/local-media';
 import { acceptedTypes, MAX_INPUT_BYTES, type AssetRef, type Purpose, type Result, type UploadIntent, type Variant } from './contracts';
 export class MediaError extends Error {
   constructor(readonly status: number, message: string, readonly retryAfter?: number) { super(message); }
@@ -15,9 +16,18 @@ async function result<T>(operation: () => Promise<T>): Promise<Result<T>> {
   }
 }
 export function mediaReadiness(environment: Readonly<Record<string, string | undefined>> = process.env) {
-  // No environment flag can certify unperformed provider proofs. Enable this
-  // only in a reviewed change containing the evidence in media-proof.md.
-  return { enabled: false, configured: Boolean(environment.IMAGEKIT_PRIVATE_KEY && environment.IMAGEKIT_PUBLIC_KEY && environment.IMAGEKIT_URL_ENDPOINT) };
+  const configured = Boolean(environment.IMAGEKIT_PRIVATE_KEY && environment.IMAGEKIT_PUBLIC_KEY && environment.IMAGEKIT_URL_ENDPOINT);
+  // Local files are a development aid only; they are never private storage for real members.
+  if (environment.MEDIA_PROVIDER === 'local')
+    return { enabled: environment.NODE_ENV !== 'production' && !environment.VERCEL, provider: 'local' as const, configured };
+  // ImageKit opens only after the owner runs scripts/media-proof.ts on their account and records the
+  // passing date here and in media-proof.md. Keys alone never enable uploads.
+  if (environment.MEDIA_PROVIDER === 'imagekit')
+    return { enabled: configured && /^\d{4}-\d{2}-\d{2}$/.test(environment.MEDIA_LIVE_PROOF_PASSED ?? ''), provider: 'imagekit' as const, configured };
+  return { enabled: false, provider: null, configured };
+}
+export function mediaProvider(environment: Readonly<Record<string, string | undefined>> = process.env): MediaProvider {
+  return mediaReadiness(environment).provider === 'local' ? createLocalMediaProvider({ root: localMediaRoot() }) : imageKitProvider();
 }
 interface Options { pool: Pool; provider: MediaProvider; ready: boolean; }
 interface IntentRow { id: string; owner_id: string; purpose: Purpose; provider_path: string; expires_at: Date; completed_at: Date | null; }
@@ -181,7 +191,7 @@ export function createMediaService({ pool, provider, ready }: Options) {
   };
   return api;
 }
-export function mediaService() { return createMediaService({ pool: getPool(), provider: imageKitProvider(), ready: mediaReadiness().enabled }); }
+export function mediaService() { return createMediaService({ pool: getPool(), provider: mediaProvider(), ready: mediaReadiness().enabled }); }
 export const createUploadIntent = (actor: Actor, input: Record<string, unknown>) => mediaService().createUploadIntent(actor, input);
 export const completeUpload = (actor: Actor, intentId: string) => mediaService().completeUpload(actor, intentId);
 export const disposeUnusedAsset = (assetId: string) => mediaService().disposeUnusedAsset(assetId);

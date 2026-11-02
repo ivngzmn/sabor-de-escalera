@@ -82,8 +82,10 @@ export default function ImageUploader({
     return result.value;
   }
   async function directUpload(upload: UploadIntent, photo: File) {
+    // ImageKit in deployments; the same-origin local endpoint only exists in development.
     if (
-      upload.grant.endpoint !== "https://upload.imagekit.io/api/v2/files/upload"
+      upload.grant.endpoint !== "https://upload.imagekit.io/api/v2/files/upload" &&
+      upload.grant.endpoint !== "/api/media/local-upload"
     )
       throw new Error(
         text("Photo upload unavailable.", "No se puede subir la foto."),

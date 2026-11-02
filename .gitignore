@@ -20,3 +20,5 @@ playwright-report/
 agent/skills/
 skills-lock.json
 reference/
+# Local development media (MEDIA_PROVIDER=local)
+.media-local/
