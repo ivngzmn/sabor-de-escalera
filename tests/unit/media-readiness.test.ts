@@ -1,6 +1,7 @@
-import { expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import { mediaReadiness } from '../../src/features/media/service';
 
+afterEach(() => vi.unstubAllEnvs());
 const keys = { IMAGEKIT_PRIVATE_KEY: 'private', IMAGEKIT_PUBLIC_KEY: 'public', IMAGEKIT_URL_ENDPOINT: 'https://ik.imagekit.io/test' };
 
 test('media stays off unless a provider is chosen', () => {
@@ -19,4 +20,9 @@ test('the local provider never runs in production or on Vercel', () => {
   expect(mediaReadiness({ MEDIA_PROVIDER: 'local', NODE_ENV: 'development' })).toMatchObject({ enabled: true, provider: 'local' });
   expect(mediaReadiness({ MEDIA_PROVIDER: 'local', NODE_ENV: 'production' })).toMatchObject({ enabled: false });
   expect(mediaReadiness({ MEDIA_PROVIDER: 'local', NODE_ENV: 'development', VERCEL: '1' })).toMatchObject({ enabled: false });
+});
+
+test('a production build refuses the local provider even when NODE_ENV is unset', () => {
+  vi.stubEnv('DEV', false);
+  expect(mediaReadiness({ MEDIA_PROVIDER: 'local' })).toMatchObject({ enabled: false });
 });

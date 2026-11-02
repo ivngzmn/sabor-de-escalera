@@ -79,9 +79,30 @@ Transcription flags for reviewers. These are counts of flags, and a recipe can c
 | `timing-prep-only` / `timing-excludes-soak` / `timing-missing` / `yield-missing` | 1 each | Timing or yield is incomplete as printed. |
 | `metric-amounts-unscaled` | 1 | Gram amounts inside ingredient names won't change when a reader scales. |
 
-## Not built yet
+## Correcting, crediting and publishing
 
-- Attaching images with credits to ownerless recipes.
-- Admin correction of staged text, category, origin and baseline. That is main-plan Task 9.
+The entry page at `/admin/cookbook/<entryId>` has a correction form for unpublished entries. It covers:
 
-Until both exist, and until the production image service passes `media-proof.md`, no imported recipe can meet the publication rules.
+- **Details:** title, category, origin, yield as printed, servings for scaling and whether that number is confirmed.
+- **Time:** one total, or prep, cook and rest.
+- **Wording:** each existing ingredient and step row. Rows can't be added, removed or change kind, so a correction can't rewrite the book.
+- **Photos:** add, remove, choose the cover, captions and alt text.
+
+Every save needs a reason, which goes into the content audit with the names of the changed fields. Saving against an older version than the one shown fails. Changed text sends the entry back to text review and outdates approved translations. Changed photos send it back to image review.
+
+Each saved photo has its own credit form:
+
+| Source | Required | Reader sees |
+| --- | --- | --- |
+| Contributor or owner | Photographer, how permission was given | Photo by … |
+| Pexels or Unsplash | Photographer, the photo's `https` page on pexels.com or unsplash.com, licence, retrieval date | Illustrative photo · Photo by … on Unsplash |
+| AI-generated | Generator and the terms the owner approved | AI-generated illustrative image |
+
+Cropping notes are optional. Changing a credit reopens image review. **Approve images and credits** works only when every photo has a credit. Readers see credits only once a recipe is published; licence and permission notes stay private.
+
+Adding photos needs uploads switched on (`MEDIA_PROVIDER`, see `media-proof.md`). In development, `MEDIA_PROVIDER=local` stores them under `.media-local/`.
+
+## Still blocked
+
+- **Photos:** live photos wait for the owner's ImageKit proof run and `MEDIA_LIVE_PROOF_PASSED`. Until then, no imported recipe can meet the 1–6 photo rule in production.
+- **Missing facts:** origin, servings and missing times still need answers from contributors or the owner. The form records them but must not guess them.

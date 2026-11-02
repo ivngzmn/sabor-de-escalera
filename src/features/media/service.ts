@@ -18,8 +18,9 @@ async function result<T>(operation: () => Promise<T>): Promise<Result<T>> {
 export function mediaReadiness(environment: Readonly<Record<string, string | undefined>> = process.env) {
   const configured = Boolean(environment.IMAGEKIT_PRIVATE_KEY && environment.IMAGEKIT_PUBLIC_KEY && environment.IMAGEKIT_URL_ENDPOINT);
   // Local files are a development aid only; they are never private storage for real members.
+  // import.meta.env.DEV is fixed at build time, so a production build refuses it even if NODE_ENV is unset.
   if (environment.MEDIA_PROVIDER === 'local')
-    return { enabled: environment.NODE_ENV !== 'production' && !environment.VERCEL, provider: 'local' as const, configured };
+    return { enabled: import.meta.env?.DEV !== false && environment.NODE_ENV !== 'production' && !environment.VERCEL, provider: 'local' as const, configured };
   // ImageKit opens only after the owner runs scripts/media-proof.ts on their account and records the
   // passing date here and in media-proof.md. Keys alone never enable uploads.
   if (environment.MEDIA_PROVIDER === 'imagekit')
