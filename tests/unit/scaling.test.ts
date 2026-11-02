@@ -24,3 +24,11 @@ test("clampServings keeps whole servings between 1 and 99", () => {
   expect(clampServings(2.6)).toBe(3);
   expect(clampServings(Number.NaN)).toBe(1);
 });
+
+test("ambiguous notations are preserved rather than mis-scaled", () => {
+  expect(scaleQuantity("1-1/2", 2)).toEqual({ text: "1-1/2", scaled: false });
+  expect(scaleQuantity("1 - 1/2", 2)).toEqual({ text: "1 - 1/2", scaled: false });
+  expect(scaleQuantity("3-2", 2)).toEqual({ text: "3-2", scaled: false });
+  expect(scaleQuantity("1,000", 2)).toEqual({ text: "1,000", scaled: false });
+  expect(scaleQuantity("1,5", 2).text).toBe("3");
+});

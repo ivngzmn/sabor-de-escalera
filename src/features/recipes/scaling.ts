@@ -40,10 +40,12 @@ function format(value: number, style: Style): string {
 export function scaleQuantity(quantity: string, factor: number): { text: string; scaled: boolean } {
   const text = quantity.trim();
   if (!text || factor === 1 || !Number.isFinite(factor) || factor <= 0) return { text: quantity, scaled: false };
+  // "1-1/2" (one and a half) and "1,000" (thousands) read like a range or a decimal; leave them as written.
+  if (/^\d+\s*-\s*\d+\/\d+$/.test(text) || /^\d{1,3}(?:,\d{3})+$/.test(text)) return { text: quantity, scaled: false };
   const range = text.match(RANGE);
   if (range) {
     const [a, b] = [parse(range[1]), parse(range[3])];
-    if (!a || !b) return { text: quantity, scaled: false };
+    if (!a || !b || b.value <= a.value) return { text: quantity, scaled: false };
     return { text: `${format(a.value * factor, a.style)}${range[2]}${format(b.value * factor, b.style)}`, scaled: true };
   }
   if (!SINGLE.test(text)) return { text: quantity, scaled: false };
