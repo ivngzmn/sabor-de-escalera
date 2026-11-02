@@ -78,6 +78,21 @@ const slug = (title: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 100) || "recipe";
+/** Slugs follow title edits only during the first 24 hours after first publication. */
+export function nextSlug(
+  current: string | null,
+  title: string,
+  firstPublishedAt: Date | null,
+  now: Date,
+): string {
+  if (
+    current &&
+    firstPublishedAt &&
+    now.getTime() - firstPublishedAt.getTime() >= 24 * 3_600_000
+  )
+    return current;
+  return slug(title);
+}
 export function createDraftService(options: {
   pool: Pool;
   disposeUnusedAsset: (id: string) => Promise<void>;
@@ -119,9 +134,10 @@ export function createDraftService(options: {
     ).rows[0];
     if (!r || r.owner_id !== actor!.id)
       throw new DraftError(404, "Draft not found.");
+    // Account resets only retire drafts; unpublished recipes survive them.
     if (
       r.state === "deleted" ||
-      r.generation !== member.draft_generation ||
+      (r.state === "draft" && r.generation !== member.draft_generation) ||
       (
         await client.query("SELECT 1 FROM draft_tombstones WHERE draft_id=$1", [
           id,
@@ -132,9 +148,32 @@ export function createDraftService(options: {
         410,
         "This draft was deleted or reset. Discard its device copy.",
       );
-    if (write && r.state !== "draft")
+    if (write && r.state !== "draft" && r.state !== "unpublished")
       throw new DraftError(409, "This recipe is no longer an editable draft.");
     return r;
+  }
+  // Lifecycle changes on published or deleted recipes; draft tombstones stay final.
+  async function ownedRecipe(client: PoolClient, actor: Actor | null, id: string) {
+    await authorize(client, actor);
+    if (!isId(id)) throw new DraftError(404, "Recipe not found.");
+    const r = (
+      await client.query<Row>("SELECT * FROM recipes WHERE id=$1 FOR UPDATE", [id])
+    ).rows[0];
+    if (
+      !r ||
+      r.owner_id !== actor!.id ||
+      r.first_published_at === null ||
+      (await client.query("SELECT 1 FROM draft_tombstones WHERE draft_id=$1", [id])).rowCount
+    )
+      throw new DraftError(404, "Recipe not found.");
+    return r;
+  }
+  async function transition(client: PoolClient, id: string, sql: string) {
+    const next = (
+      await client.query<Row>(`UPDATE recipes SET ${sql},version=version+1,updated_at=now() WHERE id=$1 RETURNING *`, [id])
+    ).rows[0];
+    await refreshCatalogRow(client, id);
+    return dto(next);
   }
   function version(r: Row, expected: number) {
     if (!Number.isSafeInteger(expected) || r.version !== expected)
@@ -265,7 +304,7 @@ export function createDraftService(options: {
           await authorize(client, actor, false);
           return (
             await client.query<Row>(
-              "SELECT * FROM recipes WHERE owner_id=$1 AND state='published' ORDER BY first_published_at DESC,id LIMIT 100",
+              "SELECT * FROM recipes WHERE owner_id=$1 AND state IN ('published','unpublished') ORDER BY first_published_at DESC,id LIMIT 100",
               [actor!.id],
             )
           ).rows.map(dto);
@@ -424,11 +463,56 @@ export function createDraftService(options: {
           const published = (
             await client.query<Row>(
               "UPDATE recipes SET state='published',slug=$2,first_published_at=COALESCE(first_published_at,now()),version=version+1,updated_at=now() WHERE id=$1 RETURNING *",
-              [id, r.slug ?? slug(r.input.title)],
+              [id, nextSlug(r.slug, r.input.title, r.first_published_at, new Date())],
             )
           ).rows[0];
           await refreshCatalogRow(client, id);
           return dto(published);
+        }),
+      ),
+    unpublishRecipe: (actor: Actor | null, id: string, expectedVersion: number) =>
+      result(() =>
+        transaction(pool, async (client) => {
+          const r = await ownedRecipe(client, actor, id);
+          version(r, expectedVersion);
+          if (r.state !== "published") throw new DraftError(409, "This recipe is not published.");
+          return transition(client, id, "state='unpublished'");
+        }),
+      ),
+    // Media references stay attached so a restored recipe keeps its photos.
+    deleteRecipe: (actor: Actor | null, id: string, expectedVersion: number) =>
+      result(() =>
+        transaction(pool, async (client) => {
+          const r = await ownedRecipe(client, actor, id);
+          version(r, expectedVersion);
+          if (r.state !== "published" && r.state !== "unpublished")
+            throw new DraftError(409, "This recipe can't be deleted right now.");
+          return transition(client, id, "state='deleted',deleted_at=now()");
+        }),
+      ),
+    restoreRecipe: (actor: Actor | null, id: string) =>
+      result(() =>
+        transaction(pool, async (client) => {
+          const r = await ownedRecipe(client, actor, id);
+          if (r.state !== "deleted") throw new DraftError(409, "This recipe isn't deleted.");
+          const live = await client.query(
+            "SELECT 1 FROM recipes WHERE id=$1 AND deleted_at>now()-interval '30 days'",
+            [id],
+          );
+          if (!live.rowCount) throw new DraftError(410, "This recipe can no longer be restored.");
+          return transition(client, id, "state='unpublished',deleted_at=NULL");
+        }),
+      ),
+    listDeleted: (actor: Actor | null) =>
+      result(() =>
+        transaction(pool, async (client) => {
+          await authorize(client, actor, false);
+          return (
+            await client.query<Row>(
+              "SELECT * FROM recipes r WHERE owner_id=$1 AND state='deleted' AND first_published_at IS NOT NULL AND deleted_at>now()-interval '30 days' AND NOT EXISTS (SELECT 1 FROM draft_tombstones t WHERE t.draft_id=r.id) ORDER BY deleted_at DESC,id LIMIT 100",
+              [actor!.id],
+            )
+          ).rows.map(dto);
         }),
       ),
     readPublished: (id: string) =>

@@ -478,3 +478,35 @@ test("createDraft rejects invalid initial input without creating a row", async (
   );
   expect(rows.rows[0].n).toBe(0);
 });
+
+test("lifecycle actions run through the draft HTTP boundary", async () => {
+  const { handleDraftRequest } = await import("../../src/features/recipes/routes");
+  const accounts = createAccountService({
+    pool,
+    origin: "https://recipes.example",
+    verifyIdentity: async () => ({ provider: "clerk", subject: "author", email: "a@example.com", emailVerified: true }),
+  });
+  const svc = await setup();
+  const deps = { accounts, drafts: svc, origin: "https://recipes.example" };
+  const post = (id: string, body: unknown) =>
+    handleDraftRequest(
+      new Request(`https://recipes.example/api/drafts/${id}`, {
+        method: "POST",
+        headers: { Origin: "https://recipes.example", "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+      id,
+      deps,
+    );
+  const draft = value(await svc.createDraft(actor, await completeInput()));
+  const published = value(await svc.publishRecipe(actor, draft.id, draft.version));
+  const unpublished = await post(draft.id, { action: "unpublish", version: published.version });
+  expect(unpublished.status).toBe(200);
+  const { value: u } = await unpublished.json();
+  expect(u.state).toBe("unpublished");
+  expect((await post(draft.id, { action: "delete-recipe", version: u.version })).status).toBe(200);
+  expect((await post(draft.id, { action: "restore", version: 1 })).status).toBe(400);
+  const restored = await post(draft.id, { action: "restore" });
+  expect(restored.status).toBe(200);
+  expect((await restored.json()).value.state).toBe("unpublished");
+});

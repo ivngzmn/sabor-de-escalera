@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   FileTextIcon,
   HeartIcon,
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/empty";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DeleteDraftDialog from "@/features/recipes/DeleteDraftDialog";
+import RecipeLifecycleActions from "@/features/recipes/RecipeLifecycleActions";
 
 export type ProfileTab = "favorites" | "recipes" | "drafts";
 export interface ProfileRecipe {
@@ -35,6 +36,7 @@ export interface ProfileRecipe {
   coverAlt: string;
   date: string;
   version: number;
+  state: string;
   photoCount: number;
   ingredientCount: number;
 }
@@ -66,6 +68,10 @@ const copy = {
     published: "Published",
     edited: "Last edited",
     draft: "Draft",
+    unpublished: "Unpublished",
+    deletedBadge: "Deleted",
+    recentlyDeleted: "Recently deleted",
+    recentlyDeletedIntro: "You can restore these recipes for 30 days after deleting them.",
     delete: "Delete",
     deleteLabel: (title: string) => `Delete draft: ${title}`,
     deleted: (title: string) => `Deleted draft “${title}”.`,
@@ -103,6 +109,10 @@ const copy = {
     published: "Publicada",
     edited: "Última edición",
     draft: "Borrador",
+    unpublished: "Sin publicar",
+    deletedBadge: "Eliminada",
+    recentlyDeleted: "Eliminadas recientemente",
+    recentlyDeletedIntro: "Puedes restaurar estas recetas durante 30 días después de eliminarlas.",
     delete: "Eliminar",
     deleteLabel: (title: string) => `Eliminar borrador: ${title}`,
     deleted: (title: string) => `Se eliminó el borrador «${title}».`,
@@ -124,12 +134,14 @@ function RecipeCard({
   language,
   href,
   onDelete,
+  actions,
 }: {
   recipe: ProfileRecipe;
   kind: "recipes" | "drafts";
   language: "en" | "es";
   href: string;
   onDelete?: () => void;
+  actions?: ReactNode;
 }) {
   const t = copy[language];
   const date = new Intl.DateTimeFormat(language, {
@@ -153,9 +165,9 @@ function RecipeCard({
             {recipe.label.trim()[0]?.toUpperCase() ?? "·"}
           </div>
         )}
-        {kind === "drafts" && (
+        {(kind === "drafts" || recipe.state !== "published") && (
           <Badge variant="region" className="absolute top-3 left-3">
-            {t.draft}
+            {kind === "drafts" ? t.draft : recipe.state === "deleted" ? t.deletedBadge : t.unpublished}
           </Badge>
         )}
       </div>
@@ -173,7 +185,8 @@ function RecipeCard({
         </CardDescription>
       </CardHeader>
       <CardFooter className="justify-between gap-3 pt-4 pb-5 text-sm font-semibold text-primary-ink">
-        <span>{kind === "drafts" ? t.continue : t.view} →</span>
+        {recipe.state === "published" || kind === "drafts" ? <span>{kind === "drafts" ? t.continue : t.view} →</span> : <span />}
+        {actions}
         {onDelete && (
           // Sits above the card's stretched link so it stays its own target.
           <Button
@@ -223,12 +236,19 @@ export default function ProfileTabs({
   initialTab,
   language,
   published,
+  deleted = [],
   drafts: initialDrafts,
+  favorites,
+  favoriteCount = 0,
 }: {
   initialTab: ProfileTab;
   language: "en" | "es";
   published: ProfileRecipe[];
+  deleted?: ProfileRecipe[];
   drafts: ProfileRecipe[];
+  /** The Favorites feed, rendered by the page so it can be server-seeded. */
+  favorites?: ReactNode;
+  favoriteCount?: number;
 }) {
   const t = copy[language];
   const [tab, setTab] = useState<ProfileTab>(initialTab);
@@ -295,7 +315,7 @@ export default function ProfileTabs({
   );
   const heading = (title: string, intro: string) => (
     <div className="flex flex-col gap-1">
-      <h2 className="type-headline-md m-0">{title}</h2>
+      <h2 id={title === t.recentlyDeleted ? "recently-deleted-heading" : undefined} className="type-headline-md m-0">{title}</h2>
       <p className="m-0 text-sm text-muted-foreground">{intro}</p>
     </div>
   );
@@ -308,9 +328,22 @@ export default function ProfileTabs({
             kind={kind}
             language={language}
             href={
-              kind === "drafts"
+              kind === "drafts" || recipe.state === "unpublished"
                 ? href(`/add-recipe?draft=${encodeURIComponent(recipe.id)}`)
-                : href(recipe.url ?? "/")
+                : recipe.state === "deleted"
+                  ? "#recently-deleted"
+                  : href(recipe.url ?? "/")
+            }
+            actions={
+              kind === "recipes" ? (
+                <RecipeLifecycleActions
+                  id={recipe.id}
+                  title={recipe.label}
+                  state={recipe.state}
+                  version={recipe.version}
+                  language={language}
+                />
+              ) : undefined
             }
             onDelete={
               kind === "drafts"
@@ -350,7 +383,7 @@ export default function ProfileTabs({
         >
           <TabsTrigger value="favorites" className={triggerClass}>
             <HeartIcon aria-hidden="true" />
-            {t.favorites} (0)
+            {t.favorites} ({favoriteCount})
           </TabsTrigger>
           <TabsTrigger value="recipes" className={triggerClass}>
             <ReaderIcon aria-hidden="true" />
@@ -363,7 +396,7 @@ export default function ProfileTabs({
         </TabsList>
         <TabsContent value="favorites" className="flex flex-col gap-6">
           {heading(t.favoritesTitle, t.favoritesIntro)}
-          <EmptyState
+          {favorites ?? <EmptyState
             icon={<HeartIcon aria-hidden="true" />}
             title={t.noFavorites}
             body={t.noFavoritesBody}
@@ -376,7 +409,7 @@ export default function ProfileTabs({
                 {t.discover}
               </a>
             }
-          />
+          />}
         </TabsContent>
         <TabsContent value="recipes" className="flex flex-col gap-6">
           {heading(t.recipesTitle, t.recipesIntro)}
@@ -389,6 +422,12 @@ export default function ProfileTabs({
               body={t.noRecipesBody}
               action={shareLink}
             />
+          )}
+          {deleted.length > 0 && (
+            <section id="recently-deleted" aria-labelledby="recently-deleted-heading" className="flex flex-col gap-4">
+              {heading(t.recentlyDeleted, t.recentlyDeletedIntro)}
+              {grid(deleted, "recipes")}
+            </section>
           )}
         </TabsContent>
         <TabsContent value="drafts" className="flex flex-col gap-6">

@@ -27,15 +27,16 @@ catch (error) {
 }
 if (!actor.onboarded) return Astro.redirect(`/onboarding?${new URLSearchParams({ returnTo: `${Astro.url.pathname}${Astro.url.search}`, ...(spanish ? { lang: 'es' } : {}) })}`, 303);
 const service = draftsService();
-const [publishedResult, draftsResult] = await Promise.all([service.listPublished(actor), service.listDrafts(actor)]);
+const [publishedResult, draftsResult, deletedResult] = await Promise.all([service.listPublished(actor), service.listDrafts(actor), service.listDeleted(actor)]);
 const listUnavailable = !publishedResult.ok || !draftsResult.ok;
 const card = (recipe: Draft, kind: 'recipes' | 'drafts'): ProfileRecipe => {
   const photo = recipe.input.photos[0];
-  const cover = photo ? (kind === 'recipes' ? `/api/recipes/${recipe.id}/photos/${photo.assetId}?variant=card` : `/api/media/${photo.assetId}?variant=card`) : null;
-  return { id: recipe.id, label: recipe.label === 'Untitled recipe' && spanish ? 'Receta sin título' : recipe.label, url: recipe.url, cover, coverAlt: photo?.alt ?? '', date: (kind === 'recipes' ? recipe.publishedAt : null) ?? recipe.updatedAt, version: recipe.version, photoCount: recipe.input.photos.length, ingredientCount: recipe.input.ingredients.length };
+  const cover = photo ? (kind === 'recipes' && recipe.state === 'published' ? `/api/recipes/${recipe.id}/photos/${photo.assetId}?variant=card` : `/api/media/${photo.assetId}?variant=card`) : null;
+  return { id: recipe.id, label: recipe.label === 'Untitled recipe' && spanish ? 'Receta sin título' : recipe.label, url: recipe.url, cover, coverAlt: photo?.alt ?? '', date: (kind === 'recipes' ? recipe.publishedAt : null) ?? recipe.updatedAt, version: recipe.version, state: recipe.state, photoCount: recipe.input.photos.length, ingredientCount: recipe.input.ingredients.length };
 };
 const published = publishedResult.ok ? publishedResult.value.map((recipe) => card(recipe, 'recipes')) : [];
 const drafts = draftsResult.ok ? draftsResult.value.map((recipe) => card(recipe, 'drafts')) : [];
+const deleted = deletedResult.ok ? deletedResult.value.map((recipe) => card(recipe, 'recipes')) : [];
 const name = actor.displayName ?? (spanish ? 'Miembro' : 'Member');
 const memberSince = actor.memberSince ? new Intl.DateTimeFormat(language, { month: 'long', year: 'numeric' }).format(new Date(actor.memberSince)) : null;
 const t = spanish
@@ -91,6 +92,6 @@ const stats = [
   {actor.suspended && <Alert className="mt-6"><AlertDescription>{t.suspended}</AlertDescription></Alert>}
   {listUnavailable && <Alert variant="destructive" className="mt-6"><AlertDescription>{t.unavailable}</AlertDescription></Alert>}
   <div class="mt-10">
-    <ProfileTabs client:load initialTab={initialTab} language={language} published={published} drafts={drafts} />
+    <ProfileTabs client:load initialTab={initialTab} language={language} published={published} deleted={deleted} drafts={drafts} />
   </div>
 </AppLayout>

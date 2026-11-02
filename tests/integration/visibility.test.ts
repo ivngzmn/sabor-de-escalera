@@ -149,3 +149,94 @@ test("translation fallback search and display", async () => {
   const en = value(await svc.list({ q: "arroz", language: "en" }, null));
   expect(en.items).toEqual([expect.objectContaining({ id, title: "Rice pudding", language: "en", translated: false })]);
 });
+
+async function drafts() {
+  const { createDraftService } = await import("../../src/features/recipes/drafts");
+  return createDraftService({ pool, disposeUnusedAsset: async () => {} });
+}
+async function readyAsset(ownerId: string) {
+  const intent = randomUUID(), id = randomUUID();
+  await pool.query(
+    "INSERT INTO upload_intents(id,owner_id,purpose,input_mime,input_size,provider_path,expires_at,completed_at) VALUES($1,$2,'recipe','image/jpeg',1,$3,now(),now())",
+    [intent, ownerId, `/${intent}`],
+  );
+  await pool.query(
+    "INSERT INTO media_assets(id,intent_id,owner_id,purpose,provider_file_id,provider_path,stored_bytes,width,height) VALUES($1,$2,$3,'recipe',$4,$4,100,640,480)",
+    [id, intent, ownerId, `/${intent}`],
+  );
+  return { assetId: id, width: 640, height: 480, caption: "A bowl", alt: "", crop: { x: 50, y: 50, zoom: 1 } };
+}
+async function publishThroughService(title: string) {
+  const { emptyRecipe } = await import("../../src/features/recipes/validation");
+  const svc = await drafts();
+  const input = {
+    ...emptyRecipe(), title, category: "main", origin: "not-sure", yieldText: "4", baseline: 4, baselineConfirmed: true,
+    timing: { mode: "total" as const, total: 30, prep: null, cook: null, rest: null },
+    photos: [await readyAsset(author.id)],
+    ingredients: [{ kind: "ingredient" as const, quantity: "1", unit: "cup", name: "rice", notes: "" }],
+    instructions: [{ kind: "step" as const, text: "Cook." }],
+  };
+  const draft = value(await svc.createDraft(author, input));
+  return { svc, input, recipe: value(await svc.publishRecipe(author, draft.id, draft.version)) };
+}
+const allowSave = (id: string) => pool.query("UPDATE recipes SET last_saved_at=now()-interval '6 seconds' WHERE id=$1", [id]);
+
+test("slug follows title only within 24 hours of first publication", async () => {
+  const { nextSlug } = await import("../../src/features/recipes/drafts");
+  const t0 = new Date("2026-11-01T00:00:00Z");
+  const hours = (h: number) => new Date(t0.getTime() + h * 3_600_000);
+  expect(nextSlug("flan", "Flan de coco", t0, hours(23))).toBe("flan-de-coco");
+  expect(nextSlug("flan", "Flan de coco", t0, hours(25))).toBe("flan");
+  expect(nextSlug(null, "Flan de coco", null, t0)).toBe("flan-de-coco");
+});
+
+test("republishing does not restart the slug window", async () => {
+  const { svc, input, recipe } = await publishThroughService("Flan");
+  await pool.query("UPDATE recipes SET first_published_at=now()-interval '2 days' WHERE id=$1", [recipe.id]);
+  const unpublished = value(await svc.unpublishRecipe(author, recipe.id, recipe.version));
+  expect(unpublished.state).toBe("unpublished");
+  expect((await svc.readPublished(recipe.id)).ok).toBe(false);
+  await allowSave(recipe.id);
+  const renamed = value(await svc.saveDraft(author, recipe.id, unpublished.version, { ...input, title: "Flan de coco" }));
+  const again = value(await svc.publishRecipe(author, recipe.id, renamed.version));
+  expect(again.url).toBe(`/recipes/${recipe.id}/flan`);
+  const first = (await pool.query("SELECT first_published_at FROM recipes WHERE id=$1", [recipe.id])).rows[0].first_published_at;
+  expect(Date.now() - first.getTime()).toBeGreaterThan(36 * 3_600_000);
+});
+
+test("title edits move the slug during the first day", async () => {
+  const { svc, input, recipe } = await publishThroughService("Flan");
+  const unpublished = value(await svc.unpublishRecipe(author, recipe.id, recipe.version));
+  await allowSave(recipe.id);
+  const renamed = value(await svc.saveDraft(author, recipe.id, unpublished.version, { ...input, title: "Flan de coco" }));
+  expect(value(await svc.publishRecipe(author, recipe.id, renamed.version)).url).toBe(`/recipes/${recipe.id}/flan-de-coco`);
+});
+
+test("deleted recipes restore within 30 days only", async () => {
+  const { svc, recipe } = await publishThroughService("Pozole");
+  const deleted = value(await svc.deleteRecipe(author, recipe.id, recipe.version));
+  expect(deleted.state).toBe("deleted");
+  expect(value(await (await catalog()).list({ language: "en" }, null)).items).toEqual([]);
+  expect(value(await svc.listDeleted(author)).map((r) => r.id)).toEqual([recipe.id]);
+  expect(value(await svc.restoreRecipe(author, recipe.id)).state).toBe("unpublished");
+  const restored = value(await svc.readDraft(author, recipe.id));
+  value(await svc.deleteRecipe(author, recipe.id, restored.version));
+  await pool.query("UPDATE recipes SET deleted_at=now()-interval '31 days' WHERE id=$1", [recipe.id]);
+  expect(await svc.restoreRecipe(author, recipe.id)).toMatchObject({ ok: false, error: { status: 410 } });
+  expect(value(await svc.listDeleted(author))).toEqual([]);
+});
+
+test("other members cannot change lifecycle", async () => {
+  const { svc, recipe } = await publishThroughService("Tamales");
+  const other = { ...raters[0], onboarded: true };
+  expect(await svc.unpublishRecipe(other, recipe.id, recipe.version)).toMatchObject({ ok: false, error: { status: 404 } });
+  expect(await svc.deleteRecipe(other, recipe.id, recipe.version)).toMatchObject({ ok: false, error: { status: 404 } });
+  expect(await svc.restoreRecipe(other, recipe.id)).toMatchObject({ ok: false, error: { status: 404 } });
+});
+
+test("deleted drafts cannot be restored as recipes", async () => {
+  const svc = await drafts();
+  const draft = value(await svc.createDraft(author));
+  value(await svc.deleteDraft(author, draft.id, draft.version));
+  expect(await svc.restoreRecipe(author, draft.id)).toMatchObject({ ok: false, error: { status: 404 } });
+});

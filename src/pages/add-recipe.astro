@@ -16,7 +16,7 @@ try {
  if(!actor.onboarded)return Astro.redirect(`/onboarding?${new URLSearchParams({returnTo:Astro.url.pathname+Astro.url.search,...(spanish?{lang:'es'}:{})})}`,303);
  if(!canContribute(actor))return new Response(spanish?'Las contribuciones no están disponibles para esta cuenta.':'Contributions are currently unavailable for this account.',{status:403,headers:{'Cache-Control':'private, no-store'}});
  const svc=draftsService();origins=await svc.origins();const id=Astro.url.searchParams.get('draft');
- if(id){const draft=await svc.readDraft(actor,id);if(draft.ok&&draft.value.state==='draft')initial=draft.value;else {unavailable=draft.ok?409:draft.error.status;Astro.response.status=unavailable;}}
+ if(id){const draft=await svc.readDraft(actor,id);if(draft.ok&&(draft.value.state==='draft'||draft.value.state==='unpublished'))initial=draft.value;else {unavailable=draft.ok?409:draft.error.status;Astro.response.status=unavailable;}}
 }catch(error){if(error instanceof AccountError&&(error.status===401||error.status===503))return Astro.redirect(signInHref(Astro.url.pathname+Astro.url.search,origin),303);return accountFailure(error);}
 ---
 <AppLayout title={spanish?'Añadir receta':'Add Recipe'}>{unavailable?<UnavailableDraft client:load accountId={actor.id} clearRecovery={unavailable===410} spanish={spanish}/>:<RecipeEditor client:load accountId={actor.id} initial={initial} origins={origins} mediaAvailable={mediaReadiness().enabled} language={spanish?'es':'en'}/>}</AppLayout>
