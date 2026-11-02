@@ -3,7 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 
 test('equal choices, scrolling and dismissal never opt in; settings persist explicit decisions', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+  await expect(page.locator('astro-island[component-url*="ConsentBanner"]')).not.toHaveAttribute('ssr', '');
   const banner = page.getByRole('region', { name: 'Your privacy choices' });
   await expect(banner).toBeVisible();
   const actions = ['Accept optional', 'Reject optional', 'Customize'];
@@ -32,7 +32,7 @@ test('accept is explicit, Spanish purposes available, and optional providers nev
   const external: string[] = [];
   page.on('request', (request) => { if (!request.url().startsWith(`${baseURL}/`)) external.push(request.url()); });
   await page.goto('/?lang=es');
-  await expect(page.locator('astro-island')).not.toHaveAttribute('ssr', '');
+  await expect(page.locator('astro-island[component-url*="ConsentBanner"]')).not.toHaveAttribute('ssr', '');
   await expect(page.getByRole('region', { name: 'Tus opciones de privacidad' })).toBeVisible();
   await page.getByRole('button', { name: 'Aceptar opcionales', exact: true }).click();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('escalera:consent')!))).toMatchObject({ preferences: true, recovery: true, analytics: true });
