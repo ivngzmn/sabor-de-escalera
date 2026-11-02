@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
 import { getPool } from "../../server/db";
 import { searchKey } from "./search-key";
+import type { TranslatableText } from "./translation-text";
 import {
   categories,
   isId,
@@ -138,6 +139,23 @@ export interface PublicMember {
 
 export function createCatalogService({ pool }: { pool: Pool }) {
   return {
+    /** Approved translation for readers; outdated or proposed text is never shown. */
+    async readerTranslation(recipeId: string, language: "en" | "es"): Promise<TranslatableText | null> {
+      if (!isId(recipeId)) return null;
+      return (
+        (
+          await pool.query<{ input: TranslatableText }>(
+            "SELECT tr.input FROM recipe_translations tr JOIN recipes r ON r.id=tr.recipe_id WHERE tr.recipe_id=$1 AND tr.language=$2 AND tr.status='approved' AND r.language<>$2",
+            [recipeId, language],
+          )
+        ).rows[0]?.input ?? null
+      );
+    },
+    /** Display name for a recipe's author, or null for ownerless cookbook recipes. */
+    async authorName(memberId: string | null): Promise<string | null> {
+      if (!memberId || !isId(memberId)) return null;
+      return (await pool.query("SELECT display_name FROM members WHERE id=$1 AND onboarded_at IS NOT NULL", [memberId])).rows[0]?.display_name ?? null;
+    },
     /** Saved recipes that are currently visible; hidden ones keep their row but are not counted. */
     async countFavorites(memberId: string): Promise<number> {
       if (!isId(memberId)) return 0;

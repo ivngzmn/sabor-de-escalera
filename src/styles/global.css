@@ -122,3 +122,15 @@
   letter-spacing: .04em;
   text-transform: uppercase;
 }
+
+/* Printed recipes keep title, credits, ingredients, steps, servings and timing; controls and community stay on screen. */
+@media print {
+  [data-print-hide],
+  [data-community],
+  .gallery-open,
+  .recipe-gallery figure:not(:first-child) { display: none !important; }
+  .recipe-columns { display: block; }
+  .recipe-columns section,
+  .recipe-steps li { break-inside: avoid; }
+  a[href]::after { content: none; }
+}

@@ -14,12 +14,15 @@ export default function RecipePreview({
   origins,
   spanish = false,
   published = false,
+  onOpenPhoto,
 }: {
   input: RecipeInput;
   id: string;
   origins: Origin[];
   spanish?: boolean;
   published?: boolean;
+  /** Reader-only: opens the gallery viewer instead of a new tab. */
+  onOpenPhoto?: (index: number) => void;
 }) {
   const t = (en: string, es: string) => (spanish ? es : en);
   return (
@@ -92,7 +95,12 @@ export default function RecipePreview({
               />
             </div>
             <figcaption>{p.caption}</figcaption>
-            {i === 0 && (
+            {onOpenPhoto ? (
+              <button type="button" className="gallery-open" onClick={() => onOpenPhoto(i)}>
+                {t("View larger photo", "Ver foto más grande")}
+                <span className="sr-only">: {p.caption}</span>
+              </button>
+            ) : i === 0 && (
               <a
                 href={
                   published

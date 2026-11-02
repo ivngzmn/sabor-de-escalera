@@ -61,6 +61,7 @@ interface Row {
 }
 const dto = (r: Row): Draft => ({
   id: r.id,
+  ownerId: r.owner_id,
   version: r.version,
   generation: r.generation,
   input: r.input,
