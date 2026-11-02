@@ -1,0 +1,52 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import { Badge } from '../../../components/ui/badge';
+import { cookbookQueue, type QueueFilter } from '../../../features/cookbook/queue';
+import BulkApprove from '../../../features/translations/BulkApprove';
+import { translationService } from '../../../features/translations/service';
+import { adminOrResponse } from './_guard';
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+const actor = await adminOrResponse(Astro.request, Astro.url);
+if (actor instanceof Response) return actor;
+const requested = Astro.url.searchParams.get('filter');
+const filter: QueueFilter = requested === 'eligible' || requested === 'blocked' ? requested : 'all';
+const queue = await cookbookQueue().listQueue(actor, filter);
+if (!queue.ok) Astro.response.status = queue.error.status;
+const rows = queue.ok ? queue.value : [];
+const proposals = await translationService().listProposals(actor);
+const filters: [QueueFilter, string][] = [['all', 'All'], ['blocked', 'Blocked'], ['eligible', 'Ready to publish']];
+---
+<AppLayout title="Cookbook review">
+  <a href="/admin">← Admin</a>
+  <h1>Cookbook review</h1>
+  <p class="max-w-3xl">Every book recipe is staged here unpublished. A recipe publishes only after its text and images are reviewed, every photo has a recorded source and permission, and the required details are complete. Book inclusion alone is not permission to reuse text or images on the web.</p>
+  <nav aria-label="Queue filters" class="my-4 flex flex-wrap gap-3">
+    {filters.map(([value, label]) => <a href={value === 'all' ? '/admin/cookbook' : `/admin/cookbook?filter=${value}`} aria-current={value === filter ? 'page' : undefined}>{label}</a>)}
+  </nav>
+  <section aria-labelledby="pending-translations" class="my-6 flex flex-col gap-3 rounded-xl bg-card p-4 shadow-sm">
+    <h2 id="pending-translations" class="m-0">Translations waiting for approval</h2>
+    {proposals.ok ? <BulkApprove client:load proposals={proposals.value} /> : <p role="alert">{proposals.error.message}</p>}
+  </section>
+  <h2>Staged recipes</h2>
+  {!queue.ok ? <p role="alert">{queue.error.message}</p> : rows.length === 0 ? <p>No entries in this view.</p> : (
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <caption class="sr-only">Staged cookbook recipes ({rows.length})</caption>
+        <thead><tr><th scope="col">Recipe</th><th scope="col">Pages</th><th scope="col">Text</th><th scope="col">Images</th><th scope="col">Translation</th><th scope="col">Still needed</th><th scope="col">Flags</th></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr class="border-t align-top">
+              <th scope="row" class="py-2 pr-4 font-semibold"><a href={`/admin/cookbook/${r.entryId}`}>{r.title}</a>{r.state === 'published' && <Badge variant="tag" className="ml-2">Published</Badge>}</th>
+              <td class="pr-4">{r.pages.join(', ')}</td>
+              <td class="pr-4">{r.textReview}</td>
+              <td class="pr-4">{r.imageReview}</td>
+              <td class="pr-4">EN {r.translation.en} · ES {r.translation.es}</td>
+              <td class="pr-4">{r.missing.join(', ') || (r.state === 'published' ? '—' : 'Nothing')}</td>
+              <td>{r.flags.join(', ') || '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</AppLayout>

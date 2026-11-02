@@ -24,23 +24,26 @@ if (recipe && Astro.url.pathname !== recipe.url) return Astro.redirect(recipe.ur
 let origins: Origin[] = [];
 let translation: TranslatableText | null = null;
 let authorName: string | null = null;
+let credit: { contributor: string | null; originalAuthor: string | null } | null = null;
 if (recipe) {
   const catalog = catalogService();
-  [origins, translation, authorName] = await Promise.all([
+  [origins, translation, authorName, credit] = await Promise.all([
     draftsService().origins(),
     catalog.readerTranslation(recipe.id, language),
     catalog.authorName(recipe.ownerId ?? null),
+    catalog.cookbookCredit(recipe.id),
   ]);
 }
 const date = (iso: string) => new Intl.DateTimeFormat(language, { dateStyle: 'long' }).format(new Date(iso));
 const t = spanish
-  ? { by: 'Por', published: 'Publicada', updated: 'Actualizada', gone: 'Uy, esta receta se ha ido de la mesa.', explore: 'Explorar recetas', unavailable: 'No pudimos cargar esta receta. Inténtalo de nuevo en un momento.' }
-  : { by: 'By', published: 'Published', updated: 'Updated', gone: 'Oops—this recipe has left the table.', explore: 'Explore Recipes', unavailable: 'We couldn’t load this recipe. Please try again in a moment.' };
+  ? { cookbook: 'Del recetario Escalera', contributed: 'Aportada por', original: 'Receta original de', by: 'Por', published: 'Publicada', updated: 'Actualizada', gone: 'Uy, esta receta se ha ido de la mesa.', explore: 'Explorar recetas', unavailable: 'No pudimos cargar esta receta. Inténtalo de nuevo en un momento.' }
+  : { cookbook: 'From the Escalera cookbook', contributed: 'Contributed by', original: 'Original recipe by', by: 'By', published: 'Published', updated: 'Updated', gone: 'Oops—this recipe has left the table.', explore: 'Explore Recipes', unavailable: 'We couldn’t load this recipe. Please try again in a moment.' };
 ---
 <AppLayout title={recipe?.input.title ?? (spanish ? 'Receta no disponible' : 'Recipe unavailable')}>
   {recipe ? (
     <>
       <p class="m-0 mb-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        {credit && <span>{t.cookbook}{credit.contributor && ` · ${t.contributed} ${credit.contributor}`}{credit.originalAuthor && ` · ${t.original} ${credit.originalAuthor}`}</span>}
         {authorName && <span>{t.by} <a href={`/members/${recipe.ownerId}${spanish ? '?lang=es' : ''}`}>{authorName}</a></span>}
         <span>{t.published}: <time datetime={recipe.publishedAt!}>{date(recipe.publishedAt!)}</time></span>
         <span>{t.updated}: <time datetime={recipe.updatedAt}>{date(recipe.updatedAt)}</time></span>

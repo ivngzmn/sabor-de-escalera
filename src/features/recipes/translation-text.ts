@@ -41,3 +41,14 @@ export function applyTranslation(input: RecipeInput, text: TranslatableText, lan
     }),
   };
 }
+
+/** Fits saved text to the recipe's current rows; rows the text lacks start from the original, extra rows are dropped. */
+export function fitToSource(text: TranslatableText, original: TranslatableText): TranslatableText {
+  const fit = <T,>(rows: T[], from: T[]) => from.map((row, i) => rows[i] ?? row);
+  return {
+    ...text,
+    ingredients: fit(text.ingredients, original.ingredients),
+    instructions: fit(text.instructions, original.instructions),
+    captions: fit(text.captions, original.captions),
+  };
+}

@@ -1,0 +1,54 @@
+[
+  {
+    "key": "p03-sample-lime-water",
+    "pages": [3],
+    "contributor": "Sample Contributor A",
+    "originalAuthor": null,
+    "sourceUrls": [],
+    "language": "en",
+    "flags": ["category-unassigned"],
+    "recipe": {
+      "title": "Sample Lime Water",
+      "yieldText": "8 cups",
+      "ingredients": [
+        { "kind": "ingredient", "quantity": "4", "unit": "", "name": "limes", "notes": "" },
+        { "kind": "ingredient", "quantity": "to taste", "unit": "", "name": "sugar", "notes": "" }
+      ],
+      "instructions": [{ "kind": "step", "text": "Juice the limes and stir into cold water." }]
+    }
+  },
+  {
+    "key": "p05-sample-bean-stew",
+    "pages": [5, 6],
+    "contributor": "Sample Contributor B",
+    "originalAuthor": "Sample Grandparent",
+    "sourceUrls": ["https://example.org/sample-video"],
+    "language": "es",
+    "flags": ["yield-unclear", "quantity-unclear:1"],
+    "recipe": {
+      "title": "Guiso de ejemplo",
+      "yieldText": "",
+      "ingredients": [
+        { "kind": "section", "quantity": "", "unit": "", "name": "Para el guiso", "notes": "" },
+        { "kind": "ingredient", "quantity": "1 can (size not given)", "unit": "", "name": "frijoles", "notes": "" },
+        { "kind": "ingredient", "quantity": "1 1/2", "unit": "tazas", "name": "caldo", "notes": "" }
+      ],
+      "instructions": [{ "kind": "step", "text": "Cocinar a fuego lento." }]
+    }
+  },
+  {
+    "key": "p09-sample-sweet-bread",
+    "pages": [9],
+    "contributor": null,
+    "originalAuthor": null,
+    "sourceUrls": [],
+    "language": "en",
+    "flags": ["timing-missing", "origin-unassigned"],
+    "recipe": {
+      "title": "Sample Sweet Bread",
+      "category": "desserts",
+      "ingredients": [{ "kind": "ingredient", "quantity": "2–3", "unit": "cups", "name": "flour", "notes": "" }],
+      "instructions": [{ "kind": "step", "text": "Mix and bake until golden." }]
+    }
+  }
+]
