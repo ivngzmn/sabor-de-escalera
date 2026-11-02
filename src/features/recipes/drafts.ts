@@ -3,6 +3,7 @@ import type { Pool, PoolClient } from "pg";
 import type { Actor } from "../accounts/service";
 import { getPool, transaction } from "../../server/db";
 import { disposeUnusedAsset } from "../media/service";
+import { refreshCatalogRow } from "./catalog";
 import {
   emptyRecipe,
   isId,
@@ -420,14 +421,14 @@ export function createDraftService(options: {
             "INSERT INTO recipe_publications(recipe_id,owner_id) VALUES($1,$2)",
             [id, actor!.id],
           );
-          return dto(
-            (
-              await client.query<Row>(
-                "UPDATE recipes SET state='published',slug=$2,first_published_at=COALESCE(first_published_at,now()),version=version+1,updated_at=now() WHERE id=$1 RETURNING *",
-                [id, r.slug ?? slug(r.input.title)],
-              )
-            ).rows[0],
-          );
+          const published = (
+            await client.query<Row>(
+              "UPDATE recipes SET state='published',slug=$2,first_published_at=COALESCE(first_published_at,now()),version=version+1,updated_at=now() WHERE id=$1 RETURNING *",
+              [id, r.slug ?? slug(r.input.title)],
+            )
+          ).rows[0];
+          await refreshCatalogRow(client, id);
+          return dto(published);
         }),
       ),
     readPublished: (id: string) =>
