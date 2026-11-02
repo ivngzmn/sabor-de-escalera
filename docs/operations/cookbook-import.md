@@ -47,6 +47,38 @@ Published cookbook recipes have no owning account. Readers see "From the Escaler
 
 Translations are reviewed by hand at `/admin/translations/<recipeId>`. A translation is bound to the recipe version it was written against. Approving it after the recipe has changed fails, and editing the recipe marks its approved translation as outdated. `AUTO_TRANSLATION_ENABLED` stays `false`, and nothing here calls a translation provider.
 
+## Staging status (November 1, 2026)
+
+The whole book is transcribed into the local manifest: 40 recipes covering every printed recipe page (3–42). There are 10 appetizers and sides, 4 beverages, 21 main dishes and 5 desserts; categories follow the book's table of contents. All 40 imported cleanly into a local database as unpublished, ownerless recipes. None is published, and none can be yet.
+
+What blocks publication, counted across the 40 recipes:
+
+| Blocker | Recipes |
+|---|---|
+| Text review not done | 40 |
+| No images (image review missing) | 40 |
+| Origin not set (the book doesn't state one) | 40 |
+| Serving baseline not confirmed (needs a person) | 40 |
+| No single total time (printed as a range, prep only, or missing) | 11 |
+| No yield printed | 1 |
+
+Transcription flags for reviewers. These are counts of flags, and a recipe can carry several:
+
+| Flag | Count | Meaning |
+|---|---|---|
+| `third-party-source` | 16 | Adapted from a website the book cites; check reuse permission. |
+| `timing-range` | 8 | The book prints a range; the printed text is kept in the notes. |
+| `unit-missing` | 6 | A quantity is printed without a unit. |
+| `ingredient-missing` | 5 | A step uses something the ingredient list doesn't include. |
+| `quantity-unclear` / `quantity-check` / `quantity-missing` | 2 / 2 / 1 | A printed amount looks wrong or is absent. |
+| `step-unclear` | 2 | A printed step is garbled. |
+| `ingredient-unused` | 2 | A listed ingredient never appears in the steps. |
+| `title-spelling-check` | 2 | An obvious title misspelling was corrected; confirm it. |
+| `source-url-mismatch` / `source-url-missing` | 1 / 1 | The cited link belongs to another recipe, or no link is given. |
+| `contributor-missing` / `original-author-blank` | 1 / 1 | The book gives no contributor, or a blank original author. |
+| `timing-prep-only` / `timing-excludes-soak` / `timing-missing` / `yield-missing` | 1 each | Timing or yield is incomplete as printed. |
+| `metric-amounts-unscaled` | 1 | Gram amounts inside ingredient names won't change when a reader scales. |
+
 ## Not built yet
 
 - Attaching images with credits to ownerless recipes.
