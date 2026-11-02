@@ -174,3 +174,20 @@ test("automation flag off makes zero provider calls", async () => {
   await svc.readerTranslation(id, "es");
   expect(fetch).not.toHaveBeenCalled();
 });
+
+test("pending proposals are listed for bulk approval with their freshness", async () => {
+  const a = await recipe();
+  const b = await recipe();
+  const svc = await service();
+  const first = value(await svc.saveTranslation(admin, a.id, "es", a.version, spanish("Uno")));
+  const second = value(await svc.saveTranslation(admin, b.id, "es", b.version, spanish("Dos")));
+  await pool.query("UPDATE recipes SET version=version+1 WHERE id=$1", [b.id]);
+  const rows = value(await svc.listProposals(admin));
+  expect(rows).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ id: first.id, recipeId: a.id, title: "Uno", language: "es", sourceVersion: a.version, current: true }),
+      expect.objectContaining({ id: second.id, current: false }),
+    ]),
+  );
+  expect(await svc.listProposals(member)).toMatchObject({ ok: false, error: { status: 403 } });
+});

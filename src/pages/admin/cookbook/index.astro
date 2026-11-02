@@ -2,6 +2,8 @@
 import AppLayout from '../../../layouts/AppLayout.astro';
 import { Badge } from '../../../components/ui/badge';
 import { cookbookQueue, type QueueFilter } from '../../../features/cookbook/queue';
+import BulkApprove from '../../../features/translations/BulkApprove';
+import { translationService } from '../../../features/translations/service';
 import { adminOrResponse } from './_guard';
 Astro.response.headers.set('Cache-Control', 'private, no-store');
 const actor = await adminOrResponse(Astro.request, Astro.url);
@@ -11,6 +13,7 @@ const filter: QueueFilter = requested === 'eligible' || requested === 'blocked' 
 const queue = await cookbookQueue().listQueue(actor, filter);
 if (!queue.ok) Astro.response.status = queue.error.status;
 const rows = queue.ok ? queue.value : [];
+const proposals = await translationService().listProposals(actor);
 const filters: [QueueFilter, string][] = [['all', 'All'], ['blocked', 'Blocked'], ['eligible', 'Ready to publish']];
 ---
 <AppLayout title="Cookbook review">
@@ -20,6 +23,11 @@ const filters: [QueueFilter, string][] = [['all', 'All'], ['blocked', 'Blocked']
   <nav aria-label="Queue filters" class="my-4 flex flex-wrap gap-3">
     {filters.map(([value, label]) => <a href={value === 'all' ? '/admin/cookbook' : `/admin/cookbook?filter=${value}`} aria-current={value === filter ? 'page' : undefined}>{label}</a>)}
   </nav>
+  <section aria-labelledby="pending-translations" class="my-6 flex flex-col gap-3 rounded-xl bg-card p-4 shadow-sm">
+    <h2 id="pending-translations" class="m-0">Translations waiting for approval</h2>
+    {proposals.ok ? <BulkApprove client:load proposals={proposals.value} /> : <p role="alert">{proposals.error.message}</p>}
+  </section>
+  <h2>Staged recipes</h2>
   {!queue.ok ? <p role="alert">{queue.error.message}</p> : rows.length === 0 ? <p>No entries in this view.</p> : (
     <div class="overflow-x-auto">
       <table class="w-full text-left text-sm">

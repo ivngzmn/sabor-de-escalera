@@ -116,6 +116,20 @@ export function createTranslationService({ pool }: { pool: Pool }) {
           return { approved, conflicts };
         }),
       ),
+    /** Proposals awaiting approval; `current` is false when the recipe changed after the proposal was written. */
+    listProposals: (actor: Actor | null) =>
+      result(() =>
+        transaction(pool, async (client) => {
+          await requireAdmin(client, actor);
+          return (
+            await client.query<{ id: string; recipeId: string; title: string; language: "en" | "es"; sourceVersion: number; current: boolean }>(
+              `SELECT t.id,t.recipe_id AS "recipeId",t.input->>'title' AS title,t.language,t.source_version AS "sourceVersion",(t.source_version=r.version) AS current
+               FROM recipe_translations t JOIN recipes r ON r.id=t.recipe_id
+               WHERE t.status='proposed' AND r.state<>'deleted' ORDER BY t.updated_at DESC LIMIT 200`,
+            )
+          ).rows;
+        }),
+      ),
     /** Current proposal and approved text for the admin editor. */
     readForReview: (actor: Actor | null, recipeId: string) =>
       result(() =>
