@@ -33,6 +33,7 @@ const onboarding = `/onboarding?${new URLSearchParams({ returnTo: target, ...(sp
   <h1>{actor ? (spanish ? 'Administración' : 'Administration') : (spanish ? 'Acceso administrativo' : 'Admin sign-in')}</h1>
   {!actor && (available ? <SignIn routing="hash" withSignUp={true} forceRedirectUrl={onboarding} signUpForceRedirectUrl={onboarding} /> : <p role="status">{spanish ? 'El inicio de sesión no está disponible temporalmente. Inténtalo más tarde.' : 'Sign-in is temporarily unavailable. Please try again later.'}</p>)}
   {actor && <p>{spanish ? `Hola, ${actor.displayName}.` : `Welcome, ${actor.displayName}.`}</p>}
+  {actor && <p><a href="/admin/cookbook">{spanish ? 'Revisión del recetario' : 'Cookbook review'}</a></p>}
   {management && <section aria-labelledby="admin-roles">
     <h2 id="admin-roles">{spanish ? 'Administradores' : 'Administrators'}</h2>
     <form method="post" action="/api/accounts/admin" class="account-form">

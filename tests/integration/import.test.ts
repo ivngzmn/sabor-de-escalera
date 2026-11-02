@@ -88,3 +88,89 @@ test("rejects invalid manifests", async () => {
   expect(parseManifest(injected)).toMatchObject({ ok: false });
   expect(parseManifest({ not: "an array" })).toMatchObject({ ok: false });
 });
+
+async function people() {
+  const { createAccountService } = await import("../../src/features/accounts/service");
+  const accounts = createAccountService({ pool, origin: "https://recipes.example", verifyIdentity: async () => null });
+  const ensure = (subject: string) =>
+    accounts.ensureMember({ provider: "clerk", subject, email: `${subject}@example.com`, emailVerified: true });
+  const admin = await ensure("queue-admin");
+  const member = await ensure("queue-member");
+  await pool.query("UPDATE members SET onboarded_at=now(), display_name='Cook'");
+  await pool.query("UPDATE members SET role='admin' WHERE id=$1", [admin.id]);
+  return { admin: { ...admin, role: "admin" as const, onboarded: true }, member: { ...member, onboarded: true } };
+}
+async function queue() {
+  const { createCookbookQueue } = await import("../../src/features/cookbook/queue");
+  return createCookbookQueue({ pool });
+}
+const entryId = async (key: string) =>
+  (await pool.query("SELECT id FROM cookbook_entries WHERE import_key=$1", [key])).rows[0].id as string;
+
+test("queue shows missing data and flags", async () => {
+  await load(sample());
+  const { admin } = await people();
+  const page = await (await queue()).listQueue(admin, "all");
+  if (!page.ok) throw new Error(page.error.message);
+  const stew = page.value.find((r) => r.key === "p05-sample-bean-stew")!;
+  expect(stew).toMatchObject({ pages: [5, 6], textReview: "pending", imageReview: "missing", eligible: false, flags: ["yield-unclear", "quantity-unclear:1"], translation: { en: "none" } });
+  expect(stew.missing).toEqual(expect.arrayContaining(["category", "photos", "text-review", "image-review"]));
+  const blocked = await (await queue()).listQueue(admin, "eligible");
+  expect(blocked.ok && blocked.value).toEqual([]);
+});
+
+test("only admins see the queue", async () => {
+  await load(sample());
+  const { member } = await people();
+  const q = await queue();
+  expect(await q.listQueue(null, "all")).toMatchObject({ ok: false, error: { status: 401 } });
+  expect(await q.listQueue(member, "all")).toMatchObject({ ok: false, error: { status: 403 } });
+  expect(await q.markTextReviewed(member, await entryId("p03-sample-lime-water"))).toMatchObject({ ok: false, error: { status: 403 } });
+});
+
+test("publication is blocked until text, image and required fields are complete", async () => {
+  await load(sample());
+  const { admin } = await people();
+  const q = await queue();
+  const id = await entryId("p03-sample-lime-water");
+  const blocked = await q.publishImported(admin, id);
+  expect(blocked).toMatchObject({ ok: false, error: { status: 409 } });
+  expect(!blocked.ok && blocked.error.fields?.map((f) => f.field)).toEqual(expect.arrayContaining(["text-review", "image-review", "photos"]));
+});
+
+test("an eligible entry publishes with cookbook credit and appears in the catalog", async () => {
+  await load(sample());
+  const { admin } = await people();
+  const q = await queue();
+  const id = await entryId("p05-sample-bean-stew");
+  const intent = randomUUID(), asset = randomUUID();
+  await pool.query(
+    "INSERT INTO upload_intents(id,owner_id,purpose,input_mime,input_size,provider_path,expires_at,completed_at) VALUES($1,$2,'recipe','image/jpeg',1,$3,now(),now())",
+    [intent, admin.id, `/${intent}`],
+  );
+  await pool.query(
+    "INSERT INTO media_assets(id,intent_id,owner_id,purpose,provider_file_id,provider_path,stored_bytes,width,height) VALUES($1,$2,$3,'recipe',$4,$4,100,640,480)",
+    [asset, intent, admin.id, `/${intent}`],
+  );
+  // A photo without a recorded credit/licence is not publishable.
+  await pool.query(
+    `UPDATE recipes SET input = input || jsonb_build_object('category','main','origin','not-sure','yieldText','6 porciones','baseline',6,'baselineConfirmed',true,
+      'timing',jsonb_build_object('mode','total','total',90,'prep',null,'cook',null,'rest',null),
+      'photos',jsonb_build_array(jsonb_build_object('assetId',$2::text,'caption','Guiso servido','alt','','crop',jsonb_build_object('x',50,'y',50,'zoom',1))))
+     WHERE id=(SELECT recipe_id FROM cookbook_entries WHERE id=$1)`,
+    [id, asset],
+  );
+  expect((await q.markTextReviewed(admin, id)).ok).toBe(true);
+  await pool.query("UPDATE cookbook_entries SET image_review='approved' WHERE id=$1", [id]);
+  const uncredited = await q.publishImported(admin, id);
+  expect(!uncredited.ok && uncredited.error.fields?.map((f) => f.field)).toEqual(["photo-credit"]);
+  await pool.query("INSERT INTO photo_credits(asset_id,kind,photographer,license,label) VALUES($1,'owner','Sample Contributor B','owner permission','none')", [asset]);
+  const published = await q.publishImported(admin, id);
+  if (!published.ok) throw new Error(JSON.stringify(published.error));
+  expect(published.value.url).toMatch(/^\/recipes\/[0-9a-f-]+\/guiso-de-ejemplo$/);
+  const { createCatalogService } = await import("../../src/features/recipes/catalog");
+  const catalog = createCatalogService({ pool });
+  const page = await catalog.list({ q: "guiso", language: "es" }, null);
+  expect(page.ok && page.value.items.map((r) => [r.title, r.authorName])).toEqual([["Guiso de ejemplo", null]]);
+  expect(await catalog.cookbookCredit(published.value.id)).toEqual({ contributor: "Sample Contributor B", originalAuthor: "Sample Grandparent" });
+});

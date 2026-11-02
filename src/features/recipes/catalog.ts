@@ -161,6 +161,14 @@ export function createCatalogService({ pool }: { pool: Pool }) {
         ).rows[0]?.input ?? null
       );
     },
+    /** Historical cookbook credit, kept apart from the owning account. Null for member recipes. */
+    async cookbookCredit(recipeId: string): Promise<{ contributor: string | null; originalAuthor: string | null } | null> {
+      if (!isId(recipeId)) return null;
+      const row = (
+        await pool.query("SELECT contributor,original_author FROM cookbook_entries WHERE recipe_id=$1", [recipeId])
+      ).rows[0];
+      return row ? { contributor: row.contributor, originalAuthor: row.original_author } : null;
+    },
     /** Display name for a recipe's author, or null for ownerless cookbook recipes. */
     async authorName(memberId: string | null): Promise<string | null> {
       if (!memberId || !isId(memberId)) return null;
