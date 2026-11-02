@@ -36,6 +36,34 @@ The owner endpoint serves private derivatives through a same-origin no-store pro
 
 The 2 MB response cap is below Vercel's documented 4.5 MB function payload limit, but the proxy consumes function execution, outbound transfer and ImageKit delivery quota. Sharp native Linux execution on the deployed target, cold starts, latency and free capacity remain unverified. This design makes no capacity guarantee. Public caching requires a reviewed invalidation design in later content work.
 
+## Live run: November 2, 2026 (owner's free ImageKit account)
+
+`pnpm media:proof --large` passed all 18 checks.
+
+| Area | Result |
+| --- | --- |
+| Signed V2 upload | Accepted |
+| Stored original | A rotated 1800×1200 JPEG with GPS and camera tags was stored upright at 1200×1800, 27 KB, with no EXIF, GPS, XMP, ICC or orientation tag |
+| Delivery variants | thumb 320×240, card 640×480, gallery 1067×1600, avatar 256×256: all WebP with no metadata |
+| Unsigned access | Original, transformed URL, built-in named transforms (`ik_ml_thumbnail`, `media_library_thumbnail`) and expired signatures: all 401 |
+| Tampered uploads | Token replay, a changed signed field, an added unsigned field, a forged signature and SVG content: all 400 |
+| Deletion | Delete plus purge completed, and every warmed variant then stopped serving |
+
+The run also showed four ways ImageKit differs from what the original design assumed. Each is now handled in code:
+
+- **Token payload.** It must contain exactly the strings sent in the form: `true` must be signed as `"true"`. `grant()` now signs and returns the string form.
+- **Empty `extensions` list.** ImageKit rejects it, so the field is omitted, which runs no extensions. `tags` is omitted too.
+- **Format.** The pre-transform resizes to the 2400 px cap and strips metadata, but keeps JPEG as JPEG. PNG was stored as WebP. Stored originals may therefore be JPEG, PNG or WebP; every delivered variant is WebP.
+- **Search lag.** ImageKit's file search shows a new upload only after a few seconds (3 to 15 observed). Completion now looks the file up by the `fileId` from the upload response, accepted only when ImageKit reports it at the exact server-chosen private path. Path search is the fallback.
+
+**Known limit: the 20 MB input rule.** ImageKit evaluates upload `checks` after the pre-transform, so a 21.6 MB PNG passed the size check after shrinking to 3 MB. The uploader and the server's upload request (which declares the file size) both enforce 20 MB, but a tampered client can still push a larger file to ImageKit. It cannot become an asset: anything over the 2 MB stored bound is refused at completion. It can leave an orphaned file in ImageKit until the orphan cleanup job exists. Uploads are rate-limited to 30 per hour and 100 per day per member.
+
+**Still for the owner before setting `MEDIA_LIVE_PROOF_PASSED`:**
+- Check visual quality and stored bytes on several real phone photos.
+- Confirm the free-plan storage and delivery quota on the dashboard.
+
+HEIC stays denied.
+
 ## Live evidence required before changing the gate
 
 No live run recorded yet. `scripts/media-proof.ts` automates the checks below except HEIC, visual quality and quota; all remain BLOCKED until the owner records a passing run here:

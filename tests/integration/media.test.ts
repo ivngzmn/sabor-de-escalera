@@ -17,9 +17,10 @@ let bytes: Buffer;
 const files = new Map<string, { fileId: string; filePath: string; isPrivateFile: boolean; size: number; bytes: Buffer }>();
 let deletionFails = false;
 const deleted: string[] = [];
+const hints: (string | undefined)[] = [];
 const provider = {
   grant: async (fields: Record<string, unknown>) => ({ endpoint: 'https://upload.imagekit.io/api/v2/files/upload', fields, token: 'test-provider-token' }),
-  inspect: async (path: string) => files.get(path) ?? null,
+  inspect: async (path: string, fileIdHint?: string) => { hints.push(fileIdHint); return files.get(path) ?? null; },
   derivative: async () => bytes,
   removeAndPurge: async (fileId: string) => { if (deletionFails) throw new Error('Provider unavailable'); deleted.push(fileId); return { complete: true, purgeId: 'fixture-purge' }; },
 };
@@ -29,7 +30,7 @@ function upload(intent: { path: string }, changes = {}) { files.set(intent.path,
 function value<T>(result: { ok: true; value: T } | { ok: false; error: unknown }): T { if (!result.ok) throw result.error; return result.value; }
 beforeAll(async () => { await root.query(`CREATE SCHEMA ${schema}`); await migrate(pool); bytes = await sharp({ create: { width: 640, height: 480, channels: 3, background: '#775522' } }).webp().toBuffer(); });
 beforeEach(async () => {
-  await pool.query('TRUNCATE members CASCADE'); files.clear(); deleted.length = 0; deletionFails = false;
+  await pool.query('TRUNCATE members CASCADE'); files.clear(); hints.length = 0; deleted.length = 0; deletionFails = false;
   const accounts = createAccountService({ pool, origin: 'https://recipes.example', verifyIdentity: async () => null });
   actor = await accounts.ensureMember({ provider: 'clerk', subject: 'member', email: 'a@example.com', emailVerified: true });
   foreign = await accounts.ensureMember({ provider: 'clerk', subject: 'other', email: 'b@example.com', emailVerified: true });
@@ -50,7 +51,8 @@ test('allowed formats receive short lived immutable private grants and durable 3
   const svc = service();
   for (const mime of ['image/jpeg', 'image/png', 'image/webp']) {
     const intent = value(await svc.createUploadIntent(actor, { ...input, mime }));
-    expect(intent.grant.fields).toMatchObject({ isPrivateFile: true, overwriteFile: false, useUniqueFileName: false, extensions: [] });
+    expect(intent.grant.fields).toMatchObject({ isPrivateFile: true, overwriteFile: false, useUniqueFileName: false });
+    expect(intent.grant.fields).not.toHaveProperty('extensions');
     expect(intent.grant.fields.checks).toContain('20000000');
     expect(intent.expiresAt - Date.now()).toBeLessThanOrEqual(300000);
   }
@@ -121,7 +123,11 @@ test('media HTTP boundary authenticates, enforces exact origin, rejects altered 
     expect(response.status).toBe(status); expect(response.headers.get('Cache-Control')).toBe('private, no-store');
   }
   expect((await handleMediaWrite(request({ ...input, role: 'owner' }), 'intents', dependencies)).status).toBe(400);
-  expect((await handleMediaWrite(request({ intentId: randomUUID(), fileId: 'foreign' }), 'complete', dependencies)).status).toBe(400);
+  for (const fileId of ['../other', 'x'.repeat(65), 42]) expect((await handleMediaWrite(request({ intentId: randomUUID(), fileId }), 'complete', dependencies)).status).toBe(400);
+  // A well-formed provider id is only a lookup hint; the provider must still find the file at the server-chosen path.
+  const pending = value(await service().createUploadIntent(actor, input)); upload(pending);
+  expect((await handleMediaWrite(request({ intentId: pending.id, fileId: 'provider-file_1' }), 'complete', dependencies)).status).toBe(200);
+  expect(hints).toContain('provider-file_1');
   const response = await handleMediaWrite(request(input), 'intents', dependencies);
   expect(response.status).toBe(200); expect(response.headers.get('Cache-Control')).toBe('private, no-store');
 });

@@ -104,7 +104,7 @@ export function createMediaService({ pool, provider, ready }: Options) {
         return { id: intent.id, path: `${intent.folder}/${intent.fileName}`, expiresAt: intent.expiresAt, grant: await provider.grant(fields, intent.expiresAt) };
       });
     },
-    completeUpload(actor: Actor | null, intentId: string): Promise<Result<AssetRef>> {
+    completeUpload(actor: Actor | null, intentId: string, fileIdHint?: string): Promise<Result<AssetRef>> {
       return result(async () => {
         available();
         if (!isId(intentId)) throw new MediaError(400, 'Invalid upload.');
@@ -113,7 +113,7 @@ export function createMediaService({ pool, provider, ready }: Options) {
         // The committed intent reserves the path. Provider latency and decoding
         // hold no DB connection or member/intent lock. Concurrent inspection is
         // safe: the final transaction serializes completion and reuses one asset.
-        const file = await provider.inspect(initial.intent.provider_path);
+        const file = await provider.inspect(initial.intent.provider_path, fileIdHint);
         if (!file || file.filePath !== initial.intent.provider_path || file.isPrivateFile !== true || file.size !== file.bytes.length) throw new MediaError(400, 'Photo could not be verified. Please retry.');
         let dimensions;
         try { dimensions = await inspectStoredImage(file.bytes); } catch { throw new MediaError(400, 'Photo could not be processed safely. Please choose another photo.'); }

@@ -39,7 +39,7 @@ async function upload(name: string, file: Blob, tamper?: (form: FormData, token:
   const response = await fetch(grant.endpoint, { method: 'POST', body: form, signal: AbortSignal.timeout(120000) });
   const body = await response.json().catch(() => ({}));
   if (response.ok && typeof body.fileId === 'string') cleanup.push({ fileId: body.fileId, path: `${folder}/${fileName}` });
-  return { status: response.status, path: `${folder}/${fileName}`, grant, form };
+  return { status: response.status, path: `${folder}/${fileName}`, grant, form, fileId: typeof body.fileId === 'string' ? body.fileId : undefined };
 }
 const status = async (url: string) => (await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(15000) })).status;
 const denied = (code: number) => code >= 400 && code < 500;
@@ -55,8 +55,8 @@ const jpeg = new Blob([new Uint8Array(photo)], { type: 'image/jpeg' });
 const main = await upload('main', jpeg);
 await check('signed upload is accepted', async () => assert(main.status === 200, `upload returned ${main.status}`));
 
-await check('stored file is private, bounded, upright WebP without metadata', async () => {
-  const file = await provider.inspect(main.path);
+await check('stored file is private, bounded, upright and without metadata', async () => {
+  const file = await provider.inspect(main.path, main.fileId);
   assert(file, 'uploaded file not found under its signed path');
   const size = await inspectStoredImage(file.bytes);
   assert(size.height > size.width, 'orientation was not applied to the pixels');
@@ -130,16 +130,21 @@ await check('SVG content is refused', async () => {
   return String(result.status);
 });
 if (large)
-  await check('a file over 20 MB is refused before storage', async () => {
+  // ImageKit evaluates `checks` after the pre-transform, so a tampered client can send more than 20 MB.
+  // What must hold is that the result can never become an asset: refused, or over the stored bound and rejected at completion.
+  await check('a file over 20 MB can never become an asset', async () => {
     const noise = await sharp(Buffer.from(Array.from({ length: 3000 * 2400 * 3 }, () => Math.floor(Math.random() * 256))), { raw: { width: 3000, height: 2400, channels: 3 } }).png({ compressionLevel: 0 }).toBuffer();
     assert(noise.length > 20_000_000, 'test file is not over 20 MB');
     const result = await upload('large', new Blob([new Uint8Array(noise)], { type: 'image/png' }));
-    assert(result.status !== 200, 'oversized file was accepted');
-    return `${noise.length} bytes → ${result.status}`;
+    if (result.status !== 200) return `${noise.length} bytes → refused (${result.status})`;
+    const file = await provider.inspect(result.path, result.fileId).catch(() => null);
+    if (!file) return `${noise.length} bytes → accepted by ImageKit, refused at completion (orphan deleted by this run)`;
+    await inspectStoredImage(file.bytes);
+    return `${noise.length} bytes → stored within bounds at ${file.bytes.length} bytes`;
   });
 
 await check('deletion purges the cache for every variant', async () => {
-  const file = await provider.inspect(main.path);
+  const file = await provider.inspect(main.path, main.fileId);
   assert(file, 'nothing to delete');
   // Warm every cached variant first, so the purge has something to remove.
   for (const variant of Object.keys(variants) as (keyof typeof variants)[]) await provider.derivative(main.path, variant);

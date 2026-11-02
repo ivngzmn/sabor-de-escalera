@@ -28,10 +28,11 @@ export async function handleMediaWrite(request: Request, action: 'intents' | 'co
     assertSameOriginWrite(request, dependencies?.origin ?? accountConfiguration()?.origin ?? new URL(request.url).origin);
     const actor = await (dependencies?.accounts ?? accounts()).requireActor(request);
     const input = await readInput(request);
-    const allowed = action === 'intents' ? ['purpose', 'mime', 'size'] : action === 'complete' ? ['intentId'] : ['assetId'];
+    const allowed = action === 'intents' ? ['purpose', 'mime', 'size'] : action === 'complete' ? ['intentId', 'fileId'] : ['assetId'];
     if (Object.keys(input).some((key) => !allowed.includes(key))) throw new MediaError(400, 'Invalid request');
+    if (input.fileId !== undefined && (typeof input.fileId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(input.fileId))) throw new MediaError(400, 'Invalid request');
     const service = dependencies?.media ?? mediaService();
-    const result = action === 'intents' ? await service.createUploadIntent(actor, input) : action === 'complete' ? await service.completeUpload(actor, String(input.intentId ?? '')) : await service.setAvatar(actor, input.assetId === null ? null : String(input.assetId ?? ''));
+    const result = action === 'intents' ? await service.createUploadIntent(actor, input) : action === 'complete' ? await service.completeUpload(actor, String(input.intentId ?? ''), input.fileId as string | undefined) : await service.setAvatar(actor, input.assetId === null ? null : String(input.assetId ?? ''));
     const responseHeaders: Record<string, string> = { ...headers };
     if (!result.ok && result.error.retryAfter) responseHeaders['Retry-After'] = String(result.error.retryAfter);
     return Response.json(result, { status: result.ok ? 200 : result.error.status, headers: responseHeaders });

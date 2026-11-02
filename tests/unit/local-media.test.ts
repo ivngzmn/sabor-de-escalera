@@ -90,3 +90,10 @@ test('the local upload route is absent unless the local provider is on, and same
   const accepted = await handleLocalUpload(new Request('https://recipes.example/api/media/local-upload', { method: 'POST', headers: { Origin: 'https://recipes.example' }, body: ok }), { enabled: true, provider: media, origin: 'https://recipes.example' });
   expect(accepted.status).toBe(200);
 });
+
+test('stored originals may be JPEG, PNG or WebP but never carry metadata, animation or excess size', async () => {
+  for (const format of ['jpeg', 'png', 'webp'] as const)
+    expect(await inspectStoredImage(await sharp({ create: { width: 40, height: 30, channels: 3, background: '#123' } })[format]().toBuffer())).toEqual({ width: 40, height: 30 });
+  await expect(inspectStoredImage(await sharp({ create: { width: 40, height: 30, channels: 3, background: '#123' } }).jpeg().withMetadata({ orientation: 6 }).toBuffer())).rejects.toThrow();
+  await expect(inspectStoredImage(await sharp({ create: { width: 40, height: 30, channels: 3, background: '#123' } }).gif().toBuffer())).rejects.toThrow();
+});
