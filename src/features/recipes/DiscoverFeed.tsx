@@ -236,6 +236,17 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
       const favorited = !card.favorited;
       const patch = (c: CardData) =>
         c.id === card.id ? { ...c, favorited, favoriteCount: Math.max(0, c.favoriteCount + (favorited ? 1 : -1)) } : c;
+      if (scope && !favorited) {
+        // The focused heart leaves with its card; move focus to the neighbouring card's control, or the search box.
+        const index = items.findIndex((c) => c.id === card.id);
+        const neighbour = items[index + 1] ?? items[index - 1];
+        requestAnimationFrame(() => {
+          const target = neighbour
+            ? document.querySelector<HTMLElement>(`[data-recipe-card="${neighbour.id}"] button[aria-pressed]`)
+            : document.getElementById("recipe-search");
+          target?.focus();
+        });
+      }
       setItems((current) => (scope && !favorited ? current.filter((c) => c.id !== card.id) : current.map(patch)));
       try {
         const res = await fetch(`/api/recipes/${encodeURIComponent(card.id)}/favorite`, {
@@ -257,7 +268,7 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
         setPending(null);
       }
     },
-    [scope, signInBase, t],
+    [items, scope, signInBase, t],
   );
 
   // A guest who pressed Save signs in and comes back with ?save=<id>; finish that action once.
