@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import type { UploadGrant, Variant } from '../features/media/contracts';
-import { MAX_STORED_BYTES, variants } from './media-policy';
+import { MAX_STORED_BYTES, variants } from './media-policy.ts';
 export interface ProviderFile { fileId: string; filePath: string; isPrivateFile: boolean; size: number; bytes: Buffer; }
 export interface MediaProvider {
   grant(fields: Record<string, unknown>, expiresAt: number): Promise<UploadGrant>;

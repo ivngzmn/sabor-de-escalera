@@ -17,6 +17,7 @@
     "build": "astro build",
     "db:migrate": "node --experimental-strip-types scripts/migrate.ts",
     "cookbook:import": "node --experimental-strip-types scripts/import-cookbook.ts",
+    "media:proof": "node --env-file-if-exists=.env --experimental-strip-types scripts/media-proof.ts",
     "openui:spec": "pnpm dlx @openuidev/cli@0.6.1 generate src/lib/openui.tsx --spec --out src/lib/openui.spec.json --no-telemetry"
   },
   "dependencies": {

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import type { Actor } from '../accounts/service';
 import { getPool, transaction } from '../../server/db';
-import { inspectStoredImage, preTransform, variants } from '../../server/media-policy';
+import { inspectStoredImage, uploadFields, variants } from '../../server/media-policy';
 import { imageKitProvider, type MediaProvider } from '../../server/imagekit';
 import { createLocalMediaProvider, localMediaRoot } from '../../server/local-media';
 import { acceptedTypes, MAX_INPUT_BYTES, type AssetRef, type Purpose, type Result, type UploadIntent, type Variant } from './contracts';
@@ -99,7 +99,7 @@ export function createMediaService({ pool, provider, ready }: Options) {
           await client.query('INSERT INTO upload_intents(id,owner_id,purpose,input_mime,input_size,provider_path,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7)', [id, actor!.id, purpose, mime, size, `${folder}/${fileName}`, new Date(expiresAt)]);
           return { id, folder, fileName, expiresAt };
         });
-        const fields = { fileName: intent.fileName, folder: intent.folder, isPrivateFile: true, useUniqueFileName: false, overwriteFile: false, overwriteAITags: false, overwriteTags: false, overwriteCustomMetadata: false, extensions: [], tags: [], transformation: { pre: preTransform }, checks: `"file.size" <= ${MAX_INPUT_BYTES} AND "file.mime" IN ["image/jpeg","image/png","image/webp"]` };
+        const fields = uploadFields(intent.folder, intent.fileName);
         return { id: intent.id, path: `${intent.folder}/${intent.fileName}`, expiresAt: intent.expiresAt, grant: await provider.grant(fields, intent.expiresAt) };
       });
     },

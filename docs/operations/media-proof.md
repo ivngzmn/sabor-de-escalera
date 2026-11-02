@@ -1,6 +1,20 @@
 # Private media proof and release gate
 
-Status: **BLOCKED for live uploads and delivery**. `mediaReadiness().enabled` is deliberately false in server code, regardless of environment variables. No ImageKit account, API key, paid feature, deployment or live upload was provisioned. HEIC is not advertised or accepted. Local tests verify application contracts only; provider doubles are not privacy, conversion or quality evidence.
+Status: **BLOCKED for live ImageKit uploads and delivery** until the owner runs the proof below on their account. Uploads are off unless `MEDIA_PROVIDER` is set:
+
+- `MEDIA_PROVIDER=local` stores bounded, metadata-free WebP files under `.media-local/` (gitignored) so the whole upload, attach and delivery flow runs in development. It is refused when `NODE_ENV=production` or on Vercel. Local files prove application behaviour only, never ImageKit privacy.
+- `MEDIA_PROVIDER=imagekit` additionally needs the three ImageKit variables and `MEDIA_LIVE_PROOF_PASSED=YYYY-MM-DD`, the date the owner completed the runbook below. Keys alone never enable uploads.
+
+HEIC is not advertised or accepted. Local tests verify application contracts only; provider doubles are not privacy, conversion or quality evidence.
+
+## Owner runbook: proving ImageKit
+
+1. Create a free ImageKit account and turn on **Restrict unsigned image URLs** in its security settings. Generate the keys yourself; never paste them into chat, issues or commits.
+2. Put `IMAGEKIT_PUBLIC_KEY`, `IMAGEKIT_PRIVATE_KEY` and `IMAGEKIT_URL_ENDPOINT` in your private `.env` (or export them in your own terminal).
+3. Run `pnpm media:proof` (add `--large` once to send a 21 MB file). It uploads a rotated JPEG with GPS/camera metadata and checks: upload accepted; stored file private, upright, ≤2400 px, ≤2 MB WebP with no metadata; every delivery variant metadata-free; unsigned original, unsigned transform, built-in named thumbnails and expired signatures refused; token replay, changed signed fields, added unsigned fields, forged signature and SVG refused; deletion purge completes and every warmed variant stops serving. It deletes what it uploaded and prints PASS/FAIL per check with no keys or URLs.
+4. Still check by hand: visual quality and stored bytes on a handful of real phone photos, and the free-plan storage/delivery quota on the account dashboard.
+5. When every check passes, record the date and results under *Live evidence* below, then set `MEDIA_PROVIDER=imagekit` and `MEDIA_LIVE_PROOF_PASSED=<that date>` in the deployment environment. Unset it again if a later run fails.
+
 
 ## Implemented boundary
 
@@ -24,7 +38,7 @@ The 2 MB response cap is below Vercel's documented 4.5 MB function payload limit
 
 ## Live evidence required before changing the gate
 
-All are BLOCKED pending private provider configuration and owner-authorized provisioning:
+No live run recorded yet. `scripts/media-proof.ts` automates the checks below except HEIC, visual quality and quota; all remain BLOCKED until the owner records a passing run here:
 
 - Actual 20 MB JPEG/PNG/WebP upload through browser direct transport; reject >20 MB before storage, MIME spoofing, corrupt data, SVG and animated payloads. Establish decimal MB behavior.
 - Actual HEIC conversion with portrait/landscape EXIF rotations, GPS tags and difficult color/alpha/detail samples. HEIC remains denied until this passes and API/migration acceptance is deliberately changed.

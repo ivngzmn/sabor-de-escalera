@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import type { Variant } from '../features/media/contracts';
+import { MAX_INPUT_BYTES, type Variant } from '../features/media/contracts.ts';
 export const MAX_STORED_BYTES = 2000000;
 export const variants: Record<Variant, string> = {
   thumb: 'w-320,h-240,c-at_least,cm-extract,f-webp,q-80',
@@ -9,6 +9,10 @@ export const variants: Record<Variant, string> = {
 };
 // These are provisional bounds, not an assertion of acceptable visual quality.
 export const preTransform = 'w-2400,h-2400,c-at_max,f-webp,q-85';
+/** Every upload field ImageKit receives; all are signed into the V2 token, none come from the browser. */
+export function uploadFields(folder: string, fileName: string) {
+  return { fileName, folder, isPrivateFile: true, useUniqueFileName: false, overwriteFile: false, overwriteAITags: false, overwriteTags: false, overwriteCustomMetadata: false, extensions: [], tags: [], transformation: { pre: preTransform }, checks: `"file.size" <= ${MAX_INPUT_BYTES} AND "file.mime" IN ["image/jpeg","image/png","image/webp"]` };
+}
 export async function inspectStoredImage(bytes: Buffer) {
   if (!bytes.length || bytes.length > MAX_STORED_BYTES) throw new Error('Stored image exceeds limit');
   const image = sharp(bytes, { limitInputPixels: 2400 * 2400, failOn: 'warning' });
