@@ -1,7 +1,8 @@
 import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
-import { getPool } from "../../server/db";
-import { searchKey } from "./search-key";
+// .ts specifiers let scripts/migrate.ts run the backfill under Node type stripping, like server/db.ts.
+import { getPool, transaction } from "../../server/db.ts";
+import { searchKey } from "./search-key.ts";
 import type { TranslatableText } from "./translation-text";
 import {
   categories,
@@ -9,7 +10,7 @@ import {
   totalMinutes,
   type RecipeInput,
   type Result,
-} from "./validation";
+} from "./validation.ts";
 
 export type CatalogSort = "newest" | "rated" | "saved" | "relevance";
 export type CatalogScope =
@@ -88,6 +89,15 @@ export async function refreshCatalogRow(client: PoolClient, recipeId: string) {
       input.language === "es" ? "es" : "en",
     ],
   );
+}
+
+/** Fills catalog columns for live, unpublished or deleted recipes that predate 0005_discovery. Idempotent. */
+export async function backfillCatalog(pool: Pool): Promise<number> {
+  const { rows } = await pool.query<{ id: string }>(
+    "SELECT id FROM recipes WHERE state<>'draft' AND search_text='' ORDER BY id",
+  );
+  for (const { id } of rows) await transaction(pool, (client) => refreshCatalogRow(client, id));
+  return rows.length;
 }
 
 const cursorSchema = z.object({
