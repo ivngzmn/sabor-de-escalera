@@ -28,7 +28,7 @@ export default function CookbookEntryActions({ entryId, version, textReviewed, i
   }
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col gap-2">
         {!textReviewed && (
           <Button type="button" variant="outline" disabled={busy} onClick={() => run("review")}>
             Mark text reviewed
@@ -42,6 +42,7 @@ export default function CookbookEntryActions({ entryId, version, textReviewed, i
         <Button type="button" disabled={busy || !eligible} onClick={() => run("publish")}>
           Publish recipe
         </Button>
+        {!eligible && <p className="m-0 text-sm text-muted-foreground">Publishing unlocks when every check is done.</p>}
       </div>
       {error && (
         <Alert variant="destructive" role="alert">

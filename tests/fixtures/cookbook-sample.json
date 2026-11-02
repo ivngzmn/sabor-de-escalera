@@ -24,7 +24,7 @@
     "originalAuthor": "Sample Grandparent",
     "sourceUrls": ["https://example.org/sample-video"],
     "language": "es",
-    "flags": ["yield-unclear", "quantity-unclear:1"],
+    "flags": ["yield-unclear", "quantity-unclear:2"],
     "recipe": {
       "title": "Guiso de ejemplo",
       "yieldText": "",

@@ -115,7 +115,11 @@ export function createAccountService(options: Options) {
     async readAudit(request: Request) {
       return withActor(request, async (client, actor) => {
         assertOwner(actor);
-        const result = await client.query<{ id: string; action: string; actor_id: string; target_id: string; created_at: Date }>("SELECT id,action,actor_id,target_id,created_at FROM account_audit WHERE created_at>now()-interval '1 year' ORDER BY created_at DESC,id LIMIT 100");
+        const result = await client.query<{ id: string; action: string; actor_id: string; target_id: string; created_at: Date; actor_name: string | null; target_name: string | null }>(
+          `SELECT a.id,a.action,a.actor_id,a.target_id,a.created_at,actor.display_name AS actor_name,target.display_name AS target_name
+           FROM account_audit a LEFT JOIN members actor ON actor.id=a.actor_id LEFT JOIN members target ON target.id=a.target_id
+           WHERE a.created_at>now()-interval '1 year' ORDER BY a.created_at DESC,a.id LIMIT 100`,
+        );
         return result.rows;
       });
     },

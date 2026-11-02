@@ -19,6 +19,7 @@ export default function RecipePreview({
   onOpenPhoto,
   servings,
   credits = {},
+  titleAs: Title = "h1",
 }: {
   input: RecipeInput;
   id: string;
@@ -31,6 +32,8 @@ export default function RecipePreview({
   servings?: { current: number; original: number };
   /** Photo credits keyed by asset id; shown under each photo and in print. */
   credits?: Record<string, PhotoCredit>;
+  /** h2 when the page already has its own h1, as on admin review pages. */
+  titleAs?: "h1" | "h2";
 }) {
   const t = (en: string, es: string) => (spanish ? es : en);
   // Published badges open Discover filtered to that category or origin.
@@ -56,7 +59,7 @@ export default function RecipePreview({
           <Badge variant="region">{origin}</Badge>
         )}
       </div>
-      <h1>{input.title || t("Untitled recipe", "Receta sin título")}</h1>
+      <Title className={Title === "h2" ? "mt-2 mb-4 text-[clamp(2.25rem,2.5vw+1.25rem,3rem)] leading-[1.17]" : undefined}>{input.title || t("Untitled recipe", "Receta sin título")}</Title>
       <p>
         {t("Original language", "Idioma original")}:{" "}
         {input.language === "es" ? "Español" : "English"}

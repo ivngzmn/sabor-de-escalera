@@ -17,7 +17,7 @@ The manifest is a JSON array with one entry per recipe, validated by `parseManif
 | `contributor`, `originalAuthor` | Historical credit exactly as printed, or `null`. Kept apart from the owning account. |
 | `sourceUrls` | Printed source or video links (http/https only). |
 | `language` | `en` or `es`: the language the recipe is written in. |
-| `flags` | Every uncertainty, e.g. `yield-unclear`, `quantity-unclear:<row>`, `category-unassigned`, `origin-unassigned`, `timing-missing`. |
+| `flags` | Every uncertainty, e.g. `yield-unclear`, `quantity-unclear:<row>` (rows counted from 1, as printed), `ingredient-missing:<name>`, `category-unassigned`, `origin-unassigned`, `timing-missing`. |
 | `recipe` | The recipe text: title, ingredients (with sections), instructions, yield, timing, story, notes. Photos and a confirmed scaling baseline are rejected; people add those during review. |
 
 Transcription rules:

@@ -1,6 +1,9 @@
 ---
 import { AdminInviteFields } from '../../features/accounts/AdminInviteFields';
-import { Button } from '../../components/ui/button';
+import { Button, buttonVariants } from '../../components/ui/button';
+import { cookbookQueue } from '../../features/cookbook/queue';
+import { summarize } from '../../features/cookbook/labels';
+import { translationService } from '../../features/translations/service';
 import AppLayout from '../../layouts/AppLayout.astro';
 import { SignIn } from '@clerk/astro/components';
 import { accounts, type Actor } from '../../features/accounts/service';
@@ -28,22 +31,109 @@ if (config) {
 if (!actor && !available) Astro.response.status = 503;
 const target = safeReturnTo(Astro.url.searchParams.get('returnTo') ?? (spanish ? '/admin?lang=es' : '/admin'), config?.origin ?? Astro.url.origin);
 const onboarding = `/onboarding?${new URLSearchParams({ returnTo: target, ...(spanish ? { lang: 'es' } : {}) })}`;
+// The cookbook panel is a snapshot; the review page has the details.
+const book = actor ? await cookbookQueue().listQueue(actor, 'all') : null;
+const summary = book?.ok ? summarize(book.value) : null;
+const proposals = actor ? await translationService().listProposals(actor) : null;
+const waiting = proposals?.ok ? proposals.value.length : 0;
+const t = spanish
+  ? { title: 'Administración', welcome: (n: string | null) => `Hola, ${n ?? 'equipo'}.`, intro: 'Revisa el recetario, aprueba traducciones y gestiona quién administra el sitio.', cookbook: 'Recetario', published: (p: number, n: number) => `${p} de ${n} recetas publicadas`, ready: (r: number, b: number) => `${r} listas para publicar, ${b} necesitan trabajo`, openCookbook: 'Abrir la revisión del recetario', translations: 'Traducciones', waiting: (n: number) => n === 0 ? 'No hay traducciones esperando aprobación.' : n === 1 ? '1 traducción espera aprobación.' : `${n} traducciones esperan aprobación.`, review: 'Revisar traducciones', admins: 'Administradores', invite: 'Invitar a un administrador', create: 'Crear invitación', pending: 'Invitaciones pendientes', expires: 'Vence', revoke: 'Revocar', current: 'Administradores actuales', none: 'Todavía no hay otros administradores.', profilePending: 'Perfil pendiente', remove: 'Retirar acceso', audit: 'Cambios de acceso', when: 'Fecha', what: 'Cambio', who: 'Persona', noAudit: 'Aún no hay cambios de acceso.', actions: { owner_bootstrapped: 'Se convirtió en propietario', admin_invited: 'Invitó a un administrador', admin_granted: 'Recibió acceso de administrador', admin_removed: 'Perdió el acceso de administrador', invitation_revoked: 'Invitación revocada' } as Record<string, string>, member: 'Miembro' }
+  : { title: 'Administration', welcome: (n: string | null) => `Welcome, ${n ?? 'team'}.`, intro: 'Review the cookbook, approve translations and manage who runs the site.', cookbook: 'Cookbook', published: (p: number, n: number) => `${p} of ${n} recipes published`, ready: (r: number, b: number) => `${r} ready to publish, ${b} still need work`, openCookbook: 'Open cookbook review', translations: 'Translations', waiting: (n: number) => n === 0 ? 'No translations are waiting for approval.' : n === 1 ? '1 translation is waiting for approval.' : `${n} translations are waiting for approval.`, review: 'Review translations', admins: 'Administrators', invite: 'Invite an administrator', create: 'Create invitation', pending: 'Pending invitations', expires: 'Expires', revoke: 'Revoke', current: 'Current administrators', none: 'No other administrators yet.', profilePending: 'Profile pending', remove: 'Remove access', audit: 'Access changes', when: 'Date', what: 'Change', who: 'Person', noAudit: 'No access changes yet.', actions: { owner_bootstrapped: 'Became the owner', admin_invited: 'Invited an administrator', admin_granted: 'Was granted admin access', admin_removed: 'Lost admin access', invitation_revoked: 'Invitation revoked' } as Record<string, string>, member: 'Member' };
+const share = (n: number) => (summary?.total ? `${(n / summary.total) * 100}%` : '0%');
+const date = (d: Date) => new Intl.DateTimeFormat(spanish ? 'es' : 'en', { dateStyle: 'medium' }).format(d);
+const lang = spanish ? 'es' : 'en';
 ---
-<AppLayout title={actor ? (spanish ? 'Administración' : 'Administration') : (spanish ? 'Acceso administrativo' : 'Admin sign-in')}>
-  <h1>{actor ? (spanish ? 'Administración' : 'Administration') : (spanish ? 'Acceso administrativo' : 'Admin sign-in')}</h1>
-  {!actor && (available ? <SignIn routing="hash" withSignUp={true} forceRedirectUrl={onboarding} signUpForceRedirectUrl={onboarding} /> : <p role="status">{spanish ? 'El inicio de sesión no está disponible temporalmente. Inténtalo más tarde.' : 'Sign-in is temporarily unavailable. Please try again later.'}</p>)}
-  {actor && <p>{spanish ? `Hola, ${actor.displayName}.` : `Welcome, ${actor.displayName}.`}</p>}
-  {actor && <p><a href="/admin/cookbook">{spanish ? 'Revisión del recetario' : 'Cookbook review'}</a></p>}
-  {management && <section aria-labelledby="admin-roles">
-    <h2 id="admin-roles">{spanish ? 'Administradores' : 'Administrators'}</h2>
-    <form method="post" action="/api/accounts/admin" class="account-form">
-      <input type="hidden" name="action" value="invite" /><input type="hidden" name="lang" value={spanish ? 'es' : 'en'} />
-      <AdminInviteFields spanish={spanish} />
-      <Button type="submit">{spanish ? 'Crear invitación' : 'Create invitation'}</Button>
-    </form>
-    <ul>{management.invitations.map((invite) => <li><form method="post" action="/api/accounts/admin"><input type="hidden" name="action" value="revoke" /><input type="hidden" name="target" value={invite.id} /><input type="hidden" name="lang" value={spanish ? 'es' : 'en'} /><span>{invite.email}</span> <Button type="submit">{spanish ? 'Revocar invitación' : 'Revoke invitation'}</Button></form></li>)}</ul>
-    <ul>{management.members.map((member) => <li><form method="post" action="/api/accounts/admin"><input type="hidden" name="action" value="remove" /><input type="hidden" name="target" value={member.id} /><input type="hidden" name="lang" value={spanish ? 'es' : 'en'} /><span>{member.display_name ?? (spanish ? 'Perfil pendiente' : 'Profile pending')}</span> <Button type="submit">{spanish ? 'Retirar acceso administrativo' : 'Remove admin access'}</Button></form></li>)}</ul>
-    <h2>{spanish ? 'Registro de cambios de acceso' : 'Access change audit'}</h2>
-    <ul>{audit.map((event) => <li><time datetime={event.created_at.toISOString()}>{event.created_at.toLocaleDateString(spanish ? 'es' : 'en')}</time> · {event.action} · {event.target_id}</li>)}</ul>
-  </section>}
+<AppLayout title={actor ? t.title : (spanish ? 'Acceso administrativo' : 'Admin sign-in')}>
+  {!actor ? (
+    <>
+      <h1>{spanish ? 'Acceso administrativo' : 'Admin sign-in'}</h1>
+      {available ? <SignIn routing="hash" withSignUp={true} forceRedirectUrl={onboarding} signUpForceRedirectUrl={onboarding} /> : <p role="status">{spanish ? 'El inicio de sesión no está disponible temporalmente. Inténtalo más tarde.' : 'Sign-in is temporarily unavailable. Please try again later.'}</p>}
+    </>
+  ) : (
+    <>
+      <div class="flex max-w-3xl flex-col gap-2">
+        <h1 class="m-0">{t.title}</h1>
+        <p class="intro m-0">{t.welcome(actor.displayName)} {t.intro}</p>
+      </div>
+
+      <div class="mt-8 grid gap-6 md:grid-cols-2">
+        <section aria-labelledby="panel-cookbook" class="flex flex-col gap-4 rounded-xl bg-card p-6 shadow-sm">
+          <h2 id="panel-cookbook" class="type-headline-sm m-0">{t.cookbook}</h2>
+          {summary ? (
+            <>
+              <p class="m-0 font-serif text-2xl">{t.published(summary.published, summary.total)}</p>
+              <div aria-hidden="true" class="flex h-3 overflow-hidden rounded-full bg-muted">
+                <span class="bg-secondary" style={`width:${share(summary.published)}`}></span>
+                <span class="bg-masa" style={`width:${share(summary.ready)}`}></span>
+              </div>
+              <p class="m-0 text-sm text-muted-foreground">{t.ready(summary.ready, summary.blocked)}</p>
+            </>
+          ) : <p role="alert" class="m-0">{book && !book.ok ? book.error.message : ''}</p>}
+          <a href="/admin/cookbook" data-slot="button" class:list={[buttonVariants(), 'mt-auto self-start']}>{t.openCookbook}</a>
+        </section>
+        <section aria-labelledby="panel-translations" class="flex flex-col gap-4 rounded-xl bg-card p-6 shadow-sm">
+          <h2 id="panel-translations" class="type-headline-sm m-0">{t.translations}</h2>
+          <p class:list={['m-0', waiting ? 'font-serif text-2xl' : 'text-muted-foreground']}>{t.waiting(waiting)}</p>
+          {waiting > 0 && <a href="/admin/cookbook#pending-translations" data-slot="button" class:list={[buttonVariants({ variant: 'outline' }), 'mt-auto self-start']}>{t.review}</a>}
+        </section>
+      </div>
+
+      {management && (
+        <section aria-labelledby="admin-roles" class="mt-10 grid items-start gap-6 lg:grid-cols-12">
+          <div class="flex flex-col gap-6 lg:col-span-7">
+            <h2 id="admin-roles" class="m-0">{t.admins}</h2>
+            <form method="post" action="/api/accounts/admin" class="flex flex-col gap-4 rounded-xl bg-card p-6 shadow-sm">
+              <h3 class="m-0 text-base font-semibold">{t.invite}</h3>
+              <input type="hidden" name="action" value="invite" /><input type="hidden" name="lang" value={lang} />
+              <AdminInviteFields spanish={spanish} />
+              <Button type="submit" className="self-start">{t.create}</Button>
+            </form>
+            <div class="flex flex-col gap-3 rounded-xl bg-card p-6 shadow-sm">
+              <h3 class="m-0 text-base font-semibold">{t.current}</h3>
+              {management.members.length === 0 ? <p class="m-0 text-sm text-muted-foreground">{t.none}</p> : (
+                <ul class="m-0 flex list-none flex-col divide-y divide-border p-0">
+                  {management.members.map((member) => (
+                    <li class="flex flex-wrap items-center justify-between gap-3 py-3">
+                      <span class="font-semibold">{member.display_name ?? t.profilePending}</span>
+                      <form method="post" action="/api/accounts/admin"><input type="hidden" name="action" value="remove" /><input type="hidden" name="target" value={member.id} /><input type="hidden" name="lang" value={lang} /><Button type="submit" variant="outline" size="sm">{t.remove}<span class="sr-only">: {member.display_name ?? t.profilePending}</span></Button></form>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {management.invitations.length > 0 && (
+                <>
+                  <h3 class="m-0 mt-4 text-base font-semibold">{t.pending}</h3>
+                  <ul class="m-0 flex list-none flex-col divide-y divide-border p-0">
+                    {management.invitations.map((invite) => (
+                      <li class="flex flex-wrap items-center justify-between gap-3 py-3">
+                        <span class="flex flex-col"><span class="break-all">{invite.email}</span><span class="text-sm text-muted-foreground">{t.expires} {date(invite.expires_at)}</span></span>
+                        <form method="post" action="/api/accounts/admin"><input type="hidden" name="action" value="revoke" /><input type="hidden" name="target" value={invite.id} /><input type="hidden" name="lang" value={lang} /><Button type="submit" variant="outline" size="sm">{t.revoke}<span class="sr-only">: {invite.email}</span></Button></form>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          </div>
+          <div class="flex flex-col gap-4 rounded-xl bg-card p-6 shadow-sm lg:col-span-5 lg:mt-14">
+            <h3 class="m-0 text-base font-semibold">{t.audit}</h3>
+            {audit.length === 0 ? <p class="m-0 text-sm text-muted-foreground">{t.noAudit}</p> : (
+              <table class="w-full text-left text-sm">
+                <thead class="text-muted-foreground"><tr><th scope="col" class="pb-2 font-semibold">{t.when}</th><th scope="col" class="pb-2 font-semibold">{t.what}</th><th scope="col" class="pb-2 font-semibold">{t.who}</th></tr></thead>
+                <tbody class="divide-y divide-border">
+                  {audit.map((event) => (
+                    <tr class="align-top">
+                      <td class="py-2 pr-3 whitespace-nowrap"><time datetime={event.created_at.toISOString()}>{date(event.created_at)}</time></td>
+                      <td class="py-2 pr-3">{t.actions[event.action] ?? event.action}</td>
+                      <td class="py-2">{event.target_name ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </section>
+      )}
+    </>
+  )}
 </AppLayout>

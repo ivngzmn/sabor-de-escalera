@@ -1,4 +1,5 @@
 ---
+import { ArrowLeftIcon } from '@radix-ui/react-icons';
 import AppLayout from '../../../layouts/AppLayout.astro';
 import TranslationEditor from '../../../features/translations/TranslationEditor';
 import { accounts } from '../../../features/accounts/service';
@@ -24,9 +25,16 @@ const proposed = rows.find((t) => t.status === 'proposed') ?? null;
 const approved = rows.find((t) => t.status === 'approved') ?? null;
 ---
 <AppLayout title="Translation review">
-  <a href="/admin/cookbook">← Cookbook review</a>
-  <h1>{source ? `${source.title || 'Untitled recipe'} → ${target === 'es' ? 'Español' : 'English'}` : 'Recipe not found'}</h1>
+  <a href="/admin/cookbook" class="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary-ink no-underline hover:underline"><ArrowLeftIcon aria-hidden="true" />Cookbook review</a>
   {review.ok && source ? (
-    <TranslationEditor client:load recipeId={Astro.params.recipeId!} source={source} version={review.value.version} target={target} proposed={proposed} approved={approved} />
-  ) : <p>{review.ok ? '' : review.error.message}</p>}
+    <>
+      <div class="flex max-w-3xl flex-col gap-2">
+        <h1 class="m-0">{source.title || 'Untitled recipe'}</h1>
+        <p class="intro m-0">{target === 'es' ? 'Spanish' : 'English'} translation, written by hand from the {source.language === 'es' ? 'Spanish' : 'English'} original. Readers see it only after it’s approved, and it goes out of date whenever the recipe changes.</p>
+      </div>
+      <div class="mt-8 rounded-xl bg-card p-5 shadow-sm sm:p-8">
+        <TranslationEditor client:load recipeId={Astro.params.recipeId!} source={source} version={review.value.version} target={target} proposed={proposed} approved={approved} />
+      </div>
+    </>
+  ) : <h1>{review.ok ? 'Recipe not found' : review.error.message}</h1>}
 </AppLayout>

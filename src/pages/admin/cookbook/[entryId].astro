@@ -1,12 +1,16 @@
 ---
+import { ArrowLeftIcon } from '@radix-ui/react-icons';
 import AppLayout from '../../../layouts/AppLayout.astro';
+import { Badge } from '../../../components/ui/badge';
 import RecipePreview from '../../../features/recipes/RecipePreview';
 import '../../../features/recipes/editor.css';
 import CookbookEntryActions from '../../../features/cookbook/CookbookEntryActions';
 import CookbookCorrectionForm from '../../../features/cookbook/CookbookCorrectionForm';
+import ReadinessTrack from '../../../features/cookbook/ReadinessTrack';
 import { cookbookCorrections } from '../../../features/cookbook/corrections';
-import { mediaReadiness } from '../../../features/media/service';
+import { flagLabel, missingLabel, readiness } from '../../../features/cookbook/labels';
 import { cookbookQueue } from '../../../features/cookbook/queue';
+import { mediaReadiness } from '../../../features/media/service';
 import { draftsService } from '../../../features/recipes/drafts';
 import { adminOrResponse } from './_guard';
 import { getPool } from '../../../server/db';
@@ -20,28 +24,72 @@ if (!row) Astro.response.status = queue.ok ? 404 : queue.error.status;
 const input = row ? (await getPool().query<{ input: RecipeInput }>('SELECT input FROM recipes WHERE id=$1', [row.recipeId])).rows[0]?.input : undefined;
 const origins = row ? await draftsService().origins() : [];
 const credits = row ? await cookbookCorrections().credits(actor, row.entryId) : null;
+const checks = row ? readiness(row) : null;
+const details = row ? row.missing.filter((m) => !['text-review', 'image-review'].includes(m)) : [];
+const other = input?.language === 'es' ? 'English' : 'Spanish';
+const translation = row ? (input?.language === 'es' ? row.translation.en : row.translation.es) : 'none';
+const translationState = { none: 'Not started', proposed: 'Waiting for approval', approved: 'Approved', outdated: 'Out of date' }[translation];
 ---
 <AppLayout title={row?.title ?? 'Entry not found'}>
-  <a href="/admin/cookbook">← Cookbook review</a>
-  {row && input ? (
+  <a href="/admin/cookbook" class="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary-ink no-underline hover:underline"><ArrowLeftIcon aria-hidden="true" />Cookbook review</a>
+  {row && input && checks ? (
     <>
-      <dl class="my-4 grid gap-x-6 gap-y-1 sm:grid-cols-[max-content_1fr]">
-        <dt class="font-semibold">Book pages</dt><dd class="m-0">{row.pages.join(', ')}</dd>
-        <dt class="font-semibold">Contributor</dt><dd class="m-0">{row.contributor ?? 'Not credited in the book'}</dd>
-        <dt class="font-semibold">Text review</dt><dd class="m-0">{row.textReview}</dd>
-        <dt class="font-semibold">Image review</dt><dd class="m-0">{row.imageReview}</dd>
-        <dt class="font-semibold">Still needed</dt><dd class="m-0">{row.missing.join(', ') || 'Nothing'}</dd>
-        <dt class="font-semibold">Flags</dt><dd class="m-0">{row.flags.join(', ') || '—'}</dd>
-      </dl>
-      <p><a href={`/admin/translations/${row.recipeId}`}>Review the {input.language === 'es' ? 'English' : 'Spanish'} translation</a></p>
-      {row.state === 'draft' && <CookbookEntryActions client:load entryId={row.entryId} version={row.version} textReviewed={row.textReview === 'approved'} imagesPending={row.imageReview === 'pending'} eligible={row.eligible} />}
-      <h2 class="mt-10">Preview</h2>
-      <RecipePreview input={input} id={row.recipeId} origins={origins} spanish={input.language === 'es'} />
-      {row.state === 'draft' && (
-        <section class="mt-10 rounded-xl bg-card p-6 shadow-md">
-          <CookbookCorrectionForm client:load entryId={row.entryId} version={row.version} input={input} origins={origins} credits={credits?.ok ? credits.value : {}} mediaAvailable={mediaReadiness().enabled} />
-        </section>
-      )}
+      <header class="flex max-w-3xl flex-col gap-3">
+        <div class="flex flex-wrap items-center gap-3">
+          <h1 class="m-0">{row.title}</h1>
+          {row.state === 'published' && <Badge variant="tag">Published</Badge>}
+        </div>
+        <ul class="m-0 flex list-none flex-wrap gap-2 p-0 text-sm" aria-label="From the book">
+          <li class="rounded-full bg-muted px-3 py-1">{row.pages.length > 1 ? 'Pages' : 'Page'} {row.pages.join('–')}</li>
+          <li class="rounded-full bg-muted px-3 py-1">{row.contributor ? `Contributed by ${row.contributor}` : 'No contributor named in the book'}</li>
+          <li class="rounded-full bg-muted px-3 py-1">Written in {input.language === 'es' ? 'Spanish' : 'English'}</li>
+        </ul>
+      </header>
+
+      <div class="mt-8 grid items-start gap-8 lg:grid-cols-12">
+        <aside aria-label="Publication status" class="flex flex-col gap-4 lg:sticky lg:top-6 lg:order-last lg:col-span-4">
+          <section aria-labelledby="checklist" class="flex flex-col gap-4 rounded-xl bg-card p-5 shadow-sm">
+            <h2 id="checklist" class="type-headline-sm m-0">{row.state === 'published' ? 'Published' : row.eligible ? 'Ready to publish' : 'Before publishing'}</h2>
+            <ReadinessTrack readiness={checks} />
+            {details.length > 0 && (
+              <div class="flex flex-col gap-2 border-t border-border pt-4">
+                <p class="m-0 text-sm font-semibold">Still needed</p>
+                <ul class="m-0 flex list-none flex-wrap gap-1.5 p-0 text-sm">{details.map((m) => <li class="rounded-full bg-muted px-2.5 py-0.5">{missingLabel(m)}</li>)}</ul>
+              </div>
+            )}
+            {row.state === 'draft' && (
+              <div class="border-t border-border pt-4">
+                <CookbookEntryActions client:load entryId={row.entryId} version={row.version} textReviewed={row.textReview === 'approved'} imagesPending={row.imageReview === 'pending'} eligible={row.eligible} />
+              </div>
+            )}
+          </section>
+          {row.flags.length > 0 && (
+            <section aria-labelledby="notes" class="flex flex-col gap-2 rounded-xl border border-masa/40 bg-masa-soft p-5">
+              <h2 id="notes" class="m-0 text-base font-semibold">Transcription notes</h2>
+              <p class="m-0 text-sm text-masa-foreground">Check these against the book before marking the text reviewed.</p>
+              <ul class="m-0 flex flex-col gap-1 ps-5 text-sm">{row.flags.map((f) => <li>{flagLabel(f)}</li>)}</ul>
+            </section>
+          )}
+          <a href={`/admin/translations/${row.recipeId}`} class="flex items-center justify-between gap-3 rounded-xl bg-card p-4 text-sm no-underline shadow-xs hover:shadow-md">
+            <span class="font-semibold text-primary-ink">{other} translation</span>
+            <span class="text-muted-foreground">{translationState}</span>
+          </a>
+        </aside>
+
+        <div class="flex min-w-0 flex-col gap-8 lg:col-span-8">
+          <section aria-labelledby="preview-heading" class="flex flex-col gap-3">
+            <h2 id="preview-heading" class="type-headline-sm m-0">How readers will see it</h2>
+            <div class="rounded-xl bg-card p-5 shadow-sm sm:p-8">
+              <RecipePreview input={input} id={row.recipeId} origins={origins} spanish={input.language === 'es'} titleAs="h2" />
+            </div>
+          </section>
+          {row.state === 'draft' && (
+            <section class="rounded-xl bg-card p-5 shadow-sm sm:p-8">
+              <CookbookCorrectionForm client:load entryId={row.entryId} version={row.version} input={input} origins={origins} credits={credits?.ok ? credits.value : {}} mediaAvailable={mediaReadiness().enabled} />
+            </section>
+          )}
+        </div>
+      </div>
     </>
   ) : <h1>{queue.ok ? 'Entry not found' : queue.error.message}</h1>}
 </AppLayout>
