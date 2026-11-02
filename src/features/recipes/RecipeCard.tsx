@@ -54,9 +54,10 @@ export default function RecipeCard({ card, language, originLabel, onToggleFavori
             {card.title.trim()[0]?.toUpperCase() ?? "·"}
           </div>
         )}
-        {originLabel && (
-          <Badge variant="region" className="absolute top-3 left-3">
-            {originLabel}
+        {originLabel && card.origin && (
+          // Sits above the stretched title link so it opens Discover filtered to this origin.
+          <Badge variant="region" className="absolute top-3 left-3 z-10" asChild>
+            <a href={`/?${new URLSearchParams({ origin: card.origin, ...(language === "es" ? { lang: "es" } : {}) })}`}>{originLabel}</a>
           </Badge>
         )}
       </div>
