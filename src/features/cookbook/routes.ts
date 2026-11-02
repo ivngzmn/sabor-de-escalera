@@ -14,7 +14,7 @@ export async function handleCookbookAction(request: Request, entryId: string) {
     const body = await request.json().catch(() => null);
     const queue = cookbookQueue();
     const output =
-      body?.action === "review" ? await queue.markTextReviewed(actor, entryId)
+      body?.action === "review" ? await queue.markTextReviewed(actor, entryId, Number(body.version))
       : body?.action === "publish" ? await queue.publishImported(actor, entryId)
       : null;
     if (!output) return fail(400, "Invalid request.");

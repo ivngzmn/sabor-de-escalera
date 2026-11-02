@@ -77,7 +77,14 @@ test("only admins write translations", async () => {
   expect(await svc.saveTranslation(member, id, "es", version, spanish())).toMatchObject({ ok: false, error: { status: 403 } });
   // A stale role claim on the actor does not grant access; the database role decides.
   expect(await svc.saveTranslation({ ...member, role: "owner" }, id, "es", version, spanish())).toMatchObject({ ok: false, error: { status: 403 } });
+  await pool.query("UPDATE members SET suspended=true WHERE id=$1", [admin.id]);
+  expect(await svc.saveTranslation(admin, id, "es", version, spanish())).toMatchObject({ ok: false, error: { status: 403 } });
+  await pool.query("UPDATE members SET suspended=false WHERE id=$1", [admin.id]);
   expect(value(await svc.saveTranslation(admin, id, "es", version, spanish())).status).toBe("proposed");
+  await pool.query("UPDATE members SET role='owner' WHERE id=$1", [member.id]);
+  expect(value(await svc.saveTranslation({ ...member, role: "owner" }, id, "es", version, spanish())).status).toBe("proposed");
+  const actions = (await pool.query("SELECT action FROM content_audit ORDER BY created_at")).rows.map((r) => r.action);
+  expect(actions).toEqual(["translation_saved", "translation_saved"]);
 });
 
 test("structure must match the source", async () => {

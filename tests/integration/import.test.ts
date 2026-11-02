@@ -125,7 +125,7 @@ test("only admins see the queue", async () => {
   const q = await queue();
   expect(await q.listQueue(null, "all")).toMatchObject({ ok: false, error: { status: 401 } });
   expect(await q.listQueue(member, "all")).toMatchObject({ ok: false, error: { status: 403 } });
-  expect(await q.markTextReviewed(member, await entryId("p03-sample-lime-water"))).toMatchObject({ ok: false, error: { status: 403 } });
+  expect(await q.markTextReviewed(member, await entryId("p03-sample-lime-water"), 1)).toMatchObject({ ok: false, error: { status: 403 } });
 });
 
 test("publication is blocked until text, image and required fields are complete", async () => {
@@ -160,7 +160,7 @@ test("an eligible entry publishes with cookbook credit and appears in the catalo
      WHERE id=(SELECT recipe_id FROM cookbook_entries WHERE id=$1)`,
     [id, asset],
   );
-  expect((await q.markTextReviewed(admin, id)).ok).toBe(true);
+  expect((await q.markTextReviewed(admin, id, (await pool.query("SELECT r.version FROM recipes r JOIN cookbook_entries e ON e.recipe_id=r.id WHERE e.id=$1", [id])).rows[0].version)).ok).toBe(true);
   await pool.query("UPDATE cookbook_entries SET image_review='approved' WHERE id=$1", [id]);
   const uncredited = await q.publishImported(admin, id);
   expect(!uncredited.ok && uncredited.error.fields?.map((f) => f.field)).toEqual(["photo-credit"]);
@@ -173,4 +173,57 @@ test("an eligible entry publishes with cookbook credit and appears in the catalo
   const page = await catalog.list({ q: "guiso", language: "es" }, null);
   expect(page.ok && page.value.items.map((r) => [r.title, r.authorName])).toEqual([["Guiso de ejemplo", null]]);
   expect(await catalog.cookbookCredit(published.value.id)).toEqual({ contributor: "Sample Contributor B", originalAuthor: "Sample Grandparent" });
+});
+
+test("re-import outdates approved translations under changed text", async () => {
+  await load(sample());
+  const { admin } = await people();
+  const recipeId = (await pool.query("SELECT recipe_id FROM cookbook_entries WHERE import_key='p03-sample-lime-water'")).rows[0].recipe_id;
+  const version = (await pool.query("SELECT version FROM recipes WHERE id=$1", [recipeId])).rows[0].version;
+  const { createTranslationService } = await import("../../src/features/translations/service");
+  const translations = createTranslationService({ pool });
+  const saved = await translations.saveTranslation(admin, recipeId, "es", version, {
+    title: "Agua de limón de ejemplo", story: "", notes: "", yieldText: "8 tazas",
+    ingredients: [{ name: "limones", notes: "", unit: "" }, { name: "azúcar", notes: "", unit: "" }],
+    instructions: [{ text: "Exprimir los limones." }], captions: [],
+  });
+  if (!saved.ok) throw new Error(saved.error.message);
+  await translations.approveTranslations(admin, [{ id: saved.value.id, sourceVersion: version }]);
+  const changed = sample();
+  changed[0].recipe.ingredients.splice(1, 0, { kind: "ingredient", quantity: "8", unit: "cups", name: "water", notes: "" });
+  expect(await load(changed)).toEqual({ created: 0, updated: 1, skippedReviewed: 0 });
+  expect(await translations.readerTranslation(recipeId, "es")).toBeNull();
+});
+
+test("text review is bound to the version the admin saw", async () => {
+  await load(sample());
+  const { admin } = await people();
+  const q = await queue();
+  const id = await entryId("p03-sample-lime-water");
+  const seen = (await pool.query("SELECT r.version FROM recipes r JOIN cookbook_entries e ON e.recipe_id=r.id WHERE e.id=$1", [id])).rows[0].version;
+  const changed = sample();
+  changed[0].recipe.title = "Sample Lime Water, corrected";
+  await load(changed);
+  expect(await q.markTextReviewed(admin, id, seen)).toMatchObject({ ok: false, error: { status: 409 } });
+  expect((await q.markTextReviewed(admin, id, seen + 1)).ok).toBe(true);
+});
+
+test("suspended admins are refused and owners are allowed", async () => {
+  await load(sample());
+  const { admin, member } = await people();
+  const q = await queue();
+  await pool.query("UPDATE members SET suspended=true WHERE id=$1", [admin.id]);
+  expect(await q.listQueue(admin, "all")).toMatchObject({ ok: false, error: { status: 403 } });
+  await pool.query("UPDATE members SET role='owner' WHERE id=$1", [member.id]);
+  expect((await q.listQueue({ ...member, role: "owner" }, "all")).ok).toBe(true);
+});
+
+test("cookbook review and publication actions are audited", async () => {
+  await load(sample());
+  const { admin } = await people();
+  const q = await queue();
+  const id = await entryId("p03-sample-lime-water");
+  const version = (await pool.query("SELECT r.version FROM recipes r JOIN cookbook_entries e ON e.recipe_id=r.id WHERE e.id=$1", [id])).rows[0].version;
+  await q.markTextReviewed(admin, id, version);
+  expect((await pool.query("SELECT actor_id,action,target_id FROM content_audit")).rows).toEqual([{ actor_id: admin.id, action: "cookbook_text_reviewed", target_id: id }]);
 });

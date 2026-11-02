@@ -27,3 +27,13 @@ CREATE TABLE photo_credits (
  cropping text,
  label text NOT NULL DEFAULT 'none' CHECK (label IN ('none','illustrative','ai-illustrative'))
 );
+-- Content moderation and publication actions; owner-readable, retained one year like account_audit.
+CREATE TABLE content_audit (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ actor_id uuid NOT NULL REFERENCES members(id),
+ action text NOT NULL CHECK (action IN ('cookbook_text_reviewed','cookbook_published','translation_saved','translation_approved')),
+ target_id uuid NOT NULL,
+ details jsonb NOT NULL DEFAULT '{}',
+ created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX content_audit_recent ON content_audit(created_at DESC);

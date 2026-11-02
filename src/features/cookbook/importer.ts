@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Pool } from "pg";
 import { transaction } from "../../server/db.ts";
+import { refreshCatalogRow } from "../recipes/catalog.ts";
 import { stagedInput, type CookbookEntry } from "./manifest.ts";
 
 export interface ImportSummary {
@@ -51,6 +52,12 @@ export async function importCookbook(pool: Pool, entries: CookbookEntry[]): Prom
         "UPDATE recipes SET input=$2,version=version+1,updated_at=now() WHERE id=$1 AND state='draft'",
         [existing.recipe_id, input],
       );
+      // Approved translations describe the old rows; hide them until re-reviewed.
+      await client.query(
+        "UPDATE recipe_translations SET status='outdated',updated_at=now() WHERE recipe_id=$1 AND status='approved'",
+        [existing.recipe_id],
+      );
+      await refreshCatalogRow(client, existing.recipe_id);
       await client.query(
         "UPDATE cookbook_entries SET book_pages=$2,contributor=$3,original_author=$4,source_urls=$5,flags=$6,manifest_hash=$7,imported_at=now() WHERE import_key=$1",
         [entry.key, ...credit],

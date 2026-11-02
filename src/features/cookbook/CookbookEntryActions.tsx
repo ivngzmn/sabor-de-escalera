@@ -3,7 +3,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
 /** Mark reviewed / publish controls for one staged cookbook recipe. The server re-checks every blocker. */
-export default function CookbookEntryActions({ entryId, textReviewed, eligible }: { entryId: string; textReviewed: boolean; eligible: boolean }) {
+export default function CookbookEntryActions({ entryId, version, textReviewed, eligible }: { entryId: string; version: number; textReviewed: boolean; eligible: boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function run(action: "review" | "publish") {
@@ -15,7 +15,7 @@ export default function CookbookEntryActions({ entryId, textReviewed, eligible }
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         redirect: "error",
-        body: JSON.stringify({ action }),
+        body: JSON.stringify(action === "review" ? { action, version } : { action }),
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.ok) return window.location.reload();

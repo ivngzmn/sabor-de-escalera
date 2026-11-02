@@ -30,7 +30,7 @@ const origins = row ? await draftsService().origins() : [];
         <dt class="font-semibold">Flags</dt><dd class="m-0">{row.flags.join(', ') || '—'}</dd>
       </dl>
       <p><a href={`/admin/translations/${row.recipeId}`}>Review the {input.language === 'es' ? 'English' : 'Spanish'} translation</a></p>
-      {row.state === 'draft' && <CookbookEntryActions client:load entryId={row.entryId} textReviewed={row.textReview === 'approved'} eligible={row.eligible} />}
+      {row.state === 'draft' && <CookbookEntryActions client:load entryId={row.entryId} version={row.version} textReviewed={row.textReview === 'approved'} eligible={row.eligible} />}
       <RecipePreview input={input} id={row.recipeId} origins={origins} spanish={input.language === 'es'} />
     </>
   ) : <h1>{queue.ok ? 'Entry not found' : queue.error.message}</h1>}

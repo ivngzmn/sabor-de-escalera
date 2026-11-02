@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from "pg";
 import type { Actor } from "../accounts/service";
+import { recordContentAudit } from "../../server/content-audit";
 import { getPool, transaction } from "../../server/db";
 import { refreshCatalogRow } from "../recipes/catalog";
 import { nextSlug } from "../recipes/drafts";
@@ -9,6 +10,8 @@ type TranslationState = "none" | "proposed" | "approved" | "outdated";
 export interface QueueRow {
   entryId: string;
   recipeId: string;
+  /** Recipe version shown to the reviewer; text review must name it. */
+  version: number;
   key: string;
   title: string;
   pages: number[];
@@ -47,6 +50,7 @@ interface EntryRow {
   text_review: "pending" | "approved";
   image_review: "missing" | "pending" | "approved";
   state: string;
+  version: number;
   input: RecipeInput;
   translations: { language: "en" | "es"; status: string }[];
 }
@@ -70,14 +74,14 @@ function translation(rows: EntryRow["translations"], language: "en" | "es"): Tra
   const mine = rows.filter((t) => t.language === language).map((t) => t.status);
   return mine.includes("approved") ? "approved" : mine.includes("proposed") ? "proposed" : mine.includes("outdated") ? "outdated" : "none";
 }
-const SELECT = `SELECT e.id,e.recipe_id,e.import_key,e.book_pages,e.contributor,e.flags,e.text_review,e.image_review,r.state,r.input,
+const SELECT = `SELECT e.id,e.recipe_id,e.import_key,e.book_pages,e.contributor,e.flags,e.text_review,e.image_review,r.state,r.version,r.input,
   COALESCE((SELECT json_agg(json_build_object('language',t.language,'status',t.status)) FROM recipe_translations t WHERE t.recipe_id=r.id),'[]') AS translations
   FROM cookbook_entries e JOIN recipes r ON r.id=e.recipe_id`;
 
 export function createCookbookQueue({ pool }: { pool: Pool }) {
   async function requireAdmin(client: PoolClient | Pool, actor: Actor | null) {
     if (!actor || !isId(actor.id)) throw new QueueError(401, "Sign-in required.");
-    const row = (await client.query("SELECT role FROM members WHERE id=$1 AND onboarded_at IS NOT NULL", [actor.id])).rows[0];
+    const row = (await client.query("SELECT role FROM members WHERE id=$1 AND onboarded_at IS NOT NULL AND NOT suspended", [actor.id])).rows[0];
     if (!row || !["admin", "owner"].includes(row.role)) throw new QueueError(403, "Admin access required.");
   }
   async function entry(client: PoolClient, id: string) {
@@ -100,6 +104,7 @@ export function createCookbookQueue({ pool }: { pool: Pool }) {
           out.push({
             entryId: r.id,
             recipeId: r.recipe_id,
+            version: r.version,
             key: r.import_key,
             title: r.input.title || "Untitled recipe",
             pages: r.book_pages,
@@ -115,12 +120,18 @@ export function createCookbookQueue({ pool }: { pool: Pool }) {
         }
         return out;
       }),
-    markTextReviewed: (actor: Actor | null, entryId: string) =>
+    /** Approves the text the reviewer actually saw; a re-import since then is a 409. */
+    markTextReviewed: (actor: Actor | null, entryId: string, expectedVersion: number) =>
       result(() =>
         transaction(pool, async (client) => {
           await requireAdmin(client, actor);
-          await entry(client, entryId);
+          const row = await entry(client, entryId);
+          await client.query("SELECT 1 FROM recipes WHERE id=$1 FOR UPDATE", [row.recipe_id]);
+          const current = (await client.query<{ version: number }>("SELECT version FROM recipes WHERE id=$1", [row.recipe_id])).rows[0].version;
+          if (!Number.isSafeInteger(expectedVersion) || current !== expectedVersion)
+            throw new QueueError(409, "This recipe changed since you opened it. Reload and review it again.");
           await client.query("UPDATE cookbook_entries SET text_review='approved',reviewed_by=$2,reviewed_at=now() WHERE id=$1", [entryId, actor!.id]);
+          await recordContentAudit(client, actor!.id, "cookbook_text_reviewed", entryId, { version: current });
           return { textReview: "approved" as const };
         }),
       ),
@@ -143,6 +154,7 @@ export function createCookbookQueue({ pool }: { pool: Pool }) {
             )
           ).rows[0];
           await refreshCatalogRow(client, row.recipe_id);
+          await recordContentAudit(client, actor!.id, "cookbook_published", entryId, { recipeId: row.recipe_id });
           return { id: published.id, url: `/recipes/${published.id}/${published.slug}` };
         }),
       ),

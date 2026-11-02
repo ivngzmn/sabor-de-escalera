@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
 import type { Actor } from "../accounts/service";
+import { recordContentAudit } from "../../server/content-audit";
 import { getPool, transaction } from "../../server/db";
 import { createCatalogService, refreshCatalogRow } from "../recipes/catalog";
 import type { TranslatableText } from "../recipes/translation-text";
@@ -39,7 +40,7 @@ export function createTranslationService({ pool }: { pool: Pool }) {
   // The database role decides, not the role carried on the actor.
   async function requireAdmin(client: PoolClient, actor: Actor | null) {
     if (!actor || !isId(actor.id)) throw new TranslationError(401, "Sign-in required.");
-    const row = (await client.query("SELECT role FROM members WHERE id=$1 AND onboarded_at IS NOT NULL", [actor.id])).rows[0];
+    const row = (await client.query("SELECT role FROM members WHERE id=$1 AND onboarded_at IS NOT NULL AND NOT suspended", [actor.id])).rows[0];
     if (!row || !["admin", "owner"].includes(row.role)) throw new TranslationError(403, "Admin access required.");
   }
   async function source(client: PoolClient, recipeId: string) {
@@ -79,6 +80,7 @@ export function createTranslationService({ pool }: { pool: Pool }) {
               [recipeId, language, sourceVersion, JSON.stringify(t), actor!.id],
             )
           ).rows[0];
+          await recordContentAudit(client, actor!.id, "translation_saved", recipeId, { translationId: row.id, language, version: sourceVersion });
           return { id: row.id, status: "proposed" as const };
         }),
       ),
@@ -108,6 +110,7 @@ export function createTranslationService({ pool }: { pool: Pool }) {
             );
             await client.query("UPDATE recipe_translations SET status='approved',approved_by=$2,updated_at=now() WHERE id=$1", [item.id, actor!.id]);
             await refreshCatalogRow(client, row.recipe_id);
+            await recordContentAudit(client, actor!.id, "translation_approved", row.recipe_id, { translationId: item.id, language: row.language, version: item.sourceVersion });
             approved++;
           }
           return { approved, conflicts };
