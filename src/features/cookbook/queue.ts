@@ -26,12 +26,12 @@ export interface QueueRow {
 }
 export type QueueFilter = "all" | "blocked" | "eligible";
 
-class QueueError extends Error {
+export class QueueError extends Error {
   constructor(readonly status: number, message: string, readonly fields?: FieldError[]) {
     super(message);
   }
 }
-async function result<T>(fn: () => Promise<T>): Promise<Result<T>> {
+export async function result<T>(fn: () => Promise<T>): Promise<Result<T>> {
   try {
     return { ok: true, value: await fn() };
   } catch (e) {
@@ -40,7 +40,7 @@ async function result<T>(fn: () => Promise<T>): Promise<Result<T>> {
       : { ok: false, error: { status: 503, message: "The cookbook queue is unavailable. Please retry." } };
   }
 }
-interface EntryRow {
+export interface EntryRow {
   id: string;
   recipe_id: string;
   import_key: string;
@@ -74,23 +74,27 @@ function translation(rows: EntryRow["translations"], language: "en" | "es"): Tra
   const mine = rows.filter((t) => t.language === language).map((t) => t.status);
   return mine.includes("approved") ? "approved" : mine.includes("proposed") ? "proposed" : mine.includes("outdated") ? "outdated" : "none";
 }
-const SELECT = `SELECT e.id,e.recipe_id,e.import_key,e.book_pages,e.contributor,e.flags,e.text_review,e.image_review,r.state,r.version,r.input,
+export const SELECT = `SELECT e.id,e.recipe_id,e.import_key,e.book_pages,e.contributor,e.flags,e.text_review,e.image_review,r.state,r.version,r.input,
   COALESCE((SELECT json_agg(json_build_object('language',t.language,'status',t.status)) FROM recipe_translations t WHERE t.recipe_id=r.id),'[]') AS translations
   FROM cookbook_entries e JOIN recipes r ON r.id=e.recipe_id`;
 
+/** Re-reads the role from the database, so a demoted or suspended admin loses access at once. */
+export async function requireAdmin(client: PoolClient | Pool, actor: Actor | null) {
+  if (!actor || !isId(actor.id)) throw new QueueError(401, "Sign-in required.");
+  const row = (await client.query("SELECT role FROM members WHERE id=$1 AND onboarded_at IS NOT NULL AND NOT suspended", [actor.id])).rows[0];
+  if (!row || !["admin", "owner"].includes(row.role)) throw new QueueError(403, "Admin access required.");
+}
+/** Locks a cookbook entry for the rest of the caller's transaction. */
+export async function lockEntry(client: PoolClient, id: string) {
+  if (!isId(id)) throw new QueueError(404, "Entry not found.");
+  await client.query("SELECT 1 FROM cookbook_entries WHERE id=$1 FOR UPDATE", [id]);
+  const row = (await client.query<EntryRow>(`${SELECT} WHERE e.id=$1`, [id])).rows[0];
+  if (!row) throw new QueueError(404, "Entry not found.");
+  return row;
+}
+
 export function createCookbookQueue({ pool }: { pool: Pool }) {
-  async function requireAdmin(client: PoolClient | Pool, actor: Actor | null) {
-    if (!actor || !isId(actor.id)) throw new QueueError(401, "Sign-in required.");
-    const row = (await client.query("SELECT role FROM members WHERE id=$1 AND onboarded_at IS NOT NULL AND NOT suspended", [actor.id])).rows[0];
-    if (!row || !["admin", "owner"].includes(row.role)) throw new QueueError(403, "Admin access required.");
-  }
-  async function entry(client: PoolClient, id: string) {
-    if (!isId(id)) throw new QueueError(404, "Entry not found.");
-    await client.query("SELECT 1 FROM cookbook_entries WHERE id=$1 FOR UPDATE", [id]);
-    const row = (await client.query<EntryRow>(`${SELECT} WHERE e.id=$1`, [id])).rows[0];
-    if (!row) throw new QueueError(404, "Entry not found.");
-    return row;
-  }
+  const entry = lockEntry;
   return {
     listQueue: (actor: Actor | null, filter: QueueFilter) =>
       result(async () => {

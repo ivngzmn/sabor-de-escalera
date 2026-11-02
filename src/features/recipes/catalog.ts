@@ -137,6 +137,13 @@ interface Row {
   t: string;
 }
 
+/** What readers see under a photo: "Photo by … on Unsplash", plus the illustrative label for stock or AI images. */
+export interface PhotoCredit {
+  kind: "owner" | "stock" | "ai";
+  photographer: string | null;
+  site: "Unsplash" | "Pexels" | null;
+  label: "none" | "illustrative" | "ai-illustrative";
+}
 export interface PublicMember {
   id: string;
   displayName: string;
@@ -168,6 +175,20 @@ export function createCatalogService({ pool }: { pool: Pool }) {
         await pool.query("SELECT contributor,original_author FROM cookbook_entries WHERE recipe_id=$1", [recipeId])
       ).rows[0];
       return row ? { contributor: row.contributor, originalAuthor: row.original_author } : null;
+    },
+    /** Credits for a published recipe's photos, keyed by asset. Licence notes and admin details stay private. */
+    async photoCredits(recipeId: string): Promise<Record<string, PhotoCredit>> {
+      if (!isId(recipeId)) return {};
+      const rows = (
+        await pool.query(
+          `SELECT c.asset_id,c.kind,c.photographer,c.source_url,c.label FROM photo_credits c
+           JOIN media_references ref ON ref.asset_id=c.asset_id AND ref.kind='recipe' AND ref.reference_id=$1
+           JOIN recipes r ON r.id=ref.reference_id AND r.state='published'`,
+          [recipeId],
+        )
+      ).rows;
+      const site = (url: string | null) => (url ? (/pexels\.com$/.test(new URL(url).hostname) ? "Pexels" : /unsplash\.com$/.test(new URL(url).hostname) ? "Unsplash" : null) : null);
+      return Object.fromEntries(rows.map((r) => [r.asset_id, { kind: r.kind, photographer: r.photographer, site: site(r.source_url), label: r.label }]));
     },
     /** Display name for a recipe's author, or null for ownerless cookbook recipes. */
     async authorName(memberId: string | null): Promise<string | null> {
