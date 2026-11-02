@@ -1,0 +1,65 @@
+---
+import AppLayout from '../../layouts/AppLayout.astro';
+import { Badge } from '../../components/ui/badge';
+import { buttonVariants } from '../../components/ui/button';
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '../../components/ui/empty';
+import { MemberAvatar } from '../../features/accounts/MemberAvatar';
+import RecipeCard from '../../features/recipes/RecipeCard';
+import { catalogService } from '../../features/recipes/catalog';
+import { optionalActor } from '../../features/recipes/catalog-routes';
+const spanish = Astro.url.searchParams.get('lang') === 'es';
+const language = spanish ? 'es' : 'en';
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+const service = catalogService();
+let member = null;
+let viewerId: string | null = null;
+let unavailable = false;
+try {
+  member = await service.member(Astro.params.id ?? '');
+  viewerId = (await optionalActor(Astro.request))?.id ?? null;
+} catch { unavailable = true; }
+if (!member) Astro.response.status = unavailable ? 503 : 404;
+const [recipes, saved] = member
+  ? await Promise.all([
+      service.list({ scope: { kind: 'author', memberId: member.id }, language }, viewerId),
+      service.list({ scope: { kind: 'saved', memberId: member.id, viewerId }, language }, viewerId),
+    ])
+  : [null, null];
+const t = spanish
+  ? { recipes: 'Recetas publicadas', saved: 'Recetas guardadas', noRecipes: 'Aún no hay recetas publicadas.', noSaved: 'Aún no hay recetas guardadas.', privateSaved: 'Esta persona mantiene privadas sus recetas guardadas.', missing: 'Este perfil no está disponible.', explore: 'Explorar recetas', since: 'Miembro desde', retry: 'No pudimos cargar este perfil. Inténtalo de nuevo.' }
+  : { recipes: 'Published recipes', saved: 'Saved recipes', noRecipes: 'No published recipes yet.', noSaved: 'No saved recipes yet.', privateSaved: 'This member keeps their saved recipes private.', missing: 'This profile isn’t available.', explore: 'Explore Recipes', since: 'Member since', retry: 'We couldn’t load this profile. Please try again.' };
+const since = member ? new Intl.DateTimeFormat(language, { month: 'long', year: 'numeric' }).format(new Date(member.memberSince)) : '';
+---
+<AppLayout title={member?.displayName ?? t.missing}>
+  {member ? (
+    <>
+      <section aria-labelledby="member-name" class="flex flex-col items-start gap-4 rounded-xl bg-card p-6 shadow-md sm:flex-row sm:items-center sm:p-10">
+        <MemberAvatar displayName={member.displayName} avatarAssetId={member.avatarAssetId} avatarPreset={member.avatarPreset} className="size-24 rounded-lg" fallbackClassName="rounded-lg font-serif text-3xl" />
+        <div class="flex flex-col gap-2">
+          <h1 id="member-name" class="m-0">{member.displayName}</h1>
+          {member.bio && <p class="m-0 max-w-2xl">{member.bio}</p>}
+          <p class="m-0 text-sm text-muted-foreground">{t.since} {since}</p>
+        </div>
+      </section>
+      <section aria-labelledby="member-recipes" class="mt-10 flex flex-col gap-4">
+        <Badge variant="eyebrow"><h2 id="member-recipes" class="m-0 text-inherit">{t.recipes}</h2></Badge>
+        {recipes?.ok && recipes.value.items.length ? (
+          <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{recipes.value.items.map((card) => <RecipeCard card={card} language={language} />)}</div>
+        ) : <p class="text-muted-foreground">{recipes?.ok ? t.noRecipes : t.retry}</p>}
+      </section>
+      <section aria-labelledby="member-saved" class="mt-10 flex flex-col gap-4">
+        <Badge variant="eyebrow"><h2 id="member-saved" class="m-0 text-inherit">{t.saved}</h2></Badge>
+        {saved?.ok ? (
+          saved.value.items.length
+            ? <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{saved.value.items.map((card) => <RecipeCard card={card} language={language} />)}</div>
+            : <p class="text-muted-foreground">{t.noSaved}</p>
+        ) : <p class="text-muted-foreground">{saved?.error.status === 404 ? t.privateSaved : t.retry}</p>}
+      </section>
+    </>
+  ) : (
+    <Empty className="rounded-xl border border-dashed border-input/40 bg-card/60"><EmptyHeader>
+      <EmptyTitle><h1>{unavailable ? t.retry : t.missing}</h1></EmptyTitle>
+      <EmptyDescription><a href={spanish ? '/?lang=es' : '/'} data-slot="button" class={buttonVariants()}>{t.explore}</a></EmptyDescription>
+    </EmptyHeader></Empty>
+  )}
+</AppLayout>

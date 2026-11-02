@@ -91,7 +91,7 @@ export async function refreshCatalogRow(client: PoolClient, recipeId: string) {
 
 const cursorSchema = z.object({
   s: z.enum(["newest", "rated", "saved", "relevance"]),
-  k: z.number().finite(),
+  k: z.number(),
   t: z.string().regex(/^-?\d{1,20}$/),
   id: z.string().refine(isId),
 });
@@ -126,8 +126,39 @@ interface Row {
   t: string;
 }
 
+export interface PublicMember {
+  id: string;
+  displayName: string;
+  bio: string;
+  avatarAssetId: string | null;
+  avatarPreset: "chile" | "corn" | "lime" | null;
+  savedListPublic: boolean;
+  memberSince: string;
+}
+
 export function createCatalogService({ pool }: { pool: Pool }) {
   return {
+    /** Public profile fields only; email and role never leave this query. */
+    async member(id: string): Promise<PublicMember | null> {
+      if (!isId(id)) return null;
+      const m = (
+        await pool.query(
+          "SELECT id,display_name,bio,avatar_asset_id,avatar_preset,saved_list_public,created_at FROM members WHERE id=$1 AND onboarded_at IS NOT NULL",
+          [id],
+        )
+      ).rows[0];
+      return m
+        ? {
+            id: m.id,
+            displayName: m.display_name,
+            bio: m.bio,
+            avatarAssetId: m.avatar_asset_id,
+            avatarPreset: m.avatar_preset,
+            savedListPublic: m.saved_list_public,
+            memberSince: m.created_at.toISOString(),
+          }
+        : null;
+    },
     async list(query: CatalogQuery, viewerId: string | null): Promise<Result<CatalogPage>> {
       const q = searchKey((query.q ?? "").slice(0, MAX_QUERY * 4)).slice(0, MAX_QUERY);
       const sort: CatalogSort = query.sort ?? (q ? "relevance" : "newest");
