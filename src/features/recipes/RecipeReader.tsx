@@ -156,7 +156,7 @@ export default function RecipeReader({
         </p>
       </div>
       {baseline && servings !== baseline && <p className="m-0 text-sm text-muted-foreground">{t.scaledNote}</p>}
-      <RecipePreview input={shown} id={id} origins={origins} spanish={language === "es"} published onOpenPhoto={openPhoto} />
+      <RecipePreview input={shown} id={id} origins={origins} spanish={language === "es"} published onOpenPhoto={openPhoto} servings={baseline ? { current: servings, original: baseline } : undefined} />
       <GalleryDialog
         photos={shown.photos}
         index={photo}
