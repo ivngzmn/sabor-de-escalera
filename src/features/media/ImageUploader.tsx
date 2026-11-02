@@ -34,6 +34,8 @@ interface Props {
   onComplete?: (asset: AssetRef) => void;
   /** Saved avatar photo changed (upload or removal), e.g. for a live preview. */
   onSavedChange?: (assetId: string | null) => void;
+  /** Hide the saved-photo thumbnail when the page already shows the photo elsewhere. */
+  showSaved?: boolean;
 }
 /** The provider's file id, if the upload response carried a well-formed one. */
 function fileIdFrom(body: string): string | null {
@@ -51,6 +53,7 @@ export default function ImageUploader({
   currentAssetId,
   onComplete,
   onSavedChange,
+  showSaved = true,
 }: Props) {
   const id = useId();
   const [file, setFile] = useState<File | null>(null);
@@ -245,7 +248,7 @@ export default function ImageUploader({
               )}
       </FieldDescription>
       <FieldGroup>
-        {savedId && (
+        {savedId && showSaved && (
           <img
             src={`/api/media/${encodeURIComponent(savedId)}?variant=${purpose === "avatar" ? "avatar" : "card"}`}
             width={purpose === "avatar" ? 256 : 640}
@@ -294,6 +297,7 @@ export default function ImageUploader({
             }}
           />
         </Field>
+        <div className="flex flex-wrap gap-3">
         <Button
           type="button"
           disabled={!available || !file || busy}
@@ -308,6 +312,7 @@ export default function ImageUploader({
             {text("Remove photo", "Eliminar foto")}
           </Button>
         )}
+        </div>
         {busy && (
           <progress
             value={progress}

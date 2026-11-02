@@ -37,9 +37,11 @@ const copy = {
     nameHint: "Required. How the community sees you.",
     bio: "Bio",
     bioHint: "Optional. Where you cook, who taught you, what you love to make.",
-    bioPlaceholder: "Abuela’s kitchen in Michoacán taught me everything I know about mole.",
+    bioPlaceholder: "For example: Abuela’s kitchen in Michoacán taught me everything I know about mole.",
     avatar: "Avatar",
-    avatarIntro: "Pick a symbol, or upload a photo. A photo takes the place of the symbol.",
+    avatarIntro: "Upload a photo or pick a symbol.",
+    photoTile: "Your photo",
+    photoInUse: "Your photo is what people see. The symbol you pick is used if you remove it.",
     choices: { initials: "My initials", chile: "Chile pepper", corn: "Corn", lime: "Lime" },
     privacy: "Privacy",
     privacyIntro: "Your email address is never shown publicly.",
@@ -47,6 +49,9 @@ const copy = {
     savedHint: "When this is off, only your published recipes are visible to others.",
     device: "Device privacy settings",
     preview: "How others see you",
+    onProfile: "Your profile",
+    onRecipes: "On your recipes",
+    by: "By",
     noBio: "No bio yet.",
     publicFavorites: "Public favorites",
     privateFavorites: "Private favorites",
@@ -63,9 +68,11 @@ const copy = {
     nameHint: "Obligatorio. Así te verá la comunidad.",
     bio: "Biografía",
     bioHint: "Opcional. Dónde cocinas, quién te enseñó, qué te encanta preparar.",
-    bioPlaceholder: "La cocina de mi abuela en Michoacán me enseñó todo lo que sé del mole.",
+    bioPlaceholder: "Por ejemplo: la cocina de mi abuela en Michoacán me enseñó todo lo que sé del mole.",
     avatar: "Avatar",
-    avatarIntro: "Elige un símbolo o sube una foto. La foto reemplaza al símbolo.",
+    avatarIntro: "Sube una foto o elige un símbolo.",
+    photoTile: "Tu foto",
+    photoInUse: "Los demás ven tu foto. El símbolo que elijas se usa si la eliminas.",
     choices: { initials: "Mis iniciales", chile: "Chile", corn: "Maíz", lime: "Lima" },
     privacy: "Privacidad",
     privacyIntro: "Tu correo electrónico nunca se muestra públicamente.",
@@ -73,6 +80,9 @@ const copy = {
     savedHint: "Si está desactivado, los demás solo verán tus recetas publicadas.",
     device: "Configuración de privacidad del dispositivo",
     preview: "Cómo te ven los demás",
+    onProfile: "Tu perfil",
+    onRecipes: "En tus recetas",
+    by: "Por",
     noBio: "Aún sin biografía.",
     publicFavorites: "Favoritos públicos",
     privateFavorites: "Favoritos privados",
@@ -141,6 +151,9 @@ export default function ProfileSettingsForm({
       <input type="hidden" name="avatarPreset" value={preset ?? ""} />
       <input type="hidden" name="savedListPublic" value={String(savedPublic)} />
       <div className="flex flex-col gap-6 lg:col-span-8">
+        <section aria-label={t.preview} className="lg:hidden">
+          <ProfilePreview t={t} memberId={memberId} name={name} about={about} photo={photo} preset={preset} savedPublic={savedPublic} compact />
+        </section>
         <Card>
           <CardHeader>
             <CardTitle>
@@ -202,6 +215,15 @@ export default function ProfileSettingsForm({
             <CardDescription id="avatar-intro">{t.avatarIntro}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
+            {photo && (
+              <div className="flex items-center gap-4 rounded-xl bg-secondary-soft p-3">
+                <MemberAvatar memberId={memberId} displayName={name} avatarAssetId={photo} className="size-14 rounded-lg" />
+                <div className="flex min-w-0 flex-col">
+                  <span className="text-sm font-semibold">{t.photoTile}</span>
+                  <span className="text-sm text-muted-foreground">{t.photoInUse}</span>
+                </div>
+              </div>
+            )}
             <RadioGroupPrimitive.Root
               value={avatar}
               onValueChange={(value) => setAvatar(value as AvatarChoice)}
@@ -242,6 +264,7 @@ export default function ProfileSettingsForm({
               spanish={language === "es"}
               currentAssetId={avatarAssetId}
               onSavedChange={setPhoto}
+              showSaved={false}
             />
           </CardContent>
         </Card>
@@ -284,38 +307,81 @@ export default function ProfileSettingsForm({
         </div>
       </div>
 
-      <aside aria-labelledby="preview-heading" className="hidden lg:sticky lg:top-6 lg:col-span-4 lg:block">
-        <Card className="relative gap-4 overflow-hidden shadow-md">
-          <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-primary via-masa to-secondary" />
-          <CardHeader className="pt-2">
-            <p id="preview-heading" className="m-0 text-sm font-semibold text-muted-foreground">
-              {t.preview}
-            </p>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center gap-2 text-center" aria-live="polite">
-            <MemberAvatar
-              memberId={memberId}
-              displayName={name}
-              avatarAssetId={photo}
-              avatarPreset={preset}
-              className="mb-2 size-24 shadow-md"
-              fallbackClassName="font-serif text-4xl"
-            />
-            <p className="type-headline-sm m-0 break-words">{name.trim() || t.member}</p>
-            <p className={cn("m-0 text-sm break-words", about.trim() ? "text-foreground" : "text-muted-foreground")}>
-              {about.trim() || t.noBio}
-            </p>
-            <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-sm">
-              {savedPublic ? (
-                <EyeOpenIcon aria-hidden="true" className="size-4 text-primary-ink" />
-              ) : (
-                <LockClosedIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-              )}
-              {savedPublic ? t.publicFavorites : t.privateFavorites}
-            </span>
-          </CardContent>
-        </Card>
+      <aside aria-label={t.preview} className="hidden lg:sticky lg:top-6 lg:col-span-4 lg:block">
+        <ProfilePreview t={t} memberId={memberId} name={name} about={about} photo={photo} preset={preset} savedPublic={savedPublic} />
       </aside>
     </form>
+  );
+}
+
+/** A miniature of the real profile header and recipe byline, so the preview shows where the choices appear. */
+function ProfilePreview({
+  t,
+  memberId,
+  name,
+  about,
+  photo,
+  preset,
+  savedPublic,
+  compact = false,
+}: {
+  t: (typeof copy)["en"];
+  memberId: string;
+  name: string;
+  about: string;
+  photo: string | null;
+  preset: Preset | null;
+  savedPublic: boolean;
+  compact?: boolean;
+}) {
+  const shown = name.trim() || t.member;
+  const avatar = (className: string, fallbackClassName?: string) => (
+    <MemberAvatar memberId={memberId} displayName={name} avatarAssetId={photo} avatarPreset={preset} className={className} fallbackClassName={fallbackClassName} />
+  );
+  if (compact)
+    return (
+      <div className="flex items-center gap-4 overflow-hidden rounded-xl bg-card p-3 shadow-sm" aria-live="polite">
+        <div aria-hidden="true" className="h-16 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-primary via-primary-ink to-masa" />
+        {avatar("size-14 rounded-lg", "rounded-lg font-serif text-2xl")}
+        <div className="flex min-w-0 flex-col">
+          <span className="text-xs text-muted-foreground">{t.preview}</span>
+          <span className="truncate font-serif text-xl">{shown}</span>
+          <span className="truncate text-sm text-muted-foreground">{about.trim() || t.noBio}</span>
+        </div>
+      </div>
+    );
+  return (
+    <div className="flex flex-col gap-4" aria-live="polite">
+      <p className="m-0 text-sm font-semibold text-muted-foreground">{t.preview}</p>
+      <figure className="m-0 overflow-hidden rounded-xl bg-card shadow-md">
+        <div aria-hidden="true" className="relative h-20 bg-gradient-to-r from-primary via-primary-ink to-masa">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+        </div>
+        <div className="flex flex-col gap-2 px-5 pb-5">
+          <div className="relative z-10 -mt-10 self-start rounded-xl bg-card p-1 shadow-lg">
+            {avatar("size-20 rounded-lg", "rounded-lg font-serif text-3xl")}
+          </div>
+          <p className="type-headline-sm m-0 break-words">{shown}</p>
+          <p className={cn("m-0 text-sm break-words", about.trim() ? "text-foreground" : "text-muted-foreground")}>
+            {about.trim() || t.noBio}
+          </p>
+          <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-muted px-3 py-1 text-sm">
+            {savedPublic ? (
+              <EyeOpenIcon aria-hidden="true" className="size-4 text-primary-ink" />
+            ) : (
+              <LockClosedIcon aria-hidden="true" className="size-4 text-muted-foreground" />
+            )}
+            {savedPublic ? t.publicFavorites : t.privateFavorites}
+          </span>
+        </div>
+        <figcaption className="sr-only">{t.onProfile}</figcaption>
+      </figure>
+      <figure className="m-0 flex flex-col gap-2 rounded-xl border border-border bg-card/70 p-4">
+        <figcaption className="text-xs font-semibold text-muted-foreground">{t.onRecipes}</figcaption>
+        <p className="m-0 text-sm">
+          {t.by} <span className="font-semibold text-primary-ink underline underline-offset-2">{shown}</span>
+        </p>
+      </figure>
+    </div>
   );
 }
