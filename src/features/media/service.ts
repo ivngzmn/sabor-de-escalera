@@ -15,7 +15,9 @@ async function result<T>(operation: () => Promise<T>): Promise<Result<T>> {
     return { ok: false, error: error instanceof MediaError ? { status: error.status, message: error.message, retryAfter: error.retryAfter } : { status: 503, message: 'Photo service is temporarily unavailable. Please try again.' } };
   }
 }
-export function mediaReadiness(environment: Readonly<Record<string, string | undefined>> = process.env) {
+// Under astro dev, .env values reach import.meta.env but not process.env; deployments set process.env.
+const runtimeEnvironment = (): Readonly<Record<string, string | undefined>> => ({ ...import.meta.env, ...process.env });
+export function mediaReadiness(environment: Readonly<Record<string, string | undefined>> = runtimeEnvironment()) {
   const configured = Boolean(environment.IMAGEKIT_PRIVATE_KEY && environment.IMAGEKIT_PUBLIC_KEY && environment.IMAGEKIT_URL_ENDPOINT);
   // Local files are a development aid only; they are never private storage for real members.
   // import.meta.env.DEV is fixed at build time, so a production build refuses it even if NODE_ENV is unset.
@@ -27,8 +29,8 @@ export function mediaReadiness(environment: Readonly<Record<string, string | und
     return { enabled: configured && /^\d{4}-\d{2}-\d{2}$/.test(environment.MEDIA_LIVE_PROOF_PASSED ?? ''), provider: 'imagekit' as const, configured };
   return { enabled: false, provider: null, configured };
 }
-export function mediaProvider(environment: Readonly<Record<string, string | undefined>> = process.env): MediaProvider {
-  return mediaReadiness(environment).provider === 'local' ? createLocalMediaProvider({ root: localMediaRoot() }) : imageKitProvider();
+export function mediaProvider(environment: Readonly<Record<string, string | undefined>> = runtimeEnvironment()): MediaProvider {
+  return mediaReadiness(environment).provider === 'local' ? createLocalMediaProvider({ root: localMediaRoot() }) : imageKitProvider(environment);
 }
 interface Options { pool: Pool; provider: MediaProvider; ready: boolean; }
 interface IntentRow { id: string; owner_id: string; purpose: Purpose; provider_path: string; expires_at: Date; completed_at: Date | null; }

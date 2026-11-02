@@ -86,6 +86,6 @@ export function createImageKitProvider({ publicKey, privateKey, urlEndpoint, fet
     },
   };
 }
-export function imageKitProvider(): MediaProvider {
-  return createImageKitProvider({ publicKey: process.env.IMAGEKIT_PUBLIC_KEY ?? '', privateKey: process.env.IMAGEKIT_PRIVATE_KEY ?? '', urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT ?? 'https://ik.imagekit.io/unconfigured' });
+export function imageKitProvider(environment: Readonly<Record<string, string | undefined>> = { ...import.meta.env, ...process.env }): MediaProvider {
+  return createImageKitProvider({ publicKey: environment.IMAGEKIT_PUBLIC_KEY ?? '', privateKey: environment.IMAGEKIT_PRIVATE_KEY ?? '', urlEndpoint: environment.IMAGEKIT_URL_ENDPOINT ?? 'https://ik.imagekit.io/unconfigured' });
 }
