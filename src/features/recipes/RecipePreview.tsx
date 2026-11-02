@@ -8,6 +8,8 @@ import {
   type RecipeInput,
   type Origin,
 } from "./validation";
+import type { PhotoCredit } from "./catalog";
+import { photoCreditText } from "./photo-credit";
 export default function RecipePreview({
   input,
   id,
@@ -16,6 +18,7 @@ export default function RecipePreview({
   published = false,
   onOpenPhoto,
   servings,
+  credits = {},
 }: {
   input: RecipeInput;
   id: string;
@@ -26,6 +29,8 @@ export default function RecipePreview({
   onOpenPhoto?: (index: number) => void;
   /** Reader-only: the chosen servings, shown on screen and in print. */
   servings?: { current: number; original: number };
+  /** Photo credits keyed by asset id; shown under each photo and in print. */
+  credits?: Record<string, PhotoCredit>;
 }) {
   const t = (en: string, es: string) => (spanish ? es : en);
   // Published badges open Discover filtered to that category or origin.
@@ -107,7 +112,12 @@ export default function RecipePreview({
                 }
               />
             </div>
-            <figcaption>{p.caption}</figcaption>
+            <figcaption>
+              {p.caption}
+              {credits[p.assetId] && (
+                <span className="photo-credit">{photoCreditText(credits[p.assetId], spanish ? "es" : "en")}</span>
+              )}
+            </figcaption>
             {onOpenPhoto ? (
               <button type="button" className="gallery-open" onClick={() => onOpenPhoto(i)}>
                 {t("View larger photo", "Ver foto más grande")}

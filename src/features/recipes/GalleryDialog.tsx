@@ -15,6 +15,7 @@ export default function GalleryDialog({
   onIndexChange,
   onClose,
   src,
+  credit,
   language,
   returnFocus,
 }: {
@@ -25,6 +26,8 @@ export default function GalleryDialog({
   onIndexChange: (index: number) => void;
   onClose: () => void;
   src: (photo: Photo) => string;
+  /** Credit line for the photo, if one is recorded. */
+  credit?: (photo: Photo) => string;
   language: "en" | "es";
 }) {
   const t = copy[language];
@@ -56,6 +59,7 @@ export default function GalleryDialog({
               />
               <figcaption>
                 <DialogDescription className="author-text text-foreground">{photo.caption}</DialogDescription>
+                {credit?.(photo) && <p className="m-0 mt-1 text-sm text-muted-foreground">{credit(photo)}</p>}
               </figcaption>
             </figure>
             {photos.length > 1 && (
