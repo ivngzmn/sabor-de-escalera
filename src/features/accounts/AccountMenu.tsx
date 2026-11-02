@@ -163,6 +163,7 @@ export default function AccountMenu({
         className="flex min-h-11 cursor-pointer items-center gap-2 rounded-full py-1 ps-1 pe-2 outline-none transition-colors hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring"
       >
         <MemberAvatar
+          memberId={me?.id}
           displayName={name}
           avatarAssetId={me?.avatarAssetId}
           avatarPreset={me?.avatarPreset}
@@ -176,6 +177,7 @@ export default function AccountMenu({
       <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuLabel className="flex items-center gap-3 py-2">
           <MemberAvatar
+            memberId={me?.id}
             displayName={name}
             avatarAssetId={me?.avatarAssetId}
             avatarPreset={me?.avatarPreset}

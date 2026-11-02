@@ -34,7 +34,7 @@ const since = member ? new Intl.DateTimeFormat(language, { month: 'long', year: 
   {member ? (
     <>
       <section aria-labelledby="member-name" class="flex flex-col items-start gap-4 rounded-xl bg-card p-6 shadow-md sm:flex-row sm:items-center sm:p-10">
-        <MemberAvatar displayName={member.displayName} avatarAssetId={member.avatarAssetId} avatarPreset={member.avatarPreset} className="size-24 rounded-lg" fallbackClassName="rounded-lg font-serif text-3xl" />
+        <MemberAvatar memberId={member.id} displayName={member.displayName} avatarAssetId={member.avatarAssetId} avatarPreset={member.avatarPreset} className="size-24 rounded-lg" fallbackClassName="rounded-lg font-serif text-3xl" />
         <div class="flex flex-col gap-2">
           <h1 id="member-name" class="m-0">{member.displayName}</h1>
           {member.bio && <p class="m-0 max-w-2xl">{member.bio}</p>}

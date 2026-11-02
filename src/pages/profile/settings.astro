@@ -54,6 +54,7 @@ const t = spanish
     <ProfileSettingsForm
       client:load
       language={spanish ? 'es' : 'en'}
+      memberId={actor.id}
       displayName={field('displayName') ?? actor.displayName}
       bio={field('bio') ?? actor.bio}
       avatarPreset={preset}

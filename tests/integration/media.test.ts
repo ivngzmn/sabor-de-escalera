@@ -296,3 +296,20 @@ test('recipe photo delivery requires the intended current public reference and r
  const pending=delayed.readRecipeDerivative(draft.id,asset.id,'gallery');
  try{await gate.arrived;await pool.query("UPDATE recipes SET state='hidden' WHERE id=$1",[draft.id]);gate.release();expect(await pending).toMatchObject({ok:false,error:{status:404}});}finally{gate.release();await pending;}
 });
+
+test('public avatars serve only a member’s current photo, to anyone, and stop when it changes', async () => {
+  const svc = service();
+  const intent = value(await svc.createUploadIntent(actor, { ...input, purpose: 'avatar' })); upload(intent);
+  const photo = value(await svc.completeUpload(actor, intent.id));
+  // An uploaded but unselected photo is not public.
+  expect(await svc.readMemberAvatar(actor.id)).toMatchObject({ ok: false, error: { status: 404 } });
+  value(await svc.setAvatar(actor, photo.id));
+  expect(await svc.readMemberAvatar(actor.id)).toMatchObject({ ok: true, value: { assetId: photo.id } });
+  expect(await svc.readMemberAvatar(foreign.id)).toMatchObject({ ok: false, error: { status: 404 } });
+  expect(await svc.readMemberAvatar('not-an-id')).toMatchObject({ ok: false, error: { status: 404 } });
+  await pool.query('UPDATE members SET onboarded_at=NULL WHERE id=$1', [actor.id]);
+  expect(await svc.readMemberAvatar(actor.id)).toMatchObject({ ok: false, error: { status: 404 } });
+  await pool.query('UPDATE members SET onboarded_at=now() WHERE id=$1', [actor.id]);
+  value(await svc.setAvatar(actor, null));
+  expect(await svc.readMemberAvatar(actor.id)).toMatchObject({ ok: false, error: { status: 404 } });
+});

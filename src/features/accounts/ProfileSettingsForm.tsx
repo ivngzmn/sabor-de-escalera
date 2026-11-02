@@ -90,6 +90,7 @@ const length = (value: string) => Array.from(value).length;
 /** Stitch onboarding pattern: form sections on the left, a sticky preview on the right (desktop only). */
 export default function ProfileSettingsForm({
   language,
+  memberId,
   displayName,
   bio,
   avatarPreset,
@@ -101,6 +102,7 @@ export default function ProfileSettingsForm({
   privacyHref,
 }: {
   language: "en" | "es";
+  memberId: string;
   displayName: string | null;
   bio: string;
   avatarPreset: Actor["avatarPreset"];
@@ -292,6 +294,7 @@ export default function ProfileSettingsForm({
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-2 text-center" aria-live="polite">
             <MemberAvatar
+              memberId={memberId}
               displayName={name}
               avatarAssetId={photo}
               avatarPreset={preset}

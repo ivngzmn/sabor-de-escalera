@@ -190,6 +190,27 @@ export function createMediaService({ pool, provider, ready }: Options) {
         return bytes;
       });
     },
+    /** A member's selected profile photo, for anyone. Rechecked after provider I/O so a change or removal wins. */
+    readMemberAvatar(memberId: string): Promise<Result<{ assetId: string; bytes: Buffer }>> {
+      return result(async () => {
+        available();
+        if (!isId(memberId)) throw new MediaError(404, 'Photo not found.');
+        const visible = async () => {
+          const asset = (await pool.query<AssetRow>(`SELECT a.* FROM members m
+            JOIN media_assets a ON a.id=m.avatar_asset_id AND a.state='ready' AND a.purpose='avatar' AND a.owner_id=m.id
+            JOIN media_references ref ON ref.asset_id=a.id AND ref.kind='avatar' AND ref.reference_id=m.id
+            WHERE m.id=$1 AND m.onboarded_at IS NOT NULL`, [memberId])).rows[0];
+          if (!asset) throw new MediaError(404, 'Photo not found.');
+          return asset;
+        };
+        const initial = await visible();
+        const bytes = await provider.derivative(initial.provider_path, 'avatar');
+        await inspectStoredImage(bytes);
+        const current = await visible();
+        if (current.id !== initial.id || current.provider_path !== initial.provider_path) throw new MediaError(404, 'Photo not found.');
+        return { assetId: current.id, bytes };
+      });
+    },
     disposeUnusedAsset,
   };
   return api;
