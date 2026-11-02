@@ -76,3 +76,16 @@ test('a file id from the browser is only a lookup hint and must resolve to the s
   expect(await make('/private/other/j/image.webp').inspect('/private/o/i/image.webp', 'f1')).toBeNull();
   expect(seen.some((u) => u.endsWith('/v1/files'))).toBe(true);
 });
+
+test('inspect downloads the stored original, not a re-encoded delivery', async () => {
+  const urls: string[] = [];
+  const provider = media.createImageKitProvider({ publicKey: 'public', privateKey: 'secret', urlEndpoint: 'https://ik.imagekit.io/test', sleep: async () => {},
+    fetcher: async (url) => {
+      if (String(url).includes('/v1/files?')) return Response.json([{ fileId: 'f1', filePath: '/private/o/i/image.webp', isPrivateFile: true, size: 4 }]);
+      urls.push(String(url));
+      return new Response(new Uint8Array([1, 2, 3, 4]));
+    } });
+  await provider.inspect('/private/o/i/image.webp');
+  expect(urls).toHaveLength(1);
+  expect(urls[0]).toMatch(/^https:\/\/ik\.imagekit\.io\/test\/tr:orig-true\/private\/o\/i\/image\.webp\?ik-t=/);
+});

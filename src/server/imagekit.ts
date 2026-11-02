@@ -9,6 +9,8 @@ export interface MediaProvider {
   derivative(path: string, variant: Variant): Promise<Buffer>;
   removeAndPurge(fileId: string, path: string, purgeId?: string): Promise<{ complete: boolean; purgeId: string }>;
 }
+// The library object exactly as stored; without orig-true ImageKit re-encodes even the untransformed URL.
+const ORIGINAL = 'orig-true';
 interface Config { publicKey: string; privateKey: string; urlEndpoint: string; fetcher?: typeof fetch; sleep?: (ms: number) => Promise<void>; }
 export function createImageKitProvider({ publicKey, privateKey, urlEndpoint, fetcher = fetch, sleep = (ms) => new Promise((done) => setTimeout(done, ms)) }: Config): MediaProvider {
   const endpoint = new URL(urlEndpoint);
@@ -56,7 +58,7 @@ export function createImageKitProvider({ publicKey, privateKey, urlEndpoint, fet
         // Paths are unique per intent and never overwritten, so a file at this exact path is the upload.
         const file = await api(`files/${encodeURIComponent(fileIdHint)}/details`).then((r) => r.json()).catch(() => null);
         if (file && file.filePath === path && file.isPrivateFile === true && file.fileId === fileIdHint && Number.isInteger(file.size) && file.size <= MAX_STORED_BYTES)
-          return { fileId: file.fileId, filePath: file.filePath, isPrivateFile: true, size: file.size, bytes: await download(signed(path)) };
+          return { fileId: file.fileId, filePath: file.filePath, isPrivateFile: true, size: file.size, bytes: await download(signed(path, ORIGINAL)) };
       }
       const query = new URLSearchParams({ path: path.slice(0, path.lastIndexOf('/')), limit: '2', type: 'file' });
       // ImageKit's file search lags a fresh upload by a few seconds; wait up to about 7 s before giving up.
@@ -70,7 +72,7 @@ export function createImageKitProvider({ publicKey, privateKey, urlEndpoint, fet
       const file = files[0];
       if (file.filePath !== path || file.isPrivateFile !== true || typeof file.fileId !== 'string' || !Number.isInteger(file.size) || file.size > MAX_STORED_BYTES) return null;
       // Inspect the retained library object, not a transformed delivery URL.
-      return { fileId: file.fileId, filePath: file.filePath, isPrivateFile: true, size: file.size, bytes: await download(signed(path)) };
+      return { fileId: file.fileId, filePath: file.filePath, isPrivateFile: true, size: file.size, bytes: await download(signed(path, ORIGINAL)) };
     },
     async derivative(path, variant) { return download(signed(path, variants[variant])); },
     async removeAndPurge(fileId, path, purgeId) {

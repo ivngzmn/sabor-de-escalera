@@ -58,6 +58,8 @@ await check('signed upload is accepted', async () => assert(main.status === 200,
 await check('stored file is private, bounded, upright and without metadata', async () => {
   const file = await provider.inspect(main.path, main.fileId);
   assert(file, 'uploaded file not found under its signed path');
+  // Completion rejects a mismatch, so the downloaded original must be byte-for-byte what ImageKit stored.
+  assert(file.size === file.bytes.length, `downloaded ${file.bytes.length} bytes but ImageKit stored ${file.size}`);
   const size = await inspectStoredImage(file.bytes);
   assert(size.height > size.width, 'orientation was not applied to the pixels');
   return `${size.width}×${size.height}, ${file.bytes.length} bytes`;

@@ -56,6 +56,8 @@ The run also showed four ways ImageKit differs from what the original design ass
 - **Format.** The pre-transform resizes to the 2400 px cap and strips metadata, but keeps JPEG as JPEG. PNG was stored as WebP. Stored originals may therefore be JPEG, PNG or WebP; every delivered variant is WebP.
 - **Search lag.** ImageKit's file search shows a new upload only after a few seconds (3 to 15 observed). Completion now looks the file up by the `fileId` from the upload response, accepted only when ImageKit reports it at the exact server-chosen private path. Path search is the fallback.
 
+- **Re-encoded originals.** ImageKit re-encodes even an untransformed signed URL: 942 bytes stored came back as 5,904. The server compares the two, so every completion failed until it began downloading with `tr:orig-true`. The proof script now checks for this too. A profile photo was then uploaded, saved and served end to end in the signed-in app (November 2), and removed again.
+
 **Known limit: the 20 MB input rule.** ImageKit evaluates upload `checks` after the pre-transform, so a 21.6 MB PNG passed the size check after shrinking to 3 MB. The uploader and the server's upload request (which declares the file size) both enforce 20 MB, but a tampered client can still push a larger file to ImageKit. It cannot become an asset: anything over the 2 MB stored bound is refused at completion. It can leave an orphaned file in ImageKit until the orphan cleanup job exists. Uploads are rate-limited to 30 per hour and 100 per day per member.
 
 **Still for the owner before setting `MEDIA_LIVE_PROOF_PASSED`:**
