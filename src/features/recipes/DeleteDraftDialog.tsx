@@ -18,6 +18,8 @@ interface Props {
   ingredientCount: number;
   updatedAt: string;
   lang: "en" | "es";
+  /** Once-published recipes go to Recently deleted for 30 days instead of being removed. */
+  recoverable?: boolean;
   onConfirm(): Promise<string | null>;
 }
 
@@ -40,7 +42,7 @@ function count(n: number, one: string, many: string) {
 }
 
 export default function DeleteDraftDialog(props: Props) {
-  const { open, onOpenChange, lang } = props;
+  const { open, onOpenChange, lang, recoverable = false } = props;
   const t = (en: string, es: string) => (lang === "es" ? es : en);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,13 +69,20 @@ export default function DeleteDraftDialog(props: Props) {
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {t("Delete draft", "Eliminar borrador")}
+            {recoverable
+              ? t("Delete recipe", "Eliminar receta")
+              : t("Delete draft", "Eliminar borrador")}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {t(
-              "This permanently removes the draft below. This can't be undone.",
-              "Esto elimina definitivamente el borrador. No se puede deshacer.",
-            )}
+            {recoverable
+              ? t(
+                  "This removes the recipe below. You can restore it from My Recipes for 30 days.",
+                  "Esto elimina la receta. Puedes restaurarla desde Mis recetas durante 30 días.",
+                )
+              : t(
+                  "This permanently removes the draft below. This can't be undone.",
+                  "Esto elimina definitivamente el borrador. No se puede deshacer.",
+                )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="rounded-md border bg-background p-3 text-sm">
@@ -105,7 +114,9 @@ export default function DeleteDraftDialog(props: Props) {
           >
             {pending
               ? t("Deleting…", "Eliminando…")
-              : t("Delete permanently", "Eliminar definitivamente")}
+              : recoverable
+                ? t("Delete recipe", "Eliminar receta")
+                : t("Delete permanently", "Eliminar definitivamente")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

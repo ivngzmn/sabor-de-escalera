@@ -255,3 +255,22 @@ test("editing an unpublished recipe outdates its approved translations", async (
   const es = value(await (await catalog()).list({ q: "arroz", language: "es" }, null));
   expect(es.items).toEqual([]);
 });
+
+test("deleting an unpublished recipe from the editor stays restorable", async () => {
+  const { svc, recipe } = await publishThroughService("Atole");
+  const unpublished = value(await svc.unpublishRecipe(author, recipe.id, recipe.version));
+  value(await svc.deleteDraft(author, recipe.id, unpublished.version));
+  expect((await pool.query("SELECT count(*)::int AS n FROM draft_tombstones WHERE draft_id=$1", [recipe.id])).rows[0].n).toBe(0);
+  expect((await pool.query("SELECT count(*)::int AS n FROM media_references WHERE reference_id=$1", [recipe.id])).rows[0].n).toBe(1);
+  expect(value(await svc.listDeleted(author)).map((r) => r.id)).toEqual([recipe.id]);
+  expect(value(await svc.restoreRecipe(author, recipe.id)).state).toBe("unpublished");
+});
+
+test("backfill fills catalog columns for recipes published before discovery", async () => {
+  const id = await publishedRecipe(pool, author.id, { title: "Ají de gallina", category: "main" });
+  await pool.query("UPDATE recipes SET search_text='',title_keys='{}',category=NULL WHERE id=$1", [id]);
+  const { backfillCatalog } = await import("../../src/features/recipes/catalog");
+  expect(await backfillCatalog(pool)).toBe(1);
+  expect(ids(value(await (await catalog()).list({ q: "aji", category: "main", language: "en" }, null)))).toEqual([id]);
+  expect(await backfillCatalog(pool)).toBe(0);
+});

@@ -384,6 +384,11 @@ export function createDraftService(options: {
         const removed = await transaction(pool, async (client) => {
           const r = await owned(client, actor, id);
           version(r, expectedVersion);
+          // A once-published recipe edited from the editor keeps the 30-day restore and its photos.
+          if (r.first_published_at !== null) {
+            await transition(client, id, "state='deleted',deleted_at=now()");
+            return [];
+          }
           await client.query(
             "INSERT INTO draft_tombstones(draft_id,owner_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
             [id, actor!.id],
