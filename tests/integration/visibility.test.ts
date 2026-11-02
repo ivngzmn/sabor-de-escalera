@@ -240,3 +240,18 @@ test("deleted drafts cannot be restored as recipes", async () => {
   value(await svc.deleteDraft(author, draft.id, draft.version));
   expect(await svc.restoreRecipe(author, draft.id)).toMatchObject({ ok: false, error: { status: 404 } });
 });
+
+test("editing an unpublished recipe outdates its approved translations", async () => {
+  const { svc, input, recipe } = await publishThroughService("Rice pudding");
+  await pool.query(
+    "INSERT INTO recipe_translations(recipe_id,language,source_version,status,input) VALUES($1,'es',$2,'approved',$3)",
+    [recipe.id, recipe.version, JSON.stringify({ title: "Arroz con leche", ingredients: [] })],
+  );
+  const unpublished = value(await svc.unpublishRecipe(author, recipe.id, recipe.version));
+  await allowSave(recipe.id);
+  const edited = value(await svc.saveDraft(author, recipe.id, unpublished.version, { ...input, title: "Coconut rice pudding" }));
+  expect((await pool.query("SELECT status FROM recipe_translations WHERE recipe_id=$1", [recipe.id])).rows).toEqual([{ status: "outdated" }]);
+  value(await svc.publishRecipe(author, recipe.id, edited.version));
+  const es = value(await (await catalog()).list({ q: "arroz", language: "es" }, null));
+  expect(es.items).toEqual([]);
+});

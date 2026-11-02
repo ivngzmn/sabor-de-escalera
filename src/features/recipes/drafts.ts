@@ -351,6 +351,12 @@ export function createDraftService(options: {
               [id, JSON.stringify(v)],
             )
           ).rows[0];
+          // Approved translations describe the old text; readers fall back to the original until re-reviewed.
+          const outdated = await client.query(
+            "UPDATE recipe_translations SET status='outdated',updated_at=now() WHERE recipe_id=$1 AND status='approved'",
+            [id],
+          );
+          if (outdated.rowCount) await refreshCatalogRow(client, id);
           return { draft: dto(next), removed };
         });
         await cleanup(change.removed);
