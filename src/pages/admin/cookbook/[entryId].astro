@@ -1,0 +1,37 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import RecipePreview from '../../../features/recipes/RecipePreview';
+import '../../../features/recipes/editor.css';
+import CookbookEntryActions from '../../../features/cookbook/CookbookEntryActions';
+import { cookbookQueue } from '../../../features/cookbook/queue';
+import { draftsService } from '../../../features/recipes/drafts';
+import { adminOrResponse } from './_guard';
+import { getPool } from '../../../server/db';
+import type { RecipeInput } from '../../../features/recipes/validation';
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+const actor = await adminOrResponse(Astro.request, Astro.url);
+if (actor instanceof Response) return actor;
+const queue = await cookbookQueue().listQueue(actor, 'all');
+const row = queue.ok ? queue.value.find((r) => r.entryId === Astro.params.entryId) : undefined;
+if (!row) Astro.response.status = queue.ok ? 404 : queue.error.status;
+const input = row ? (await getPool().query<{ input: RecipeInput }>('SELECT input FROM recipes WHERE id=$1', [row.recipeId])).rows[0]?.input : undefined;
+const origins = row ? await draftsService().origins() : [];
+---
+<AppLayout title={row?.title ?? 'Entry not found'}>
+  <a href="/admin/cookbook">← Cookbook review</a>
+  {row && input ? (
+    <>
+      <dl class="my-4 grid gap-x-6 gap-y-1 sm:grid-cols-[max-content_1fr]">
+        <dt class="font-semibold">Book pages</dt><dd class="m-0">{row.pages.join(', ')}</dd>
+        <dt class="font-semibold">Contributor</dt><dd class="m-0">{row.contributor ?? 'Not credited in the book'}</dd>
+        <dt class="font-semibold">Text review</dt><dd class="m-0">{row.textReview}</dd>
+        <dt class="font-semibold">Image review</dt><dd class="m-0">{row.imageReview}</dd>
+        <dt class="font-semibold">Still needed</dt><dd class="m-0">{row.missing.join(', ') || 'Nothing'}</dd>
+        <dt class="font-semibold">Flags</dt><dd class="m-0">{row.flags.join(', ') || '—'}</dd>
+      </dl>
+      <p><a href={`/admin/translations/${row.recipeId}`}>Review the {input.language === 'es' ? 'English' : 'Spanish'} translation</a></p>
+      {row.state === 'draft' && <CookbookEntryActions client:load entryId={row.entryId} version={row.version} textReviewed={row.textReview === 'approved'} eligible={row.eligible} />}
+      <RecipePreview input={input} id={row.recipeId} origins={origins} spanish={input.language === 'es'} />
+    </>
+  ) : <h1>{queue.ok ? 'Entry not found' : queue.error.message}</h1>}
+</AppLayout>

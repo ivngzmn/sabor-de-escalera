@@ -161,3 +161,11 @@ test("leaveTarget ignores non-http(s) protocols", () => {
     leaveTarget(plainClick, { ...plainLink, href: "javascript:void(0)" }, here),
   ).toBeNull();
 });
+
+test("favorite intent accepts only recipe ids", async () => {
+  const { favoriteIntentFrom } = await import("../../src/features/recipes/draft-intent");
+  const id = "0b6f0c55-3a8e-4f43-9d1f-6a3c2f7e9b10";
+  expect(favoriteIntentFrom(new URL(`http://a.test/?save=${id}`))).toBe(id);
+  expect(favoriteIntentFrom(new URL("http://a.test/?save=javascript:alert(1)"))).toBeNull();
+  expect(favoriteIntentFrom(new URL("http://a.test/"))).toBeNull();
+});

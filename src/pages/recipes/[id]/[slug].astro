@@ -1,15 +1,59 @@
 ---
 import AppLayout from '../../../layouts/AppLayout.astro';
-import RecipePreview from '../../../features/recipes/RecipePreview';
+import { buttonVariants } from '../../../components/ui/button';
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '../../../components/ui/empty';
+import RecipeReader from '../../../features/recipes/RecipeReader';
 import '../../../features/recipes/editor.css';
-import {draftsService} from '../../../features/recipes/drafts';
-const spanish=Astro.url.searchParams.get('lang')==='es';
-const service=draftsService();const result=await service.readPublished(Astro.params.id??'');
-if(!result.ok)Astro.response.status=result.error.status===503?503:404;
-const recipe=result.ok?result.value:null;
-if(recipe&&Astro.url.pathname!==recipe.url)return Astro.redirect(recipe.url!+(spanish?'?lang=es':''),308);
-const origins=recipe?await service.origins():[];
+import { draftsService } from '../../../features/recipes/drafts';
+import { catalogService } from '../../../features/recipes/catalog';
+import type { Origin } from '../../../features/recipes/validation';
+import type { TranslatableText } from '../../../features/recipes/translation-text';
+const spanish = Astro.url.searchParams.get('lang') === 'es';
+const language = spanish ? 'es' : 'en';
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+let recipe = null;
+let failed = false;
+try {
+  const result = await draftsService().readPublished(Astro.params.id ?? '');
+  if (result.ok) recipe = result.value;
+  else failed = result.error.status === 503;
+} catch { failed = true; }
+if (!recipe) Astro.response.status = failed ? 503 : 404;
+// Old or edited slugs redirect to the current URL; the stable id decides which recipe this is.
+if (recipe && Astro.url.pathname !== recipe.url) return Astro.redirect(recipe.url! + (spanish ? '?lang=es' : ''), 308);
+let origins: Origin[] = [];
+let translation: TranslatableText | null = null;
+let authorName: string | null = null;
+let credit: { contributor: string | null; originalAuthor: string | null } | null = null;
+if (recipe) {
+  const catalog = catalogService();
+  [origins, translation, authorName, credit] = await Promise.all([
+    draftsService().origins(),
+    catalog.readerTranslation(recipe.id, language),
+    catalog.authorName(recipe.ownerId ?? null),
+    catalog.cookbookCredit(recipe.id),
+  ]);
+}
+const date = (iso: string) => new Intl.DateTimeFormat(language, { dateStyle: 'long' }).format(new Date(iso));
+const t = spanish
+  ? { cookbook: 'Del recetario Escalera', contributed: 'Aportada por', original: 'Receta original de', by: 'Por', published: 'Publicada', updated: 'Actualizada', gone: 'Uy, esta receta se ha ido de la mesa.', explore: 'Explorar recetas', unavailable: 'No pudimos cargar esta receta. Inténtalo de nuevo en un momento.' }
+  : { cookbook: 'From the Escalera cookbook', contributed: 'Contributed by', original: 'Original recipe by', by: 'By', published: 'Published', updated: 'Updated', gone: 'Oops—this recipe has left the table.', explore: 'Explore Recipes', unavailable: 'We couldn’t load this recipe. Please try again in a moment.' };
 ---
-<AppLayout title={recipe?.input.title??(spanish?'Receta no disponible':'Recipe unavailable')}>
- {recipe?<><RecipePreview input={recipe.input} id={recipe.id} origins={origins} spanish={spanish} published/><p>{spanish?'Publicada':'Published'}: <time datetime={recipe.publishedAt!}>{new Date(recipe.publishedAt!).toLocaleDateString(spanish?'es':'en')}</time> · {spanish?'Actualizada':'Updated'}: <time datetime={recipe.updatedAt}>{new Date(recipe.updatedAt).toLocaleDateString(spanish?'es':'en')}</time></p></>:<><h1>{spanish?'Uy, esta receta se ha ido de la mesa.':'Oops—this recipe has left the table.'}</h1><a href={spanish?'/?lang=es':'/'}>{spanish?'Explorar recetas':'Explore Recipes'}</a></>}
+<AppLayout title={recipe?.input.title ?? (spanish ? 'Receta no disponible' : 'Recipe unavailable')}>
+  {recipe ? (
+    <>
+      <p class="m-0 mb-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        {credit && <span>{t.cookbook}{credit.contributor && ` · ${t.contributed} ${credit.contributor}`}{credit.originalAuthor && ` · ${t.original} ${credit.originalAuthor}`}</span>}
+        {authorName && <span>{t.by} <a href={`/members/${recipe.ownerId}${spanish ? '?lang=es' : ''}`}>{authorName}</a></span>}
+        <span>{t.published}: <time datetime={recipe.publishedAt!}>{date(recipe.publishedAt!)}</time></span>
+        <span>{t.updated}: <time datetime={recipe.updatedAt}>{date(recipe.updatedAt)}</time></span>
+      </p>
+      <RecipeReader client:load id={recipe.id} url={recipe.url!} input={recipe.input} origins={origins} language={language} translation={translation} />
+    </>
+  ) : (
+    <Empty className="rounded-xl border border-dashed border-input/40 bg-card/60"><EmptyHeader>
+      <EmptyTitle><h1>{failed ? t.unavailable : t.gone}</h1></EmptyTitle>
+      <EmptyDescription><a href={spanish ? '/?lang=es' : '/'} data-slot="button" class={buttonVariants()}>{t.explore}</a></EmptyDescription>
+    </EmptyHeader></Empty>
+  )}
 </AppLayout>

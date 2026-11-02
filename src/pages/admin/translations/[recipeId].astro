@@ -1,0 +1,32 @@
+---
+import AppLayout from '../../../layouts/AppLayout.astro';
+import TranslationEditor from '../../../features/translations/TranslationEditor';
+import { accounts } from '../../../features/accounts/service';
+import { AccountError, signInHref } from '../../../features/accounts/permissions';
+import { accountFailure } from '../../../features/accounts/routes';
+import { translationService } from '../../../features/translations/service';
+import { accountConfiguration, ClerkResponseError } from '../../../server/clerk';
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+const origin = accountConfiguration()?.origin ?? Astro.url.origin;
+let actor;
+try { actor = await accounts().requireAdmin(Astro.request); }
+catch (error) {
+  if (error instanceof ClerkResponseError) return error.response;
+  if (error instanceof AccountError && error.status === 401) return Astro.redirect(signInHref(Astro.url.pathname, origin, true), 303);
+  return accountFailure(error);
+}
+const review = await translationService().readForReview(actor, Astro.params.recipeId ?? '');
+if (!review.ok) Astro.response.status = review.error.status;
+const source = review.ok ? review.value.input : null;
+const target = source?.language === 'es' ? 'en' : 'es';
+const rows = review.ok ? review.value.translations.filter((t) => t.language === target) : [];
+const proposed = rows.find((t) => t.status === 'proposed') ?? null;
+const approved = rows.find((t) => t.status === 'approved') ?? null;
+---
+<AppLayout title="Translation review">
+  <a href="/admin/cookbook">← Cookbook review</a>
+  <h1>{source ? `${source.title || 'Untitled recipe'} → ${target === 'es' ? 'Español' : 'English'}` : 'Recipe not found'}</h1>
+  {review.ok && source ? (
+    <TranslationEditor client:load recipeId={Astro.params.recipeId!} source={source} version={review.value.version} target={target} proposed={proposed} approved={approved} />
+  ) : <p>{review.ok ? '' : review.error.message}</p>}
+</AppLayout>

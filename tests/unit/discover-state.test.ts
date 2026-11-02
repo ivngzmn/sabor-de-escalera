@@ -1,0 +1,21 @@
+import { expect, test } from "vitest";
+import { parseDiscoverParams, toDiscoverSearch } from "../../src/features/recipes/discover-state";
+
+const roundTrip = (search: string) => toDiscoverSearch(parseDiscoverParams(new URLSearchParams(search)));
+
+test("discover state round-trips in a stable order", () => {
+  expect(roundTrip("sort=rated&category=desserts&q=flan")).toBe("q=flan&category=desserts&sort=rated");
+  expect(roundTrip("diet=vegan&time=30&origin=fusion")).toBe("origin=fusion&time=30&diet=vegan");
+});
+
+test("defaults are omitted and depend on whether there is a search", () => {
+  expect(roundTrip("sort=newest")).toBe("");
+  expect(roundTrip("q=flan&sort=relevance")).toBe("q=flan");
+  expect(roundTrip("q=flan&sort=newest")).toBe("q=flan&sort=newest");
+  expect(roundTrip("sort=relevance")).toBe("");
+});
+
+test("unknown or unsafe values are dropped", () => {
+  expect(roundTrip("category=snacks&time=45&diet=keto&sort=random&origin=%3Cscript%3E")).toBe("");
+  expect(parseDiscoverParams(new URLSearchParams(`q=${"a".repeat(500)}`)).q).toHaveLength(100);
+});

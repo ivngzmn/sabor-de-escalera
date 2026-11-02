@@ -14,31 +14,42 @@ export default function RecipePreview({
   origins,
   spanish = false,
   published = false,
+  onOpenPhoto,
+  servings,
 }: {
   input: RecipeInput;
   id: string;
   origins: Origin[];
   spanish?: boolean;
   published?: boolean;
+  /** Reader-only: opens the gallery viewer instead of a new tab. */
+  onOpenPhoto?: (index: number) => void;
+  /** Reader-only: the chosen servings, shown on screen and in print. */
+  servings?: { current: number; original: number };
 }) {
   const t = (en: string, es: string) => (spanish ? es : en);
+  // Published badges open Discover filtered to that category or origin.
+  const discover = (key: string, value: string) =>
+    `/?${new URLSearchParams({ [key]: value, ...(spanish ? { lang: "es" } : {}) })}`;
+  const category = categories.find((c) => c.id === input.category)?.[spanish ? "es" : "en"];
+  const origin = origins.find((o) => o.id === input.origin)?.[spanish ? "label_es" : "label_en"];
   return (
     <article className="recipe-preview">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="tag">
-          {
-            categories.find((c) => c.id === input.category)?.[
-              spanish ? "es" : "en"
-            ]
-          }
-        </Badge>
-        <Badge variant="region">
-          {
-            origins.find((o) => o.id === input.origin)?.[
-              spanish ? "label_es" : "label_en"
-            ]
-          }
-        </Badge>
+        {published && category ? (
+          <Badge variant="tag" asChild>
+            <a href={discover("category", input.category)}>{category}</a>
+          </Badge>
+        ) : (
+          <Badge variant="tag">{category}</Badge>
+        )}
+        {published && origin ? (
+          <Badge variant="region" asChild>
+            <a href={discover("origin", input.origin)}>{origin}</a>
+          </Badge>
+        ) : (
+          <Badge variant="region">{origin}</Badge>
+        )}
       </div>
       <h1>{input.title || t("Untitled recipe", "Receta sin título")}</h1>
       <p>
@@ -46,7 +57,12 @@ export default function RecipePreview({
         {input.language === "es" ? "Español" : "English"}
       </p>
       <p>
-        {input.yieldText}{" "}
+        {servings && servings.current !== servings.original
+          ? t(
+              `Scaled to ${servings.current} servings (original: ${input.yieldText})`,
+              `Ajustada a ${servings.current} porciones (original: ${input.yieldText})`,
+            )
+          : input.yieldText}{" "}
         {totalMinutes(input) !== null && (
           <>
             · {totalMinutes(input)} {t("minutes", "minutos")}
@@ -92,7 +108,12 @@ export default function RecipePreview({
               />
             </div>
             <figcaption>{p.caption}</figcaption>
-            {i === 0 && (
+            {onOpenPhoto ? (
+              <button type="button" className="gallery-open" onClick={() => onOpenPhoto(i)}>
+                {t("View larger photo", "Ver foto más grande")}
+                <span className="sr-only">: {p.caption}</span>
+              </button>
+            ) : i === 0 && (
               <a
                 href={
                   published

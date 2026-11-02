@@ -59,6 +59,7 @@ export interface Origin {
 }
 export interface Draft {
   id: string;
+  ownerId?: string | null;
   version: number;
   generation: number;
   label: string;

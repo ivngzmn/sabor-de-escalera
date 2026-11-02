@@ -87,7 +87,9 @@ export async function handleDraftRequest(
           ? ["action", "version", "input"]
           : action === "copy"
             ? ["action", "generation", "input"]
-            : ["action", "version"];
+            : action === "restore"
+              ? ["action"]
+              : ["action", "version"];
     if (Object.keys(input).some((k) => !allowed.includes(k)))
       throw new DraftError(400, "Unknown request field.");
     if (request.method !== "POST" && request.method !== "DELETE")
@@ -108,7 +110,13 @@ export async function handleDraftRequest(
                 )
               : action === "delete"
                 ? await svc.deleteDraft(actor, id!, Number(input.version))
-                : null;
+                : action === "unpublish"
+                  ? await svc.unpublishRecipe(actor, id!, Number(input.version))
+                  : action === "delete-recipe"
+                    ? await svc.deleteRecipe(actor, id!, Number(input.version))
+                    : action === "restore"
+                      ? await svc.restoreRecipe(actor, id!)
+                      : null;
     if (!output) throw new DraftError(400, "Invalid action.");
     return Response.json(output, {
       status: output.ok ? 200 : output.error.status,

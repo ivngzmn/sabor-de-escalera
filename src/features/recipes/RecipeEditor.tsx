@@ -1049,6 +1049,7 @@ export default function RecipeEditor({
           ingredientCount={input.ingredients.length}
           updatedAt={draft.updatedAt}
           lang={lang}
+          recoverable={draft.publishedAt !== null}
           onConfirm={async () => {
             const message = await remove();
             if (message === null) setConfirmDelete(false);

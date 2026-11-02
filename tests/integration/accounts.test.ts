@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { readdirSync } from 'node:fs';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import * as accountModule from '../../src/features/accounts/service';
@@ -11,6 +12,8 @@ import * as clerkModule from '../../src/server/clerk';
 import { handleAccountRequest } from '../../src/server/account-request';
 import { accountConfiguration } from '../../src/server/clerk';
 import type { AuthIdentity } from '../../src/features/accounts/service';
+
+const migrationCount = readdirSync('db/migrations').filter((name) => /^\d+_[a-z_]+\.sql$/.test(name)).length;
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 if (!databaseUrl || !['127.0.0.1', 'localhost'].includes(new URL(databaseUrl).hostname)) throw new Error('Account integration tests require an isolated local TEST_DATABASE_URL');
@@ -168,7 +171,7 @@ test('migration runner is concurrency-safe and repeatable without losing mapped 
   const actor = await service().ensureMember(identity('retained'));
   await Promise.all([migrate(pool), migrate(pool)]);
   expect((await service().ensureMember(identity('retained'))).id).toBe(actor.id);
-  expect((await pool.query('SELECT count(*)::int AS count FROM schema_migrations')).rows[0].count).toBe(4);
+  expect((await pool.query('SELECT count(*)::int AS count FROM schema_migrations')).rows[0].count).toBe(migrationCount);
 });
 
 test('auth configuration requires private keys, exact secure origin and verified email-code instance configuration', () => {
@@ -181,7 +184,7 @@ test('auth configuration requires private keys, exact secure origin and verified
 test('migration CLI applies the same tracked migrations to the isolated local schema', async () => {
   const result = await promisify(execFile)(process.execPath, ['--experimental-strip-types', 'scripts/migrate.ts'], { env: { ...process.env, DATABASE_URL: databaseUrl, PGOPTIONS: `-c search_path=${schema}` } });
   expect(result.stdout).toContain('Database migrations applied.');
-  expect((await pool.query('SELECT count(*)::int AS count FROM schema_migrations')).rows[0].count).toBe(4);
+  expect((await pool.query('SELECT count(*)::int AS count FROM schema_migrations')).rows[0].count).toBe(migrationCount);
 });
 
 

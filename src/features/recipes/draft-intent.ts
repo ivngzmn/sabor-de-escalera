@@ -1,4 +1,4 @@
-import { emptyRecipe, sameRecipe, type RecipeInput } from "./validation";
+import { emptyRecipe, isId, sameRecipe, type RecipeInput } from "./validation";
 
 export function hasContent(input: RecipeInput): boolean {
   return !sameRecipe({ ...input, language: "en" }, emptyRecipe());
@@ -55,4 +55,10 @@ export function leaveTarget(
   )
     return null;
   return target.href;
+}
+
+/** The recipe a guest asked to save before signing in, carried as `?save=<id>`. */
+export function favoriteIntentFrom(url: URL): string | null {
+  const id = url.searchParams.get("save");
+  return isId(id) ? id : null;
 }

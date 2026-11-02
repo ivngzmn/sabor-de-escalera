@@ -1,11 +1,30 @@
 ---
-import RecipePlaceholder from '../components/RecipePlaceholder';
 import { Badge } from '../components/ui/badge';
 import { buttonVariants } from '../components/ui/button';
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from '../components/ui/empty';
 import AppLayout from '../layouts/AppLayout.astro';
+import DiscoverFeed from '../features/recipes/DiscoverFeed';
+import { catalogService, type CatalogPage } from '../features/recipes/catalog';
+import { optionalActor } from '../features/recipes/catalog-routes';
+import { parseDiscoverParams } from '../features/recipes/discover-state';
+import { draftsService } from '../features/recipes/drafts';
+import type { Origin } from '../features/recipes/validation';
+import { signInHref } from '../features/accounts/permissions';
+import { accountConfiguration } from '../server/clerk';
 const spanish = Astro.url.searchParams.get('lang') === 'es';
+const language = spanish ? 'es' : 'en';
 const href = (path: string) => spanish ? `${path}?lang=es` : path;
+// Favorite state is per viewer, so the page itself is never shared-cached.
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+const params = parseDiscoverParams(Astro.url.searchParams);
+let initial: CatalogPage | null = null;
+let origins: Origin[] = [];
+try {
+  const viewer = await optionalActor(Astro.request);
+  const [page, available] = await Promise.all([catalogService().list({ ...params, language }, viewer?.id ?? null), draftsService().origins()]);
+  if (page.ok) initial = page.value;
+  origins = available;
+} catch { /* The feed shows a retry instead of failing the page. */ }
+const signInBase = signInHref(`${Astro.url.pathname}${Astro.url.search}`, accountConfiguration()?.origin ?? Astro.url.origin);
 ---
 <AppLayout title={spanish ? 'Descubrir' : 'Discover'}>
   <section class="grid items-center gap-8 overflow-hidden rounded-xl border border-border bg-muted p-6 shadow-sm md:p-10 lg:grid-cols-[1.1fr_1fr] lg:gap-12">
@@ -23,14 +42,9 @@ const href = (path: string) => spanish ? `${path}?lang=es` : path;
       <figcaption class="type-label-sm text-primary-foreground">{spanish ? 'Refrán tradicional' : 'Traditional proverb'}</figcaption>
     </figure>
   </section>
-  <section aria-labelledby="recipes-heading" class="mt-14 flex flex-col gap-2">
+  <section aria-labelledby="recipes-heading" class="mt-14 flex flex-col gap-4">
     <Badge variant="eyebrow">{spanish ? 'Nuestra mesa compartida' : 'Our shared table'}</Badge>
-    <Empty className="mt-2 rounded-xl border border-dashed border-input/40 bg-card/60"><EmptyHeader>
-    <EmptyTitle><h2 id="recipes-heading">{spanish ? 'Las recetas están en camino' : 'Recipes are on their way'}</h2></EmptyTitle>
-    <EmptyDescription>{spanish ? 'Estamos preparando la colección. Las recetas aparecerán aquí después de su revisión.' : 'We’re preparing the collection. Recipes will appear here after review.'}</EmptyDescription>
-    </EmptyHeader></Empty>
-  </section>
-  <section aria-label={spanish ? 'Vista previa de la colección de recetas' : 'Recipe collection preview'} class="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-    {[0, 1, 2].map(() => <RecipePlaceholder variant="card" state="planned" language={spanish ? 'es' : 'en'} />)}
+    <h2 id="recipes-heading" class="m-0">{spanish ? 'Descubre recetas' : 'Discover recipes'}</h2>
+    <DiscoverFeed client:load initial={initial} params={params} language={language} origins={origins} signInBase={signInBase} />
   </section>
 </AppLayout>
