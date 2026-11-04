@@ -195,3 +195,50 @@ test("readers see photo credits only on published recipes", async () => {
   await queue.publishImported(admin, lime.id);
   expect(await catalog.photoCredits(recipeId)).toEqual({ [shot]: { kind: "stock", photographer: "Sample Photographer", site: "Unsplash", label: "illustrative" } });
 });
+
+test("uncredited photos show as a blocker alongside everything else still missing", async () => {
+  const { admin } = await people();
+  const { fix, queue } = await services();
+  const lime = await entry("p03-sample-lime-water");
+  const shot = await asset(admin.id);
+  await fix.correctEntry(admin, lime.id, { version: lime.version, input: { ...lime.input, photos: [photo(shot)] }, reason: "Photo" });
+  const page = await queue.listQueue(admin, "all");
+  const listed = page.ok ? page.value.find((r) => r.entryId === lime.id)! : null;
+  expect(listed?.missing).toContain("photo-credit");
+  expect(listed?.missing).toContain("text-review");
+});
+
+test("a recipe adapted from a website stays blocked until an admin records how reuse was cleared", async () => {
+  const { admin, member } = await people();
+  const { fix, queue } = await services();
+  const lime = await entry("p03-sample-lime-water");
+  const shot = await asset(admin.id);
+  await pool.query("UPDATE cookbook_entries SET flags=array_append(flags,'third-party-source') WHERE id=$1", [lime.id]);
+  await fix.correctEntry(admin, lime.id, { version: lime.version, input: { ...complete(lime.input), photos: [photo(shot)] }, reason: "Complete entry" });
+  const { version } = await entry("p03-sample-lime-water");
+  await fix.recordPhotoCredit(admin, lime.id, { version, assetId: shot, credit: unsplash });
+  await fix.markImagesReviewed(admin, lime.id, version);
+  await queue.markTextReviewed(admin, lime.id, version);
+  const blocked = await queue.publishImported(admin, lime.id);
+  expect(!blocked.ok && blocked.error.fields?.map((f) => f.field)).toEqual(["source-permission"]);
+  expect(await fix.clearSource(member, lime.id, { version, note: "Asked" })).toMatchObject({ ok: false, error: { status: 403 } });
+  expect(await fix.clearSource(admin, lime.id, { version, note: "   " })).toMatchObject({ ok: false, error: { status: 422 } });
+  expect(await fix.clearSource(admin, lime.id, { version: version - 1, note: "Asked" })).toMatchObject({ ok: false, error: { status: 409 } });
+  const note = "Site owner agreed by email on 2026-11-01";
+  expect((await fix.clearSource(admin, lime.id, { version, note })).ok).toBe(true);
+  const page = await queue.listQueue(admin, "all");
+  const listed = page.ok ? page.value.find((r) => r.entryId === lime.id)! : null;
+  expect(listed).toMatchObject({ sourceClearance: "cleared", sourceNote: note, missing: [], eligible: true });
+  expect((await queue.publishImported(admin, lime.id)).ok).toBe(true);
+  const audit = (await pool.query("SELECT details FROM content_audit WHERE action='cookbook_source_cleared'")).rows;
+  expect(audit).toEqual([{ details: { version, note } }]);
+});
+
+test("recipes without an outside source need no clearance and can't record one", async () => {
+  const { admin } = await people();
+  const { fix, queue } = await services();
+  const lime = await entry("p03-sample-lime-water");
+  const page = await queue.listQueue(admin, "all");
+  expect(page.ok && page.value.find((r) => r.entryId === lime.id)).toMatchObject({ sourceClearance: "not-needed" });
+  expect(await fix.clearSource(admin, lime.id, { version: lime.version, note: "Asked" })).toMatchObject({ ok: false, error: { status: 409 } });
+});

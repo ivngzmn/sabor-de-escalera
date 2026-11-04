@@ -22,6 +22,7 @@ export async function handleCookbookAction(request: Request, entryId: string) {
       : body?.action === "correct" ? await fixes.correctEntry(actor, entryId, { version, input: body.input, reason: body.reason })
       : body?.action === "credit" ? await fixes.recordPhotoCredit(actor, entryId, { version, assetId: String(body.assetId ?? ""), credit: body.credit })
       : body?.action === "images" ? await fixes.markImagesReviewed(actor, entryId, version)
+      : body?.action === "source" ? await fixes.clearSource(actor, entryId, { version, note: body.note })
       : null;
     if (!output) return fail(400, "Invalid request.");
     return Response.json(output, { status: output.ok ? 200 : output.error.status, headers });

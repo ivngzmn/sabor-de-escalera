@@ -6,9 +6,9 @@ import RecipePreview from '../../../features/recipes/RecipePreview';
 import '../../../features/recipes/editor.css';
 import CookbookEntryActions from '../../../features/cookbook/CookbookEntryActions';
 import CookbookCorrectionForm from '../../../features/cookbook/CookbookCorrectionForm';
-import ReadinessTrack from '../../../features/cookbook/ReadinessTrack';
+import ReviewSteps from '../../../features/cookbook/ReviewSteps';
 import { cookbookCorrections } from '../../../features/cookbook/corrections';
-import { flagLabel, missingLabel, readiness } from '../../../features/cookbook/labels';
+import { flagLabel, missingLabel, readiness, reviewSteps } from '../../../features/cookbook/labels';
 import { cookbookQueue } from '../../../features/cookbook/queue';
 import { mediaReadiness } from '../../../features/media/service';
 import { draftsService } from '../../../features/recipes/drafts';
@@ -49,8 +49,8 @@ const translationState = { none: 'Not started', proposed: 'Waiting for approval'
       <div class="mt-8 grid items-start gap-8 lg:grid-cols-12">
         <aside aria-label="Publication status" class="flex flex-col gap-4 lg:sticky lg:top-6 lg:order-last lg:col-span-4">
           <section aria-labelledby="checklist" class="flex flex-col gap-4 rounded-xl bg-card p-5 shadow-sm">
-            <h2 id="checklist" class="type-headline-sm m-0">{row.state === 'published' ? 'Published' : row.eligible ? 'Ready to publish' : 'Before publishing'}</h2>
-            <ReadinessTrack readiness={checks} />
+            <h2 id="checklist" class="type-headline-sm m-0">{row.state === 'published' ? 'Published' : row.eligible ? 'Ready to publish' : 'Review steps'}</h2>
+            <ReviewSteps steps={reviewSteps(row)} />
             {details.length > 0 && (
               <div class="flex flex-col gap-2 border-t border-border pt-4">
                 <p class="m-0 text-sm font-semibold">Still needed</p>
@@ -59,10 +59,16 @@ const translationState = { none: 'Not started', proposed: 'Waiting for approval'
             )}
             {row.state === 'draft' && (
               <div class="border-t border-border pt-4">
-                <CookbookEntryActions client:load entryId={row.entryId} version={row.version} textReviewed={row.textReview === 'approved'} imagesPending={row.imageReview === 'pending'} eligible={row.eligible} />
+                <CookbookEntryActions client:load entryId={row.entryId} version={row.version} textReviewed={row.textReview === 'approved'} detailsDone={checks.details} imagesPending={row.imageReview === 'pending'} sourcePending={row.sourceClearance === 'pending'} sources={row.sources} eligible={row.eligible} />
               </div>
             )}
           </section>
+          {row.sourceNote && (
+            <section aria-labelledby="source-note" class="flex flex-col gap-1 rounded-xl bg-secondary-soft p-5 text-sm">
+              <h2 id="source-note" class="m-0 text-base font-semibold">Source cleared</h2>
+              <p class="m-0 break-words">{row.sourceNote}</p>
+            </section>
+          )}
           {row.flags.length > 0 && (
             <section aria-labelledby="notes" class="flex flex-col gap-2 rounded-xl border border-masa/40 bg-masa-soft p-5">
               <h2 id="notes" class="m-0 text-base font-semibold">Transcription notes</h2>

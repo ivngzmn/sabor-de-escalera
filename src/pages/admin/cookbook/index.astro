@@ -76,7 +76,7 @@ const needed = (missing: string[]) => missing.filter((m) => !['text-review', 'im
         ))}
       </nav>
     </div>
-    <p class="m-0 text-sm text-muted-foreground">Each recipe shows four checks: {checks.map((c) => c.label).join(', ')}.</p>
+    <p class="m-0 text-sm text-muted-foreground">Each mark is a check: {checks.map((c) => c.label).join(', ')}. Source permission only applies to recipes adapted from a website.</p>
 
     {!queue.ok ? <p role="alert">{queue.error.message}</p> : rows.length === 0 ? (
       <p class="rounded-xl border border-dashed border-input/60 p-6 text-muted-foreground">{filter === 'eligible' ? 'Nothing is ready to publish yet. Open a recipe to fill in what it needs.' : 'No recipes in this view.'}</p>
@@ -94,7 +94,7 @@ const needed = (missing: string[]) => missing.filter((m) => !['text-review', 'im
               </div>
               {r.state === 'published'
                 ? <Badge variant="tag" className="justify-self-start">Published</Badge>
-                : <ReadinessTrack readiness={readiness(r)} compact />}
+                : <ReadinessTrack readiness={readiness(r)} />}
               <div class="flex min-w-0 flex-wrap items-center gap-1.5 text-sm">
                 {r.state === 'published' ? null : r.eligible ? <span class="font-semibold text-secondary">Ready to publish</span> : (
                   <>

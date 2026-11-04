@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg';
 
-export type ContentAuditAction = 'cookbook_text_reviewed' | 'cookbook_published' | 'translation_saved' | 'translation_approved' | 'cookbook_corrected' | 'photo_credit_recorded' | 'cookbook_images_reviewed';
+export type ContentAuditAction = 'cookbook_text_reviewed' | 'cookbook_published' | 'translation_saved' | 'translation_approved' | 'cookbook_corrected' | 'photo_credit_recorded' | 'cookbook_images_reviewed' | 'cookbook_source_cleared';
 
 /** Records an admin content action inside the caller's transaction. Details hold ids, versions and an admin's stated reason, never recipe text. */
 export async function recordContentAudit(client: PoolClient, actorId: string, action: ContentAuditAction, targetId: string, details: Record<string, string | number> = {}) {

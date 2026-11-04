@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -8,6 +8,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Textarea } from "@/components/ui/textarea";
 import ImageUploader from "@/features/media/ImageUploader";
 import { categories, type FieldError, type Origin, type RecipeInput } from "@/features/recipes/validation";
+import { UNSAVED_EVENT } from "./CookbookEntryActions";
 
 export interface CreditDraft {
   kind: "owner" | "stock" | "ai";
@@ -49,14 +50,61 @@ export default function CookbookCorrectionForm({ entryId, version, input: initia
   const set = <K extends keyof RecipeInput>(key: K, value: RecipeInput[K]) => setInput((current) => ({ ...current, [key]: value }));
   const invalid = (field: string) => Boolean(error?.fields.some((f) => f.field === field || f.field.startsWith(`${field}.`)));
   const saved = new Set(initial.photos.map((p) => p.assetId));
-
+  const [drafts, setDrafts] = useState<Record<string, CreditDraft>>(credits);
+  const [creditError, setCreditError] = useState<{ assetId: string; message: string } | null>(null);
+  const recipeChanged = JSON.stringify(input) !== JSON.stringify(initial);
+  const changedCredits = input.photos.filter(
+    (p) => saved.has(p.assetId) && drafts[p.assetId] && JSON.stringify(drafts[p.assetId]) !== JSON.stringify(credits[p.assetId]),
+  );
+  const unsaved = recipeChanged || reason.trim() !== "" || changedCredits.length > 0;
+  const leaving = useRef(false);
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent(UNSAVED_EVENT, { detail: unsaved }));
+    if (!unsaved) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      if (!leaving.current) event.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [unsaved]);
+  const finish = () => {
+    leaving.current = true;
+    window.location.reload();
+  };
+  /** Credits don't change the recipe version, so they can save first and still match the correction after them. */
+  async function saveCredits() {
+    for (const { assetId } of changedCredits) {
+      const result = await send(entryId, { action: "credit", version, assetId, credit: creditFields(drafts[assetId]) });
+      if (!result.ok) {
+        const index = input.photos.findIndex((p) => p.assetId === assetId);
+        const message = `Photo ${index + 1} credit: ${[result.message, ...result.fields.map((f) => f.message)].join(" ")}`;
+        setCreditError({ assetId, message });
+        return { ok: false as const, message, fields: [] };
+      }
+    }
+    return { ok: true as const };
+  }
+  async function saveCreditsOnly() {
+    setBusy(true);
+    setCreditError(null);
+    const result = await saveCredits();
+    if (result.ok) return finish();
+    setBusy(false);
+  }
   async function save(event: React.FormEvent) {
     event.preventDefault();
-    setBusy(true);
     setError(null);
-    const result = await send(entryId, { action: "correct", version, input, reason });
-    if (result.ok) return window.location.reload();
-    setError(result);
+    setCreditError(null);
+    if (recipeChanged && !reason.trim()) {
+      setError({ message: "Say why you made this correction.", fields: [{ field: "reason", step: 0, message: "Add a reason." }] });
+      document.getElementById("fix-reason")?.focus();
+      return;
+    }
+    setBusy(true);
+    const credited = await saveCredits();
+    const result = !credited.ok ? credited : recipeChanged ? await send(entryId, { action: "correct", version, input, reason }) : credited;
+    if (result.ok) return finish();
+    setError({ message: result.message, fields: result.fields });
     setBusy(false);
     document.getElementById("correction-error")?.focus();
   }
@@ -208,7 +256,16 @@ export default function CookbookCorrectionForm({ entryId, version, input: initia
                   </Button>
                 </div>
                 {saved.has(p.assetId) ? (
-                  <PhotoCreditForm entryId={entryId} version={version} assetId={p.assetId} index={i} initial={credits[p.assetId]} />
+                  <PhotoCreditForm
+                    index={i}
+                    credit={drafts[p.assetId] ?? emptyCredit}
+                    recorded={Boolean(credits[p.assetId])}
+                    onChange={(credit) => setDrafts((current) => ({ ...current, [p.assetId]: credit }))}
+                    onSave={saveCreditsOnly}
+                    busy={busy}
+                    savesWithForm={recipeChanged}
+                    error={creditError?.assetId === p.assetId ? creditError.message : ""}
+                  />
                 ) : (
                   <p className="m-0 text-sm text-muted-foreground">Save corrections to add this photo’s credit.</p>
                 )}
@@ -249,7 +306,7 @@ export default function CookbookCorrectionForm({ entryId, version, input: initia
         </Alert>
       )}
       <div>
-        <Button type="submit" disabled={busy}>{busy ? "Saving…" : "Save corrections"}</Button>
+        <Button type="submit" disabled={busy || !unsaved}>{busy ? "Saving…" : "Save corrections"}</Button>
       </div>
     </form>
   );
@@ -257,25 +314,31 @@ export default function CookbookCorrectionForm({ entryId, version, input: initia
 
 const emptyCredit: CreditDraft = { kind: "stock", photographer: "", sourceUrl: "", license: "", retrievedOn: "", cropping: "" };
 
-/** Where one photo came from and under what permission. Saved on its own; any change reopens image review. */
-function PhotoCreditForm({ entryId, version, assetId, index, initial }: { entryId: string; version: number; assetId: string; index: number; initial?: CreditDraft }) {
-  const [credit, setCredit] = useState<CreditDraft>(initial ?? emptyCredit);
-  const [state, setState] = useState<{ busy: boolean; message: string; failed: boolean }>({ busy: false, message: "", failed: false });
+/** Only the fields that apply to the chosen source; the server rejects anything else. */
+function creditFields(credit: CreditDraft) {
+  if (credit.kind === "ai") return { kind: "ai", license: credit.license, cropping: credit.cropping };
+  if (credit.kind === "owner")
+    return { kind: "owner", photographer: credit.photographer, license: credit.license, cropping: credit.cropping, ...(credit.retrievedOn ? { retrievedOn: credit.retrievedOn } : {}) };
+  return credit;
+}
+
+/** Where one photo came from and under what permission. Any change reopens image review. */
+function PhotoCreditForm({ index, credit, recorded, onChange, onSave, busy, savesWithForm, error }: {
+  index: number;
+  credit: CreditDraft;
+  recorded: boolean;
+  onChange: (credit: CreditDraft) => void;
+  onSave: () => void;
+  busy: boolean;
+  /** The recipe has unsaved edits too, so one save button handles both. */
+  savesWithForm: boolean;
+  error: string;
+}) {
   const id = (key: string) => `credit-${index}-${key}`;
-  const set = (key: keyof CreditDraft, value: string) => setCredit((c) => ({ ...c, [key]: value }));
-  async function save() {
-    setState({ busy: true, message: "", failed: false });
-    const fields =
-      credit.kind === "ai" ? { kind: "ai", license: credit.license, cropping: credit.cropping }
-      : credit.kind === "owner" ? { kind: "owner", photographer: credit.photographer, license: credit.license, cropping: credit.cropping, ...(credit.retrievedOn ? { retrievedOn: credit.retrievedOn } : {}) }
-      : credit;
-    const result = await send(entryId, { action: "credit", version, assetId, credit: fields });
-    if (result.ok) return window.location.reload();
-    setState({ busy: false, failed: true, message: [result.message, ...result.fields.map((f) => f.message)].join(" ") });
-  }
+  const set = (key: keyof CreditDraft, value: string) => onChange({ ...credit, [key]: value });
   return (
     <fieldset className="flex flex-col gap-3 rounded-md bg-muted/40 p-3">
-      <legend className="px-1 font-semibold">{`Photo ${index + 1} credit${initial ? "" : " (not recorded yet)"}`}</legend>
+      <legend className="px-1 font-semibold">{`Photo ${index + 1} credit${recorded ? "" : " (not recorded yet)"}`}</legend>
       <Field>
         <FieldLabel htmlFor={id("kind")}>Source</FieldLabel>
         <NativeSelect id={id("kind")} value={credit.kind} onChange={(e) => set("kind", e.target.value)}>
@@ -313,11 +376,12 @@ function PhotoCreditForm({ entryId, version, assetId, index, initial }: { entryI
         </Field>
       </div>
       <div>
-        <Button type="button" variant="outline" size="sm" disabled={state.busy} onClick={save}>
+        <Button type="button" variant="outline" size="sm" disabled={busy || savesWithForm} onClick={onSave}>
           {`Save photo ${index + 1} credit`}
         </Button>
       </div>
-      <p role={state.failed ? "alert" : "status"} className={state.failed ? "m-0 text-sm text-destructive" : "m-0 text-sm"}>{state.message}</p>
+      {savesWithForm && <p className="m-0 text-sm text-muted-foreground">This credit saves with your corrections below.</p>}
+      {error && <p role="alert" className="m-0 text-sm text-destructive">{error}</p>}
     </fieldset>
   );
 }

@@ -6,7 +6,7 @@ import { getPool, transaction } from "../../server/db";
 import { disposeUnusedAsset } from "../media/service";
 import { refreshCatalogRow } from "../recipes/catalog";
 import { validateDraft, type RecipeInput } from "../recipes/validation";
-import { lockEntry, QueueError, requireAdmin, result, type EntryRow } from "./queue";
+import { lockEntry, needsSourceClearance, QueueError, requireAdmin, result, type EntryRow } from "./queue";
 
 type ImageReview = EntryRow["image_review"];
 type TextReview = EntryRow["text_review"];
@@ -138,6 +138,20 @@ export function createCookbookCorrections({ pool, dispose = async () => {} }: { 
           await client.query("UPDATE cookbook_entries SET image_review='approved' WHERE id=$1", [entryId]);
           await recordContentAudit(client, actor!.id, "cookbook_images_reviewed", entryId, { version });
           return { imageReview: "approved" as const };
+        }),
+      ),
+    /** Records how reuse of an outside source was cleared. A written note, not a tick box: spec 16 asks to track these issues. */
+    clearSource: (actor: Actor | null, entryId: string, change: { version: number; note: unknown }) =>
+      result(() =>
+        transaction(pool, async (client) => {
+          const row = await editable(client, actor, entryId, change.version);
+          if (!needsSourceClearance(row.flags)) throw new QueueError(409, "This recipe has no outside source to clear.");
+          const note = typeof change.note === "string" ? change.note.trim() : "";
+          if (!note || note.length > 400)
+            throw new QueueError(422, "Say how reuse was cleared (up to 400 characters).", [{ field: "note", step: 0, message: "Add a note." }]);
+          await client.query("UPDATE cookbook_entries SET source_clearance=$2,source_cleared_by=$3,source_cleared_at=now() WHERE id=$1", [entryId, note, actor!.id]);
+          await recordContentAudit(client, actor!.id, "cookbook_source_cleared", entryId, { version: change.version, note });
+          return { sourceClearance: "cleared" as const };
         }),
       ),
     /** Credits recorded for this entry's photos, for the admin review page. */

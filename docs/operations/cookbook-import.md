@@ -42,6 +42,7 @@ pnpm cookbook:import reference/cookbook/manifest.json
 2. Its text review is approved.
 3. Its image review is approved.
 4. Every photo is a ready recipe asset with a `photo_credits` row.
+5. If it is adapted from a website, an admin has recorded how reuse was cleared.
 
 Published cookbook recipes have no owning account. Readers see "From the Escalera cookbook", plus the contributor and original author when the book names them.
 
@@ -78,6 +79,21 @@ Transcription flags for reviewers. These are counts of flags, and a recipe can c
 | `contributor-missing` / `original-author-blank` | 1 / 1 | The book gives no contributor, or a blank original author. |
 | `timing-prep-only` / `timing-excludes-soak` / `timing-missing` / `yield-missing` | 1 each | Timing or yield is incomplete as printed. |
 | `metric-amounts-unscaled` | 1 | Gram amounts inside ingredient names won't change when a reader scales. |
+
+## Review steps for admins
+
+Only cookbook recipes go through this review. Recipes members submit publish immediately, as the spec asks for no premoderation.
+
+Each entry page shows these steps in order, highlights the current one and says what to check:
+
+1. **Fill in the details.** Compare the recipe with the book and complete what's missing. Never guess an origin, servings or time.
+2. **Clear the source** (recipes adapted from a website only). Find out whether it can be reused, and write down how that was settled. The note goes in the audit log, and the recipe can't publish without it. It is a written record rather than a tick box because the spec asks to track these issues and not to add a permission checkbox.
+3. **Add photos and credits.**
+4. **Approve the images.**
+5. **Review the text.** Do this last: correcting the text afterwards sends it back for review.
+6. **Publish.**
+
+While the correction form has unsaved edits, the review buttons pause, and leaving the page warns first. **Save corrections** also saves any changed photo credits.
 
 ## Correcting, crediting and publishing
 
