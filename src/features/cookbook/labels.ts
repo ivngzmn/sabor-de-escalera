@@ -14,14 +14,6 @@ export function readiness(row: Row) {
   };
 }
 export type Readiness = ReturnType<typeof readiness>;
-export const checks: { key: keyof Readiness; label: string }[] = [
-  { key: "details", label: "Details" },
-  { key: "source", label: "Source permission" },
-  { key: "photos", label: "Photos & credits" },
-  { key: "text", label: "Text reviewed" },
-  { key: "images", label: "Images reviewed" },
-];
-
 export type StepKey = keyof Readiness | "publish";
 export interface ReviewStep {
   key: StepKey;
@@ -50,6 +42,23 @@ export function reviewSteps(row: Row): ReviewStep[] {
       if (!done) found = true;
       return { ...s, status };
     });
+}
+
+/** Where a recipe is in the review, in words: "Step 2 of 6: Clear the source". */
+export function stepSummary(row: Row) {
+  if (row.state === "published") return "Published";
+  const all = reviewSteps(row);
+  const index = all.findIndex((s) => s.status === "current");
+  return `Step ${index + 1} of ${all.length}: ${all[index].title}`;
+}
+
+/** The first few things a recipe lacks, as a sentence. Review steps are left out; the step summary covers those. */
+export function stillNeeds(missing: string[], limit = 3) {
+  const labels = missing.filter((m) => m !== "text-review" && m !== "image-review").map(missingLabel);
+  if (!labels.length) return "";
+  if (labels.length === 1) return `Still needs ${labels[0]}`;
+  if (labels.length <= limit) return `Still needs ${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}`;
+  return `Still needs ${labels.slice(0, limit).join(", ")} and ${labels.length - limit} more`;
 }
 
 export function summarize(rows: Row[]) {

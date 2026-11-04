@@ -49,14 +49,14 @@ export default function RecipePreview({
             <a href={discover("category", input.category)}>{category}</a>
           </Badge>
         ) : (
-          <Badge variant="tag">{category}</Badge>
+          category && <Badge variant="tag">{category}</Badge>
         )}
         {published && origin ? (
           <Badge variant="region" asChild>
             <a href={discover("origin", input.origin)}>{origin}</a>
           </Badge>
         ) : (
-          <Badge variant="region">{origin}</Badge>
+          origin && <Badge variant="region">{origin}</Badge>
         )}
       </div>
       <Title className={Title === "h2" ? "mt-2 mb-4 text-[clamp(2.25rem,2.5vw+1.25rem,3rem)] leading-[1.17]" : undefined}>{input.title || t("Untitled recipe", "Receta sin título")}</Title>

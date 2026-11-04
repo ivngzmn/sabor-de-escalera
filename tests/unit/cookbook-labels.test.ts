@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { flagLabel, missingLabel, readiness, reviewSteps, summarize } from "../../src/features/cookbook/labels";
+import { flagLabel, missingLabel, readiness, reviewSteps, stepSummary, stillNeeds, summarize } from "../../src/features/cookbook/labels";
 
 const row = (over: Partial<Parameters<typeof readiness>[0]> = {}) => ({
   state: "draft",
@@ -56,4 +56,18 @@ test("every step says what to check, and finished work is marked done", () => {
   const steps = reviewSteps(row({ missing: ["text-review"], imageReview: "approved" }));
   expect(steps.every((s) => s.help.length > 20)).toBe(true);
   expect(steps.map((s) => s.status)).toEqual(["done", "done", "done", "current", "upcoming"]);
+});
+
+test("a recipe's place in the review reads as a plain sentence", () => {
+  expect(stepSummary(row())).toBe("Step 1 of 5: Fill in the details");
+  expect(stepSummary(row({ missing: ["source-permission", "photos", "text-review", "image-review"], sourceClearance: "pending" }))).toBe("Step 2 of 6: Clear the source");
+  expect(stepSummary(row({ missing: [], textReview: "approved", imageReview: "approved", eligible: true }))).toBe("Step 5 of 5: Publish");
+  expect(stepSummary(row({ state: "published", missing: [], textReview: "approved", imageReview: "approved" }))).toBe("Published");
+});
+
+test("what's missing reads as a short sentence, without the review steps", () => {
+  expect(stillNeeds(["origin", "yieldText", "baseline", "timing", "photos", "text-review", "image-review"])).toBe("Still needs Origin, Yield, Servings for scaling and 2 more");
+  expect(stillNeeds(["origin", "text-review"])).toBe("Still needs Origin");
+  expect(stillNeeds(["origin", "photos"])).toBe("Still needs Origin and Photos");
+  expect(stillNeeds(["text-review", "image-review"])).toBe("");
 });

@@ -39,11 +39,7 @@ const translationState = { none: 'Not started', proposed: 'Waiting for approval'
           <h1 class="m-0">{row.title}</h1>
           {row.state === 'published' && <Badge variant="tag">Published</Badge>}
         </div>
-        <ul class="m-0 flex list-none flex-wrap gap-2 p-0 text-sm" aria-label="From the book">
-          <li class="rounded-full bg-muted px-3 py-1">{row.pages.length > 1 ? 'Pages' : 'Page'} {row.pages.join('–')}</li>
-          <li class="rounded-full bg-muted px-3 py-1">{row.contributor ? `Contributed by ${row.contributor}` : 'No contributor named in the book'}</li>
-          <li class="rounded-full bg-muted px-3 py-1">Written in {input.language === 'es' ? 'Spanish' : 'English'}</li>
-        </ul>
+        <p class="m-0 text-muted-foreground">Book {row.pages.length > 1 ? 'pages' : 'page'} {row.pages.join('–')}, {row.contributor ? `contributed by ${row.contributor}` : 'no contributor named'}, written in {input.language === 'es' ? 'Spanish' : 'English'}.</p>
       </header>
 
       <div class="mt-8 grid items-start gap-8 lg:grid-cols-12">
@@ -54,7 +50,7 @@ const translationState = { none: 'Not started', proposed: 'Waiting for approval'
             {details.length > 0 && (
               <div class="flex flex-col gap-2 border-t border-border pt-4">
                 <p class="m-0 text-sm font-semibold">Still needed</p>
-                <ul class="m-0 flex list-none flex-wrap gap-1.5 p-0 text-sm">{details.map((m) => <li class="rounded-full bg-muted px-2.5 py-0.5">{missingLabel(m)}</li>)}</ul>
+                <ul class="m-0 flex flex-col gap-0.5 ps-5 text-sm">{details.map((m) => <li>{missingLabel(m)}</li>)}</ul>
               </div>
             )}
             {row.state === 'draft' && (
