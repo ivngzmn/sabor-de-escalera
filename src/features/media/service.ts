@@ -168,6 +168,15 @@ export function createMediaService({ pool, provider, ready }: Options) {
         });
       });
     },
+    /** The same access check as readDerivative, without provider I/O, for confirming a browser's cached copy. */
+    checkDerivative(actor: Actor | null, assetId: string, variant: string): Promise<Result<true>> {
+      return result(async () => {
+        available();
+        if (!isId(assetId) || !Object.hasOwn(variants, variant)) throw new MediaError(404, 'Photo not found.');
+        await transaction(pool, (client) => readableAsset(client, actor, assetId));
+        return true as const;
+      });
+    },
     readRecipeDerivative(recipeId: string, assetId: string, variant: string): Promise<Result<Buffer>> {
       return result(async () => {
         available();

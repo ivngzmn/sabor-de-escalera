@@ -41,11 +41,18 @@ export async function handleMediaWrite(request: Request, action: 'intents' | 'co
 export async function handleMediaRead(request: Request, assetId: string, dependencies?: Dependencies) {
   try {
     const actor = await (dependencies?.accounts ?? accounts()).requireActor(request);
-    const result = await (dependencies?.media ?? mediaService()).readDerivative(actor, assetId, new URL(request.url).searchParams.get('variant') ?? 'gallery');
+    const service = dependencies?.media ?? mediaService();
+    const variant = new URL(request.url).searchParams.get('variant') ?? 'gallery';
+    // An asset id never changes its contents, so the browser may keep the bytes, but these photos can be private
+    // drafts: no-cache makes it ask here on every use, and the owner check runs before a copy is confirmed.
+    const cached = { ...headers, 'Cache-Control': 'private, no-cache', ETag: `"${assetId}-${variant}"` };
+    if (request.headers.get('If-None-Match') === cached.ETag) {
+      const check = await service.checkDerivative(actor, assetId, variant);
+      return check.ok ? new Response(null, { status: 304, headers: cached }) : Response.json(check, { status: check.error.status, headers });
+    }
+    const result = await service.readDerivative(actor, assetId, variant);
     if (!result.ok) return Response.json(result, { status: result.error.status, headers });
-    // An asset id never changes its contents (a replacement gets a new id) and only the owner can read this route,
-    // so the owner's browser may keep it; without this, every page load refetches through the provider.
-    return new Response(new Uint8Array(result.value), { headers: { ...headers, 'Cache-Control': 'private, max-age=3600', 'Content-Type': 'image/webp', 'Content-Length': String(result.value.length) } });
+    return new Response(new Uint8Array(result.value), { headers: { ...cached, 'Content-Type': 'image/webp', 'Content-Length': String(result.value.length) } });
   } catch (error) { return failure(error); }
 }
 interface LocalUploadDependencies { enabled: boolean; provider: ReturnType<typeof createLocalMediaProvider>; origin: string; }

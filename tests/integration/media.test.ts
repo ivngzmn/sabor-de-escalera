@@ -314,16 +314,27 @@ test('public avatars serve only a member’s current photo, to anyone, and stop 
   expect(await svc.readMemberAvatar(actor.id)).toMatchObject({ ok: false, error: { status: 404 } });
 });
 
-test('a photo may stay in its owner’s browser, because its id never changes its contents; errors never do', async () => {
+test('a kept photo is rechecked with the server every time, so losing access stops it without refetching from the provider', async () => {
   const { handleMediaRead } = await import('../../src/features/media/routes');
   const svc = service();
   const intent = value(await svc.createUploadIntent(actor, input)); upload(intent);
   const asset = value(await svc.completeUpload(actor, intent.id));
-  const accountService = createAccountService({ pool, origin: 'https://recipes.example', verifyIdentity: async () => ({ provider: 'clerk', subject: 'member', email: 'a@example.com', emailVerified: true }) });
-  const read = (id: string) => handleMediaRead(new Request(`https://recipes.example/api/media/${id}?variant=gallery`), id, { accounts: accountService, media: svc, origin: 'https://recipes.example' });
+  const as = (subject: string, email: string) => createAccountService({ pool, origin: 'https://recipes.example', verifyIdentity: async () => ({ provider: 'clerk', subject, email, emailVerified: true }) });
+  const read = (id: string, accounts = as('member', 'a@example.com'), tag?: string) =>
+    handleMediaRead(new Request(`https://recipes.example/api/media/${id}?variant=gallery`, { headers: tag ? { 'If-None-Match': tag } : {} }), id, { accounts, media: svc, origin: 'https://recipes.example' });
   const found = await read(asset.id);
   expect(found.status).toBe(200);
-  expect(found.headers.get('Cache-Control')).toBe('private, max-age=3600');
+  expect(found.headers.get('Cache-Control')).toBe('private, no-cache');
+  const tag = found.headers.get('ETag')!;
+  expect(tag).toBeTruthy();
+  const reused = await read(asset.id, undefined, tag);
+  expect(reused.status).toBe(304);
+  expect(reused.headers.get('Cache-Control')).toBe('private, no-cache');
+  expect((await reused.arrayBuffer()).byteLength).toBe(0);
+  // Someone else holding the same cached copy is refused, not told it is still good.
+  const stranger = await read(asset.id, as('other', 'b@example.com'), tag);
+  expect(stranger.status).toBe(404);
+  expect(stranger.headers.get('Cache-Control')).toBe('private, no-store');
   const missing = await read(randomUUID());
   expect(missing.status).toBe(404);
   expect(missing.headers.get('Cache-Control')).toBe('private, no-store');

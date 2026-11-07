@@ -56,8 +56,8 @@ export function createClerkAdapter(provider: ClerkProvider) {
       // including Expires commas, when attaching ordinary SDK response headers.
       state.headers.forEach((value, key) => { if (key !== 'set-cookie') response.headers.append(key, value); });
       for (const cookie of state.headers.getSetCookie()) response.headers.append('Set-Cookie', cookie);
-      // Photo reads opt in to the viewer's own browser cache; nothing here may be stored by a shared cache.
-      if (!response.headers.get('Cache-Control')?.startsWith('private, max-age=')) response.headers.set('Cache-Control', 'private, no-store');
+      // Photo reads opt in to a browser copy that must be rechecked on each use; everything else here is never stored.
+      if (response.headers.get('Cache-Control') !== 'private, no-cache') response.headers.set('Cache-Control', 'private, no-store');
       return response;
     },
     /** Display-only session subject: no provider call, and never throws or redirects. */
