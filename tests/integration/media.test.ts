@@ -313,3 +313,18 @@ test('public avatars serve only a member’s current photo, to anyone, and stop 
   value(await svc.setAvatar(actor, null));
   expect(await svc.readMemberAvatar(actor.id)).toMatchObject({ ok: false, error: { status: 404 } });
 });
+
+test('a photo may stay in its owner’s browser, because its id never changes its contents; errors never do', async () => {
+  const { handleMediaRead } = await import('../../src/features/media/routes');
+  const svc = service();
+  const intent = value(await svc.createUploadIntent(actor, input)); upload(intent);
+  const asset = value(await svc.completeUpload(actor, intent.id));
+  const accountService = createAccountService({ pool, origin: 'https://recipes.example', verifyIdentity: async () => ({ provider: 'clerk', subject: 'member', email: 'a@example.com', emailVerified: true }) });
+  const read = (id: string) => handleMediaRead(new Request(`https://recipes.example/api/media/${id}?variant=gallery`), id, { accounts: accountService, media: svc, origin: 'https://recipes.example' });
+  const found = await read(asset.id);
+  expect(found.status).toBe(200);
+  expect(found.headers.get('Cache-Control')).toBe('private, max-age=3600');
+  const missing = await read(randomUUID());
+  expect(missing.status).toBe(404);
+  expect(missing.headers.get('Cache-Control')).toBe('private, no-store');
+});

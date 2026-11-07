@@ -10,6 +10,8 @@ export async function handleAccountRequest(request: Request, next: () => Promise
     if (!accountRoute) throw error;
     response = accountFailure(error);
   }
-  if (accountRoute) response.headers.set('Cache-Control', 'private, no-store');
+  // A successful photo read sets its own private cache header; everything else on these routes is never stored.
+  const photo = request.method === 'GET' && response.ok && /^\/api\/media\/[^/]+$/.test(new URL(request.url).pathname);
+  if (accountRoute && !photo) response.headers.set('Cache-Control', 'private, no-store');
   return response;
 }

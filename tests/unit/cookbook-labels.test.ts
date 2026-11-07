@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { flagLabel, missingLabel, readiness, reviewSteps, stepSummary, stillNeeds, summarize } from "../../src/features/cookbook/labels";
+import { flagLabel, missingLabel, nextToReview, readiness, reviewSteps, stepSummary, stillNeeds, summarize } from "../../src/features/cookbook/labels";
 
 const row = (over: Partial<Parameters<typeof readiness>[0]> = {}) => ({
   state: "draft",
@@ -70,4 +70,18 @@ test("what's missing reads as a short sentence, without the review steps", () =>
   expect(stillNeeds(["origin", "text-review"])).toBe("Still needs Origin");
   expect(stillNeeds(["origin", "photos"])).toBe("Still needs Origin and Photos");
   expect(stillNeeds(["text-review", "image-review"])).toBe("");
+});
+
+test("the next recipe is the next unpublished one in book order, wrapping around", () => {
+  const list = [
+    { entryId: "a", state: "published" },
+    { entryId: "b", state: "draft" },
+    { entryId: "c", state: "published" },
+    { entryId: "d", state: "draft" },
+  ];
+  expect(nextToReview(list, "b")).toBe("d");
+  expect(nextToReview(list, "c")).toBe("d");
+  expect(nextToReview(list, "d")).toBe("b");
+  expect(nextToReview([{ entryId: "a", state: "draft" }], "a")).toBeNull();
+  expect(nextToReview([{ entryId: "a", state: "published" }], "a")).toBeNull();
 });

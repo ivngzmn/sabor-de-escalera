@@ -43,7 +43,9 @@ export async function handleMediaRead(request: Request, assetId: string, depende
     const actor = await (dependencies?.accounts ?? accounts()).requireActor(request);
     const result = await (dependencies?.media ?? mediaService()).readDerivative(actor, assetId, new URL(request.url).searchParams.get('variant') ?? 'gallery');
     if (!result.ok) return Response.json(result, { status: result.error.status, headers });
-    return new Response(new Uint8Array(result.value), { headers: { ...headers, 'Content-Type': 'image/webp', 'Content-Length': String(result.value.length) } });
+    // An asset id never changes its contents (a replacement gets a new id) and only the owner can read this route,
+    // so the owner's browser may keep it; without this, every page load refetches through the provider.
+    return new Response(new Uint8Array(result.value), { headers: { ...headers, 'Cache-Control': 'private, max-age=3600', 'Content-Type': 'image/webp', 'Content-Length': String(result.value.length) } });
   } catch (error) { return failure(error); }
 }
 interface LocalUploadDependencies { enabled: boolean; provider: ReturnType<typeof createLocalMediaProvider>; origin: string; }

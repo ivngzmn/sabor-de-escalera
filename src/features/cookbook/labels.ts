@@ -61,6 +61,13 @@ export function stillNeeds(missing: string[], limit = 3) {
   return `Still needs ${labels.slice(0, limit).join(", ")} and ${labels.length - limit} more`;
 }
 
+/** The next unpublished recipe after this one, in queue order, wrapping to the start. Null when none is left. */
+export function nextToReview(rows: Pick<QueueRow, "entryId" | "state">[], entryId: string) {
+  const index = rows.findIndex((r) => r.entryId === entryId);
+  const ordered = [...rows.slice(index + 1), ...rows.slice(0, Math.max(index, 0))];
+  return ordered.find((r) => r.state !== "published")?.entryId ?? null;
+}
+
 export function summarize(rows: Row[]) {
   const published = rows.filter((r) => r.state === "published").length;
   const ready = rows.filter((r) => r.state !== "published" && r.eligible).length;
