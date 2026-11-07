@@ -118,6 +118,21 @@ Cropping notes are optional. Changing a credit reopens image review. **Approve i
 
 Adding photos needs uploads switched on (`MEDIA_PROVIDER`, see `media-proof.md`). In development, `MEDIA_PROVIDER=local` stores them under `.media-local/`.
 
+## Example recipes for testing
+
+Ten example recipes exercise the whole review without touching book recipes. Their text was written for this project (`scripts/example-recipes.json`), and their import keys start with `example-`. Their contributor reads "Example recipe (test data)" and they use book pages 401–410, so they sort after the book.
+
+```bash
+pnpm examples:seed --confirm-remote
+pnpm examples:remove --confirm-remote
+```
+
+- **Seed** stages them with confirmed details, uploaded photos and AI credits, ready at Approve the images. Ceviche Clásico stops at Clear the source, Empanadas de Carne carries a transcription note, Birria de Res has three photos, and Chuchitos and Pollo en Mole Negro are written in Spanish.
+- **Photos** are AI images from the owner's Stitch project, kept in `reference/examples/` (gitignored). Remove the examples before launch: the credit marks them as example-only.
+- **Remove** deletes the examples, including published ones, and their ImageKit files. The seven country origins it added stay, because real recipes need them.
+
+`--confirm-remote` is only needed for a non-local database.
+
 ## Still blocked
 
 - **Photos:** live photos wait for the owner's ImageKit proof run and `MEDIA_LIVE_PROOF_PASSED`. Until then, no imported recipe can meet the 1–6 photo rule in production.

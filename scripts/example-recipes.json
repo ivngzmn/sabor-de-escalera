@@ -1,0 +1,105 @@
+{
+  "_note": "Test data written for this project, not from the cookbook. Rows: [quantity, unit, name]; a string starting with '# ' is a section heading. Photos live in reference/examples/ (gitignored).",
+  "origins": [
+    ["argentina", "Argentina", "Argentina"],
+    ["el-salvador", "El Salvador", "El Salvador"],
+    ["guatemala", "Guatemala", "Guatemala"],
+    ["mexico", "Mexico", "México"],
+    ["peru", "Peru", "Perú"],
+    ["puerto-rico", "Puerto Rico", "Puerto Rico"],
+    ["venezuela", "Venezuela", "Venezuela"]
+  ],
+  "recipes": [
+    {
+      "key": "example-birria", "language": "en", "flags": [],
+      "title": "Birria de Res", "category": "main", "origin": "mexico", "yieldText": "8 servings", "baseline": 8,
+      "timing": { "mode": "parts", "total": null, "prep": 30, "cook": 210, "rest": 15 },
+      "story": "An example recipe for testing the site. It shows a long cook, three photos and ingredient sections.",
+      "ingredients": ["# For the chile sauce", ["6", "", "dried guajillo chiles"], ["3", "", "dried ancho chiles"], ["4", "cloves", "garlic"], ["1", "tsp", "ground cumin"], ["1/4", "cup", "apple cider vinegar"], "# For the stew", ["4", "lb", "beef chuck, in large pieces"], ["2", "tsp", "salt"], ["2", "", "bay leaves"], ["6", "cups", "beef broth"]],
+      "steps": ["Toast the chiles in a dry pan until fragrant, then soak them in hot water for 15 minutes.", "Blend the chiles with the garlic, cumin, vinegar and a little soaking water until smooth.", "Season the beef with salt and brown it in a heavy pot.", "Add the sauce, bay leaves and broth. Cover and simmer gently until the beef falls apart, about 3 hours.", "Let it rest, skim the fat and shred the meat. Serve in bowls or in tacos with the broth."],
+      "photos": [["birria.jpg", "Birria served in a black clay bowl with warm tortillas"], ["birria-pot.jpg", "The stew simmering in a heavy pot"], ["birria-tacos.jpg", "Birria tacos on a wooden board"]]
+    },
+    {
+      "key": "example-arroz-con-gandules", "language": "en", "flags": [],
+      "title": "Arroz con Gandules", "category": "main", "origin": "puerto-rico", "yieldText": "6 servings", "baseline": 6,
+      "timing": { "mode": "total", "total": 55, "prep": null, "cook": null, "rest": null },
+      "story": "An example recipe for testing the site.",
+      "ingredients": [["2", "tbsp", "oil"], ["1/2", "cup", "sofrito"], ["2", "cups", "medium-grain rice"], ["1", "can", "pigeon peas, drained"], ["2 1/2", "cups", "chicken broth"], ["1/4", "cup", "green olives"], ["1", "tsp", "salt"]],
+      "steps": ["Heat the oil in a caldero and cook the sofrito for 3 minutes.", "Stir in the rice until coated, then add the pigeon peas, olives, salt and broth.", "Bring to a boil, cover tightly and cook on low until the rice is tender, about 25 minutes.", "Fluff with a fork and serve."],
+      "photos": [["arroz.jpg", "Arroz con gandules in a well-used caldero"]]
+    },
+    {
+      "key": "example-pastelon", "language": "en", "flags": [],
+      "title": "Pastelón", "category": "main", "origin": "puerto-rico", "yieldText": "6 to 8 servings", "baseline": 6,
+      "timing": { "mode": "parts", "total": null, "prep": 25, "cook": 50, "rest": 10 },
+      "story": "An example recipe for testing the site. Its yield is a range, to check how that displays.",
+      "ingredients": [["5", "", "ripe plantains, sliced lengthwise"], ["1", "lb", "ground beef"], ["1/3", "cup", "sofrito"], ["1/2", "cup", "tomato sauce"], ["2", "cups", "shredded cheese"], ["3", "", "eggs, beaten"], ["", "", "oil for frying"]],
+      "steps": ["Fry the plantain slices until golden, then drain them.", "Brown the beef with the sofrito, then stir in the tomato sauce.", "Layer plantains, beef and cheese in a baking dish, ending with plantains and cheese.", "Pour the eggs over the top and bake at 350°F until set, about 30 minutes."],
+      "photos": [["pastelon.jpg", "Pastelón baked in a clay dish"]]
+    },
+    {
+      "key": "example-chuchitos", "language": "es", "flags": [],
+      "title": "Chuchitos", "category": "main", "origin": "guatemala", "yieldText": "12 chuchitos", "baseline": 12,
+      "timing": { "mode": "total", "total": 120, "prep": null, "cook": null, "rest": null },
+      "story": "Receta de ejemplo para probar el sitio. Está escrita en español para comprobar las traducciones.",
+      "ingredients": [["4", "tazas", "masa de maíz"], ["1", "taza", "manteca"], ["2", "tazas", "caldo de pollo"], ["2", "tazas", "pollo cocido y desmenuzado"], ["1", "taza", "recado de tomate"], ["12", "", "hojas de maíz remojadas"]],
+      "steps": ["Mezcla la masa con la manteca y el caldo hasta que quede suave.", "Coloca un poco de masa en cada hoja y agrega pollo y recado.", "Envuelve y amarra cada chuchito.", "Cocina al vapor durante una hora y deja reposar antes de servir."],
+      "photos": [["chuchitos.jpg", "Chuchitos envueltos en hojas de maíz sobre un textil de colores"]]
+    },
+    {
+      "key": "example-mole-negro", "language": "es", "flags": [],
+      "title": "Pollo en Mole Negro", "category": "main", "origin": "mexico", "yieldText": "6 porciones", "baseline": 6,
+      "timing": { "mode": "parts", "total": null, "prep": 40, "cook": 90, "rest": null },
+      "story": "Receta de ejemplo para probar el sitio.",
+      "ingredients": [["6", "", "piezas de pollo"], ["4", "", "chiles mulatos"], ["4", "", "chiles pasilla"], ["1/2", "taza", "almendras"], ["60", "g", "chocolate de mesa"], ["4", "tazas", "caldo de pollo"], ["", "", "sal al gusto"]],
+      "steps": ["Cuece el pollo en agua con sal y reserva el caldo.", "Tuesta los chiles y las almendras, y remójalos en caldo caliente.", "Licúa todo hasta obtener una salsa tersa.", "Cocina la salsa a fuego bajo, agrega el chocolate y deja espesar.", "Sirve el pollo bañado con el mole."],
+      "photos": [["mole.jpg", "Pollo con mole negro y arroz en un plato de barro"]]
+    },
+    {
+      "key": "example-pupusas", "language": "en", "flags": [],
+      "title": "Pupusas de Queso", "category": "main", "origin": "el-salvador", "yieldText": "8 pupusas", "baseline": 8, "dietary": ["vegetarian"],
+      "timing": { "mode": "total", "total": 40, "prep": null, "cook": null, "rest": null },
+      "story": "An example recipe for testing the site. It's marked vegetarian, to check the dietary filter.",
+      "ingredients": [["2", "cups", "masa harina"], ["1 1/2", "cups", "warm water"], ["1/2", "tsp", "salt"], ["2", "cups", "shredded quesillo or mozzarella"]],
+      "steps": ["Mix the masa harina, salt and water into a soft dough, then rest it for 5 minutes.", "Divide into 8 balls, press a hollow in each, fill with cheese and seal.", "Pat into thick discs.", "Cook on a hot griddle until browned on both sides, about 4 minutes per side."],
+      "photos": [["pupusas.jpg", "Pupusas cooking on a hot griddle with curtido on the side"]]
+    },
+    {
+      "key": "example-arepas", "language": "en", "flags": [],
+      "title": "Arepas Reina Pepiada", "category": "sides", "origin": "venezuela", "yieldText": "6 arepas", "baseline": 6,
+      "timing": { "mode": "total", "total": 45, "prep": null, "cook": null, "rest": null },
+      "story": "An example recipe for testing the site.",
+      "ingredients": [["2", "cups", "pre-cooked corn flour"], ["2 1/2", "cups", "warm water"], ["1", "tsp", "salt"], ["2", "cups", "shredded cooked chicken"], ["1", "", "ripe avocado"], ["1/4", "cup", "mayonnaise"], ["1", "tbsp", "lime juice"]],
+      "steps": ["Mix the corn flour, salt and water into a dough and rest it for 5 minutes.", "Shape into 6 discs and cook on an oiled griddle until crisp on both sides.", "Mash the avocado with the mayonnaise and lime, then fold in the chicken.", "Split the arepas and fill them with the chicken mixture."],
+      "photos": [["arepas.jpg", "Arepas filled with chicken and avocado on a clay tile"]]
+    },
+    {
+      "key": "example-empanadas", "language": "en", "flags": ["quantity-check:4"],
+      "title": "Empanadas de Carne", "category": "sides", "origin": "argentina", "yieldText": "12 empanadas", "baseline": 12,
+      "timing": { "mode": "parts", "total": null, "prep": 45, "cook": 25, "rest": 30 },
+      "story": "An example recipe for testing the site. It carries a transcription note, to check how notes display.",
+      "ingredients": [["1", "lb", "ground beef"], ["1", "", "onion, finely chopped"], ["1", "tsp", "paprika"], ["2", "", "hard-boiled eggs, chopped"], ["12", "", "empanada discs"], ["1", "", "egg, beaten"]],
+      "steps": ["Cook the onion until soft, add the beef and paprika, and brown.", "Chill the filling, then stir in the chopped eggs.", "Fill the discs, fold them over and crimp the edges.", "Brush with beaten egg and bake at 400°F until golden, about 25 minutes."],
+      "photos": [["empanadas.jpg", "Golden empanadas on a wooden board in front of a clay oven"]]
+    },
+    {
+      "key": "example-ceviche", "language": "en", "flags": ["third-party-source"],
+      "sourceUrls": ["https://example.com/sample-ceviche"],
+      "title": "Ceviche Clásico", "category": "sides", "origin": "peru", "yieldText": "4 servings", "baseline": 4,
+      "timing": { "mode": "total", "total": 30, "prep": null, "cook": null, "rest": null },
+      "story": "An example recipe for testing the site. It's flagged as adapted from a website, so it stops at the Clear the source step. The link is a placeholder.",
+      "ingredients": [["1 1/2", "lb", "firm white fish, cubed"], ["1", "cup", "fresh lime juice"], ["1", "", "red onion, thinly sliced"], ["1", "", "ají limo, minced"], ["1", "tsp", "salt"], ["1", "", "boiled sweet potato, sliced"]],
+      "steps": ["Toss the fish with the salt and ají.", "Add the lime juice and leave for 10 minutes, until the fish turns opaque.", "Fold in the onion.", "Serve straight away with sweet potato."],
+      "photos": [["ceviche.jpg", "Ceviche in a speckled bowl with sweet potato and corn"]]
+    },
+    {
+      "key": "example-alfajores", "language": "en", "flags": [],
+      "title": "Alfajores de Maicena", "category": "desserts", "origin": "argentina", "yieldText": "24 cookies", "baseline": 24,
+      "timing": { "mode": "parts", "total": null, "prep": 30, "cook": 12, "rest": 60 },
+      "story": "An example recipe for testing the site.",
+      "ingredients": [["1 1/2", "cups", "cornstarch"], ["1", "cup", "flour"], ["3/4", "cup", "butter"], ["1/2", "cup", "sugar"], ["3", "", "egg yolks"], ["1", "cup", "dulce de leche"], ["", "", "powdered sugar for dusting"]],
+      "steps": ["Beat the butter and sugar, then add the yolks.", "Fold in the flour and cornstarch, then chill the dough for an hour.", "Roll out, cut rounds and bake at 350°F for 12 minutes, without browning.", "Sandwich pairs with dulce de leche and dust with powdered sugar."],
+      "photos": [["alfajores.jpg", "Alfajores dusted with powdered sugar on a white plate"]]
+    }
+  ]
+}
