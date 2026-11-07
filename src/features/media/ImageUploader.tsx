@@ -34,6 +34,17 @@ interface Props {
   onComplete?: (asset: AssetRef) => void;
   /** Saved avatar photo changed (upload or removal), e.g. for a live preview. */
   onSavedChange?: (assetId: string | null) => void;
+  /** Hide the saved-photo thumbnail when the page already shows the photo elsewhere. */
+  showSaved?: boolean;
+}
+/** The provider's file id, if the upload response carried a well-formed one. */
+function fileIdFrom(body: string): string | null {
+  try {
+    const id: unknown = JSON.parse(body)?.fileId;
+    return typeof id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(id) ? id : null;
+  } catch {
+    return null;
+  }
 }
 export default function ImageUploader({
   purpose,
@@ -42,10 +53,13 @@ export default function ImageUploader({
   currentAssetId,
   onComplete,
   onSavedChange,
+  showSaved = true,
 }: Props) {
   const id = useId();
   const [file, setFile] = useState<File | null>(null);
   const [intent, setIntent] = useState<UploadIntent | null>(null);
+  // ImageKit's file id from the upload response: a lookup hint the server verifies against its own path.
+  const [uploadedFileId, setUploadedFileId] = useState<string | null>(null);
   const [processed, setProcessed] = useState<AssetRef | null>(null);
   const [savedId, setSavedId] = useState(currentAssetId ?? null);
   const [busy, setBusy] = useState(false);
@@ -81,9 +95,11 @@ export default function ImageUploader({
     }
     return result.value;
   }
-  async function directUpload(upload: UploadIntent, photo: File) {
+  async function directUpload(upload: UploadIntent, photo: File): Promise<string | null> {
+    // ImageKit in deployments; the same-origin local endpoint only exists in development.
     if (
-      upload.grant.endpoint !== "https://upload.imagekit.io/api/v2/files/upload"
+      upload.grant.endpoint !== "https://upload.imagekit.io/api/v2/files/upload" &&
+      upload.grant.endpoint !== "/api/media/local-upload"
     )
       throw new Error(
         text("Photo upload unavailable.", "No se puede subir la foto."),
@@ -96,7 +112,7 @@ export default function ImageUploader({
         typeof value === "object" ? JSON.stringify(value) : String(value),
       );
     form.append("token", upload.grant.token);
-    await new Promise<void>((resolve, reject) => {
+    return new Promise<string | null>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open("POST", upload.grant.endpoint);
       xhr.timeout = 120000;
@@ -106,7 +122,7 @@ export default function ImageUploader({
       };
       xhr.onload = () =>
         xhr.status >= 200 && xhr.status < 300
-          ? resolve()
+          ? resolve(fileIdFrom(xhr.responseText))
           : reject(
               new Error(
                 text(
@@ -133,6 +149,7 @@ export default function ImageUploader({
     setError("");
     try {
       let pending = intent;
+      let fileId = uploadedFileId;
       let asset = processed;
       if (!pending) {
         setMessage(text("Preparing photo…", "Preparando foto…"));
@@ -143,14 +160,18 @@ export default function ImageUploader({
         });
         setMessage(text("Uploading photo…", "Subiendo foto…"));
         setProgress(0);
-        await directUpload(pending, file);
+        fileId = await directUpload(pending, file);
         // After successful transport, retry only server inspection/attachment.
         // Preserve the intent across lost completion acknowledgments.
         setIntent(pending);
+        setUploadedFileId(fileId);
       }
       if (!asset) {
         setMessage(text("Processing photo…", "Procesando foto…"));
-        asset = await post<AssetRef>("complete", { intentId: pending.id });
+        asset = await post<AssetRef>("complete", {
+          intentId: pending.id,
+          ...(fileId ? { fileId } : {}),
+        });
         setProcessed(asset);
       }
       if (purpose === "avatar") await post("avatar", { assetId: asset.id });
@@ -160,10 +181,12 @@ export default function ImageUploader({
       setMessage(text("Photo saved.", "Foto guardada."));
       setFile(null);
       setIntent(null);
+      setUploadedFileId(null);
       setProcessed(null);
     } catch (failure) {
       if (failure instanceof UploadError && failure.status === 409) {
         setIntent(null);
+        setUploadedFileId(null);
         setProcessed(null);
       }
       setMessage("");
@@ -225,7 +248,7 @@ export default function ImageUploader({
               )}
       </FieldDescription>
       <FieldGroup>
-        {savedId && (
+        {savedId && showSaved && (
           <img
             src={`/api/media/${encodeURIComponent(savedId)}?variant=${purpose === "avatar" ? "avatar" : "card"}`}
             width={purpose === "avatar" ? 256 : 640}
@@ -248,6 +271,7 @@ export default function ImageUploader({
             onChange={(event) => {
               const selected = event.currentTarget.files?.[0];
               setIntent(null);
+              setUploadedFileId(null);
               setProcessed(null);
               setMessage("");
               setError("");
@@ -273,6 +297,7 @@ export default function ImageUploader({
             }}
           />
         </Field>
+        <div className="flex flex-wrap gap-3">
         <Button
           type="button"
           disabled={!available || !file || busy}
@@ -287,6 +312,7 @@ export default function ImageUploader({
             {text("Remove photo", "Eliminar foto")}
           </Button>
         )}
+        </div>
         {busy && (
           <progress
             value={progress}

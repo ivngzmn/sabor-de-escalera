@@ -182,6 +182,12 @@
 .recipe-gallery figcaption {
   padding: 0.5rem 0;
 }
+.recipe-gallery .photo-credit {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
 .recipe-columns {
   display: grid;
   grid-template-columns: 1fr 1.4fr;

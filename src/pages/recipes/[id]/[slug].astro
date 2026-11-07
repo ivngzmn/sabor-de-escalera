@@ -5,7 +5,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '../../../compo
 import RecipeReader from '../../../features/recipes/RecipeReader';
 import '../../../features/recipes/editor.css';
 import { draftsService } from '../../../features/recipes/drafts';
-import { catalogService } from '../../../features/recipes/catalog';
+import { catalogService, type PhotoCredit } from '../../../features/recipes/catalog';
 import type { Origin } from '../../../features/recipes/validation';
 import type { TranslatableText } from '../../../features/recipes/translation-text';
 const spanish = Astro.url.searchParams.get('lang') === 'es';
@@ -25,13 +25,15 @@ let origins: Origin[] = [];
 let translation: TranslatableText | null = null;
 let authorName: string | null = null;
 let credit: { contributor: string | null; originalAuthor: string | null } | null = null;
+let photoCredits: Record<string, PhotoCredit> = {};
 if (recipe) {
   const catalog = catalogService();
-  [origins, translation, authorName, credit] = await Promise.all([
+  [origins, translation, authorName, credit, photoCredits] = await Promise.all([
     draftsService().origins(),
     catalog.readerTranslation(recipe.id, language),
     catalog.authorName(recipe.ownerId ?? null),
     catalog.cookbookCredit(recipe.id),
+    catalog.photoCredits(recipe.id),
   ]);
 }
 const date = (iso: string) => new Intl.DateTimeFormat(language, { dateStyle: 'long' }).format(new Date(iso));
@@ -48,7 +50,7 @@ const t = spanish
         <span>{t.published}: <time datetime={recipe.publishedAt!}>{date(recipe.publishedAt!)}</time></span>
         <span>{t.updated}: <time datetime={recipe.updatedAt}>{date(recipe.updatedAt)}</time></span>
       </p>
-      <RecipeReader client:load id={recipe.id} url={recipe.url!} input={recipe.input} origins={origins} language={language} translation={translation} />
+      <RecipeReader client:load id={recipe.id} url={recipe.url!} input={recipe.input} origins={origins} language={language} translation={translation} credits={photoCredits} />
     </>
   ) : (
     <Empty className="rounded-xl border border-dashed border-input/40 bg-card/60"><EmptyHeader>

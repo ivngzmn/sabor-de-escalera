@@ -16,6 +16,8 @@ export const GET: APIRoute = async ({ params, url }) => {
     return new Response(new Uint8Array(result.value), {
       headers: {
         ...headers,
+        // Each viewer's browser may reuse a photo briefly. Hiding a recipe reaches anyone who already loaded it within five minutes.
+        "Cache-Control": "private, max-age=300",
         "Content-Type": "image/webp",
         "Content-Length": String(result.value.length),
       },

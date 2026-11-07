@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import type { Actor } from '../accounts/service';
 import { getPool, transaction } from '../../server/db';
-import { inspectStoredImage, preTransform, variants } from '../../server/media-policy';
+import { inspectStoredImage, uploadFields, variants } from '../../server/media-policy';
 import { imageKitProvider, type MediaProvider } from '../../server/imagekit';
+import { createLocalMediaProvider, localMediaRoot } from '../../server/local-media';
 import { acceptedTypes, MAX_INPUT_BYTES, type AssetRef, type Purpose, type Result, type UploadIntent, type Variant } from './contracts';
 export class MediaError extends Error {
   constructor(readonly status: number, message: string, readonly retryAfter?: number) { super(message); }
@@ -14,10 +15,22 @@ async function result<T>(operation: () => Promise<T>): Promise<Result<T>> {
     return { ok: false, error: error instanceof MediaError ? { status: error.status, message: error.message, retryAfter: error.retryAfter } : { status: 503, message: 'Photo service is temporarily unavailable. Please try again.' } };
   }
 }
-export function mediaReadiness(environment: Readonly<Record<string, string | undefined>> = process.env) {
-  // No environment flag can certify unperformed provider proofs. Enable this
-  // only in a reviewed change containing the evidence in media-proof.md.
-  return { enabled: false, configured: Boolean(environment.IMAGEKIT_PRIVATE_KEY && environment.IMAGEKIT_PUBLIC_KEY && environment.IMAGEKIT_URL_ENDPOINT) };
+// Under astro dev, .env values reach import.meta.env but not process.env; deployments set process.env.
+const runtimeEnvironment = (): Readonly<Record<string, string | undefined>> => ({ ...import.meta.env, ...process.env });
+export function mediaReadiness(environment: Readonly<Record<string, string | undefined>> = runtimeEnvironment()) {
+  const configured = Boolean(environment.IMAGEKIT_PRIVATE_KEY && environment.IMAGEKIT_PUBLIC_KEY && environment.IMAGEKIT_URL_ENDPOINT);
+  // Local files are a development aid only; they are never private storage for real members.
+  // import.meta.env.DEV is fixed at build time, so a production build refuses it even if NODE_ENV is unset.
+  if (environment.MEDIA_PROVIDER === 'local')
+    return { enabled: import.meta.env?.DEV !== false && environment.NODE_ENV !== 'production' && !environment.VERCEL, provider: 'local' as const, configured };
+  // ImageKit opens only after the owner runs scripts/media-proof.ts on their account and records the
+  // passing date here and in media-proof.md. Keys alone never enable uploads.
+  if (environment.MEDIA_PROVIDER === 'imagekit')
+    return { enabled: configured && /^\d{4}-\d{2}-\d{2}$/.test(environment.MEDIA_LIVE_PROOF_PASSED ?? ''), provider: 'imagekit' as const, configured };
+  return { enabled: false, provider: null, configured };
+}
+export function mediaProvider(environment: Readonly<Record<string, string | undefined>> = runtimeEnvironment()): MediaProvider {
+  return mediaReadiness(environment).provider === 'local' ? createLocalMediaProvider({ root: localMediaRoot() }) : imageKitProvider(environment);
 }
 interface Options { pool: Pool; provider: MediaProvider; ready: boolean; }
 interface IntentRow { id: string; owner_id: string; purpose: Purpose; provider_path: string; expires_at: Date; completed_at: Date | null; }
@@ -89,11 +102,11 @@ export function createMediaService({ pool, provider, ready }: Options) {
           await client.query('INSERT INTO upload_intents(id,owner_id,purpose,input_mime,input_size,provider_path,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7)', [id, actor!.id, purpose, mime, size, `${folder}/${fileName}`, new Date(expiresAt)]);
           return { id, folder, fileName, expiresAt };
         });
-        const fields = { fileName: intent.fileName, folder: intent.folder, isPrivateFile: true, useUniqueFileName: false, overwriteFile: false, overwriteAITags: false, overwriteTags: false, overwriteCustomMetadata: false, extensions: [], tags: [], transformation: { pre: preTransform }, checks: `"file.size" <= ${MAX_INPUT_BYTES} AND "file.mime" IN ["image/jpeg","image/png","image/webp"]` };
+        const fields = uploadFields(intent.folder, intent.fileName);
         return { id: intent.id, path: `${intent.folder}/${intent.fileName}`, expiresAt: intent.expiresAt, grant: await provider.grant(fields, intent.expiresAt) };
       });
     },
-    completeUpload(actor: Actor | null, intentId: string): Promise<Result<AssetRef>> {
+    completeUpload(actor: Actor | null, intentId: string, fileIdHint?: string): Promise<Result<AssetRef>> {
       return result(async () => {
         available();
         if (!isId(intentId)) throw new MediaError(400, 'Invalid upload.');
@@ -102,7 +115,7 @@ export function createMediaService({ pool, provider, ready }: Options) {
         // The committed intent reserves the path. Provider latency and decoding
         // hold no DB connection or member/intent lock. Concurrent inspection is
         // safe: the final transaction serializes completion and reuses one asset.
-        const file = await provider.inspect(initial.intent.provider_path);
+        const file = await provider.inspect(initial.intent.provider_path, fileIdHint);
         if (!file || file.filePath !== initial.intent.provider_path || file.isPrivateFile !== true || file.size !== file.bytes.length) throw new MediaError(400, 'Photo could not be verified. Please retry.');
         let dimensions;
         try { dimensions = await inspectStoredImage(file.bytes); } catch { throw new MediaError(400, 'Photo could not be processed safely. Please choose another photo.'); }
@@ -155,6 +168,15 @@ export function createMediaService({ pool, provider, ready }: Options) {
         });
       });
     },
+    /** The same access check as readDerivative, without provider I/O, for confirming a browser's cached copy. */
+    checkDerivative(actor: Actor | null, assetId: string, variant: string): Promise<Result<true>> {
+      return result(async () => {
+        available();
+        if (!isId(assetId) || !Object.hasOwn(variants, variant)) throw new MediaError(404, 'Photo not found.');
+        await transaction(pool, (client) => readableAsset(client, actor, assetId));
+        return true as const;
+      });
+    },
     readRecipeDerivative(recipeId: string, assetId: string, variant: string): Promise<Result<Buffer>> {
       return result(async () => {
         available();
@@ -177,11 +199,32 @@ export function createMediaService({ pool, provider, ready }: Options) {
         return bytes;
       });
     },
+    /** A member's selected profile photo, for anyone. Rechecked after provider I/O so a change or removal wins. */
+    readMemberAvatar(memberId: string): Promise<Result<{ assetId: string; bytes: Buffer }>> {
+      return result(async () => {
+        available();
+        if (!isId(memberId)) throw new MediaError(404, 'Photo not found.');
+        const visible = async () => {
+          const asset = (await pool.query<AssetRow>(`SELECT a.* FROM members m
+            JOIN media_assets a ON a.id=m.avatar_asset_id AND a.state='ready' AND a.purpose='avatar' AND a.owner_id=m.id
+            JOIN media_references ref ON ref.asset_id=a.id AND ref.kind='avatar' AND ref.reference_id=m.id
+            WHERE m.id=$1 AND m.onboarded_at IS NOT NULL`, [memberId])).rows[0];
+          if (!asset) throw new MediaError(404, 'Photo not found.');
+          return asset;
+        };
+        const initial = await visible();
+        const bytes = await provider.derivative(initial.provider_path, 'avatar');
+        await inspectStoredImage(bytes);
+        const current = await visible();
+        if (current.id !== initial.id || current.provider_path !== initial.provider_path) throw new MediaError(404, 'Photo not found.');
+        return { assetId: current.id, bytes };
+      });
+    },
     disposeUnusedAsset,
   };
   return api;
 }
-export function mediaService() { return createMediaService({ pool: getPool(), provider: imageKitProvider(), ready: mediaReadiness().enabled }); }
+export function mediaService() { return createMediaService({ pool: getPool(), provider: mediaProvider(), ready: mediaReadiness().enabled }); }
 export const createUploadIntent = (actor: Actor, input: Record<string, unknown>) => mediaService().createUploadIntent(actor, input);
 export const completeUpload = (actor: Actor, intentId: string) => mediaService().completeUpload(actor, intentId);
 export const disposeUnusedAsset = (assetId: string) => mediaService().disposeUnusedAsset(assetId);

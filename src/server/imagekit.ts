@@ -1,15 +1,18 @@
 import { createHmac } from 'node:crypto';
 import type { UploadGrant, Variant } from '../features/media/contracts';
-import { MAX_STORED_BYTES, variants } from './media-policy';
+import { MAX_STORED_BYTES, variants } from './media-policy.ts';
 export interface ProviderFile { fileId: string; filePath: string; isPrivateFile: boolean; size: number; bytes: Buffer; }
 export interface MediaProvider {
   grant(fields: Record<string, unknown>, expiresAt: number): Promise<UploadGrant>;
-  inspect(path: string): Promise<ProviderFile | null>;
+  /** fileIdHint (from the browser's upload response) speeds the lookup but is trusted only if it resolves to this path. */
+  inspect(path: string, fileIdHint?: string): Promise<ProviderFile | null>;
   derivative(path: string, variant: Variant): Promise<Buffer>;
   removeAndPurge(fileId: string, path: string, purgeId?: string): Promise<{ complete: boolean; purgeId: string }>;
 }
-interface Config { publicKey: string; privateKey: string; urlEndpoint: string; fetcher?: typeof fetch; }
-export function createImageKitProvider({ publicKey, privateKey, urlEndpoint, fetcher = fetch }: Config): MediaProvider {
+// The library object exactly as stored; without orig-true ImageKit re-encodes even the untransformed URL.
+const ORIGINAL = 'orig-true';
+interface Config { publicKey: string; privateKey: string; urlEndpoint: string; fetcher?: typeof fetch; sleep?: (ms: number) => Promise<void>; }
+export function createImageKitProvider({ publicKey, privateKey, urlEndpoint, fetcher = fetch, sleep = (ms) => new Promise((done) => setTimeout(done, ms)) }: Config): MediaProvider {
   const endpoint = new URL(urlEndpoint);
   if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password || endpoint.search || endpoint.hash) throw new Error('Invalid media endpoint');
   const base = endpoint.href.replace(/\/$/, '');
@@ -43,19 +46,33 @@ export function createImageKitProvider({ publicKey, privateKey, urlEndpoint, fet
   return {
     async grant(fields, expiresAt) {
       const now = Math.floor(Date.now() / 1000);
+      // ImageKit compares each multipart string with the signed payload, so sign the exact strings the browser sends.
+      const form = Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, typeof value === 'string' ? value : JSON.stringify(value)]));
       const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT', kid: publicKey })).toString('base64url');
-      const payload = Buffer.from(JSON.stringify({ ...fields, iat: now, exp: Math.min(now + 300, Math.floor(expiresAt / 1000)) })).toString('base64url');
+      const payload = Buffer.from(JSON.stringify({ ...form, iat: now, exp: Math.min(now + 300, Math.floor(expiresAt / 1000)) })).toString('base64url');
       const signature = createHmac('sha256', privateKey).update(`${header}.${payload}`).digest('base64url');
-      return { endpoint: 'https://upload.imagekit.io/api/v2/files/upload', fields, token: `${header}.${payload}.${signature}` };
+      return { endpoint: 'https://upload.imagekit.io/api/v2/files/upload', fields: form, token: `${header}.${payload}.${signature}` };
     },
-    async inspect(path) {
+    async inspect(path, fileIdHint) {
+      if (fileIdHint && /^[A-Za-z0-9_-]{1,64}$/.test(fileIdHint)) {
+        // Paths are unique per intent and never overwritten, so a file at this exact path is the upload.
+        const file = await api(`files/${encodeURIComponent(fileIdHint)}/details`).then((r) => r.json()).catch(() => null);
+        if (file && file.filePath === path && file.isPrivateFile === true && file.fileId === fileIdHint && Number.isInteger(file.size) && file.size <= MAX_STORED_BYTES)
+          return { fileId: file.fileId, filePath: file.filePath, isPrivateFile: true, size: file.size, bytes: await download(signed(path, ORIGINAL)) };
+      }
       const query = new URLSearchParams({ path: path.slice(0, path.lastIndexOf('/')), limit: '2', type: 'file' });
-      const files: unknown = await (await api(`files?${query}`)).json();
+      // ImageKit's file search lags a fresh upload by a few seconds; wait up to about 7 s before giving up.
+      let files: unknown = [];
+      for (const wait of [0, 1000, 2000, 4000]) {
+        if (wait) await sleep(wait);
+        files = await (await api(`files?${query}`)).json();
+        if (!Array.isArray(files) || files.length) break;
+      }
       if (!Array.isArray(files) || files.length !== 1) return null;
       const file = files[0];
       if (file.filePath !== path || file.isPrivateFile !== true || typeof file.fileId !== 'string' || !Number.isInteger(file.size) || file.size > MAX_STORED_BYTES) return null;
       // Inspect the retained library object, not a transformed delivery URL.
-      return { fileId: file.fileId, filePath: file.filePath, isPrivateFile: true, size: file.size, bytes: await download(signed(path)) };
+      return { fileId: file.fileId, filePath: file.filePath, isPrivateFile: true, size: file.size, bytes: await download(signed(path, ORIGINAL)) };
     },
     async derivative(path, variant) { return download(signed(path, variants[variant])); },
     async removeAndPurge(fileId, path, purgeId) {
@@ -71,6 +88,6 @@ export function createImageKitProvider({ publicKey, privateKey, urlEndpoint, fet
     },
   };
 }
-export function imageKitProvider(): MediaProvider {
-  return createImageKitProvider({ publicKey: process.env.IMAGEKIT_PUBLIC_KEY ?? '', privateKey: process.env.IMAGEKIT_PRIVATE_KEY ?? '', urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT ?? 'https://ik.imagekit.io/unconfigured' });
+export function imageKitProvider(environment: Readonly<Record<string, string | undefined>> = { ...import.meta.env, ...process.env }): MediaProvider {
+  return createImageKitProvider({ publicKey: environment.IMAGEKIT_PUBLIC_KEY ?? '', privateKey: environment.IMAGEKIT_PRIVATE_KEY ?? '', urlEndpoint: environment.IMAGEKIT_URL_ENDPOINT ?? 'https://ik.imagekit.io/unconfigured' });
 }

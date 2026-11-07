@@ -17,9 +17,10 @@ let bytes: Buffer;
 const files = new Map<string, { fileId: string; filePath: string; isPrivateFile: boolean; size: number; bytes: Buffer }>();
 let deletionFails = false;
 const deleted: string[] = [];
+const hints: (string | undefined)[] = [];
 const provider = {
   grant: async (fields: Record<string, unknown>) => ({ endpoint: 'https://upload.imagekit.io/api/v2/files/upload', fields, token: 'test-provider-token' }),
-  inspect: async (path: string) => files.get(path) ?? null,
+  inspect: async (path: string, fileIdHint?: string) => { hints.push(fileIdHint); return files.get(path) ?? null; },
   derivative: async () => bytes,
   removeAndPurge: async (fileId: string) => { if (deletionFails) throw new Error('Provider unavailable'); deleted.push(fileId); return { complete: true, purgeId: 'fixture-purge' }; },
 };
@@ -29,7 +30,7 @@ function upload(intent: { path: string }, changes = {}) { files.set(intent.path,
 function value<T>(result: { ok: true; value: T } | { ok: false; error: unknown }): T { if (!result.ok) throw result.error; return result.value; }
 beforeAll(async () => { await root.query(`CREATE SCHEMA ${schema}`); await migrate(pool); bytes = await sharp({ create: { width: 640, height: 480, channels: 3, background: '#775522' } }).webp().toBuffer(); });
 beforeEach(async () => {
-  await pool.query('TRUNCATE members CASCADE'); files.clear(); deleted.length = 0; deletionFails = false;
+  await pool.query('TRUNCATE members CASCADE'); files.clear(); hints.length = 0; deleted.length = 0; deletionFails = false;
   const accounts = createAccountService({ pool, origin: 'https://recipes.example', verifyIdentity: async () => null });
   actor = await accounts.ensureMember({ provider: 'clerk', subject: 'member', email: 'a@example.com', emailVerified: true });
   foreign = await accounts.ensureMember({ provider: 'clerk', subject: 'other', email: 'b@example.com', emailVerified: true });
@@ -50,7 +51,8 @@ test('allowed formats receive short lived immutable private grants and durable 3
   const svc = service();
   for (const mime of ['image/jpeg', 'image/png', 'image/webp']) {
     const intent = value(await svc.createUploadIntent(actor, { ...input, mime }));
-    expect(intent.grant.fields).toMatchObject({ isPrivateFile: true, overwriteFile: false, useUniqueFileName: false, extensions: [] });
+    expect(intent.grant.fields).toMatchObject({ isPrivateFile: true, overwriteFile: false, useUniqueFileName: false });
+    expect(intent.grant.fields).not.toHaveProperty('extensions');
     expect(intent.grant.fields.checks).toContain('20000000');
     expect(intent.expiresAt - Date.now()).toBeLessThanOrEqual(300000);
   }
@@ -121,7 +123,11 @@ test('media HTTP boundary authenticates, enforces exact origin, rejects altered 
     expect(response.status).toBe(status); expect(response.headers.get('Cache-Control')).toBe('private, no-store');
   }
   expect((await handleMediaWrite(request({ ...input, role: 'owner' }), 'intents', dependencies)).status).toBe(400);
-  expect((await handleMediaWrite(request({ intentId: randomUUID(), fileId: 'foreign' }), 'complete', dependencies)).status).toBe(400);
+  for (const fileId of ['../other', 'x'.repeat(65), 42]) expect((await handleMediaWrite(request({ intentId: randomUUID(), fileId }), 'complete', dependencies)).status).toBe(400);
+  // A well-formed provider id is only a lookup hint; the provider must still find the file at the server-chosen path.
+  const pending = value(await service().createUploadIntent(actor, input)); upload(pending);
+  expect((await handleMediaWrite(request({ intentId: pending.id, fileId: 'provider-file_1' }), 'complete', dependencies)).status).toBe(200);
+  expect(hints).toContain('provider-file_1');
   const response = await handleMediaWrite(request(input), 'intents', dependencies);
   expect(response.status).toBe(200); expect(response.headers.get('Cache-Control')).toBe('private, no-store');
 });
@@ -289,4 +295,47 @@ test('recipe photo delivery requires the intended current public reference and r
  const gate=blockedProvider();const delayed=media.createMediaService({pool,ready:true,provider:{...provider,derivative:async()=>{await gate.wait();return bytes;}}});
  const pending=delayed.readRecipeDerivative(draft.id,asset.id,'gallery');
  try{await gate.arrived;await pool.query("UPDATE recipes SET state='hidden' WHERE id=$1",[draft.id]);gate.release();expect(await pending).toMatchObject({ok:false,error:{status:404}});}finally{gate.release();await pending;}
+});
+
+test('public avatars serve only a member’s current photo, to anyone, and stop when it changes', async () => {
+  const svc = service();
+  const intent = value(await svc.createUploadIntent(actor, { ...input, purpose: 'avatar' })); upload(intent);
+  const photo = value(await svc.completeUpload(actor, intent.id));
+  // An uploaded but unselected photo is not public.
+  expect(await svc.readMemberAvatar(actor.id)).toMatchObject({ ok: false, error: { status: 404 } });
+  value(await svc.setAvatar(actor, photo.id));
+  expect(await svc.readMemberAvatar(actor.id)).toMatchObject({ ok: true, value: { assetId: photo.id } });
+  expect(await svc.readMemberAvatar(foreign.id)).toMatchObject({ ok: false, error: { status: 404 } });
+  expect(await svc.readMemberAvatar('not-an-id')).toMatchObject({ ok: false, error: { status: 404 } });
+  await pool.query('UPDATE members SET onboarded_at=NULL WHERE id=$1', [actor.id]);
+  expect(await svc.readMemberAvatar(actor.id)).toMatchObject({ ok: false, error: { status: 404 } });
+  await pool.query('UPDATE members SET onboarded_at=now() WHERE id=$1', [actor.id]);
+  value(await svc.setAvatar(actor, null));
+  expect(await svc.readMemberAvatar(actor.id)).toMatchObject({ ok: false, error: { status: 404 } });
+});
+
+test('a kept photo is rechecked with the server every time, so losing access stops it without refetching from the provider', async () => {
+  const { handleMediaRead } = await import('../../src/features/media/routes');
+  const svc = service();
+  const intent = value(await svc.createUploadIntent(actor, input)); upload(intent);
+  const asset = value(await svc.completeUpload(actor, intent.id));
+  const as = (subject: string, email: string) => createAccountService({ pool, origin: 'https://recipes.example', verifyIdentity: async () => ({ provider: 'clerk', subject, email, emailVerified: true }) });
+  const read = (id: string, accounts = as('member', 'a@example.com'), tag?: string) =>
+    handleMediaRead(new Request(`https://recipes.example/api/media/${id}?variant=gallery`, { headers: tag ? { 'If-None-Match': tag } : {} }), id, { accounts, media: svc, origin: 'https://recipes.example' });
+  const found = await read(asset.id);
+  expect(found.status).toBe(200);
+  expect(found.headers.get('Cache-Control')).toBe('private, no-cache');
+  const tag = found.headers.get('ETag')!;
+  expect(tag).toBeTruthy();
+  const reused = await read(asset.id, undefined, tag);
+  expect(reused.status).toBe(304);
+  expect(reused.headers.get('Cache-Control')).toBe('private, no-cache');
+  expect((await reused.arrayBuffer()).byteLength).toBe(0);
+  // Someone else holding the same cached copy is refused, not told it is still good.
+  const stranger = await read(asset.id, as('other', 'b@example.com'), tag);
+  expect(stranger.status).toBe(404);
+  expect(stranger.headers.get('Cache-Control')).toBe('private, no-store');
+  const missing = await read(randomUUID());
+  expect(missing.status).toBe(404);
+  expect(missing.headers.get('Cache-Control')).toBe('private, no-store');
 });

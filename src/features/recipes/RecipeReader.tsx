@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import CookingMode from "./CookingMode";
 import GalleryDialog from "./GalleryDialog";
 import RecipePreview from "./RecipePreview";
+import type { PhotoCredit } from "./catalog";
+import { photoCreditText } from "./photo-credit";
 import { clampServings, scaleQuantity } from "./scaling";
 import { applyTranslation, type TranslatableText } from "./translation-text";
 import type { Origin, RecipeInput } from "./validation";
@@ -53,6 +55,7 @@ export default function RecipeReader({
   origins,
   language,
   translation,
+  credits = {},
 }: {
   id: string;
   url: string;
@@ -60,6 +63,7 @@ export default function RecipeReader({
   origins: Origin[];
   language: "en" | "es";
   translation: TranslatableText | null;
+  credits?: Record<string, PhotoCredit>;
 }) {
   const t = copy[language];
   const baseline = input.baselineConfirmed && input.baseline ? input.baseline : null;
@@ -156,13 +160,14 @@ export default function RecipeReader({
         </p>
       </div>
       {baseline && servings !== baseline && <p className="m-0 text-sm text-muted-foreground">{t.scaledNote}</p>}
-      <RecipePreview input={shown} id={id} origins={origins} spanish={language === "es"} published onOpenPhoto={openPhoto} servings={baseline ? { current: servings, original: baseline } : undefined} />
+      <RecipePreview input={shown} id={id} origins={origins} spanish={language === "es"} published credits={credits} onOpenPhoto={openPhoto} servings={baseline ? { current: servings, original: baseline } : undefined} />
       <GalleryDialog
         photos={shown.photos}
         index={photo}
         onIndexChange={setPhoto}
         onClose={() => setPhoto(null)}
         src={(p) => src(p.assetId)}
+        credit={(p) => photoCreditText(credits[p.assetId], language)}
         language={language}
         returnFocus={() => opener.current}
       />
