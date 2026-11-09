@@ -542,7 +542,8 @@ export function createDraftService(options: {
     origins: async (): Promise<Origin[]> =>
       (
         await pool.query<Origin>(
-          "SELECT id,label_en,label_es FROM recipe_origins WHERE active ORDER BY label_en",
+          // Countries first, alphabetically; “Fusion” and “Not sure” after them.
+          "SELECT id,label_en,label_es,country_code FROM recipe_origins WHERE active ORDER BY country_code IS NULL,label_en",
         )
       ).rows,
     similarTitles: async (

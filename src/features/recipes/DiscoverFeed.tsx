@@ -8,6 +8,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import type { CatalogPage, RecipeCard as CardData } from "./catalog";
 import { defaultSort, toDiscoverSearch, type DiscoverParams } from "./discover-state";
 import { favoriteIntentFrom } from "./draft-intent";
+import { originLabel as labelFor } from "./origin-label";
 import RecipeCard from "./RecipeCard";
 import { categories, type Origin } from "./validation";
 
@@ -294,7 +295,7 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
   const set = (patch: Partial<DiscoverParams>) => void replace({ ...params, ...patch });
   const originLabel = (id: string | null) => {
     const o = origins.find((x) => x.id === id);
-    return o ? (language === "es" ? o.label_es : o.label_en) : undefined;
+    return o ? labelFor(o, language) : undefined;
   };
   const sortValue = params.sort ?? defaultSort(params);
   const filterClass = "flex min-w-36 flex-1 flex-col gap-1.5";
@@ -341,7 +342,7 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
                 <NativeSelectOption value="">{t.any}</NativeSelectOption>
                 {origins.map((o) => (
                   <NativeSelectOption key={o.id} value={o.id}>
-                    {language === "es" ? o.label_es : o.label_en}
+                    {labelFor(o, language)}
                   </NativeSelectOption>
                 ))}
               </NativeSelect>

@@ -9,6 +9,7 @@ import {
   type Origin,
 } from "./validation";
 import type { PhotoCredit } from "./catalog";
+import { originLabel } from "./origin-label";
 import { photoCreditText } from "./photo-credit";
 export default function RecipePreview({
   input,
@@ -40,7 +41,8 @@ export default function RecipePreview({
   const discover = (key: string, value: string) =>
     `/?${new URLSearchParams({ [key]: value, ...(spanish ? { lang: "es" } : {}) })}`;
   const category = categories.find((c) => c.id === input.category)?.[spanish ? "es" : "en"];
-  const origin = origins.find((o) => o.id === input.origin)?.[spanish ? "label_es" : "label_en"];
+  const found = origins.find((o) => o.id === input.origin);
+  const origin = found && originLabel(found, spanish ? "es" : "en");
   return (
     <article className="recipe-preview">
       <div className="flex flex-wrap items-center gap-2">

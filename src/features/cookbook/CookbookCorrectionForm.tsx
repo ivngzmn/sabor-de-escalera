@@ -8,6 +8,7 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { Textarea } from "@/components/ui/textarea";
 import ImageUploader from "@/features/media/ImageUploader";
 import { categories, type FieldError, type Origin, type RecipeInput } from "@/features/recipes/validation";
+import { originLabel } from "@/features/recipes/origin-label";
 import { UNSAVED_EVENT } from "./CookbookEntryActions";
 
 export interface CreditDraft {
@@ -135,7 +136,7 @@ export default function CookbookCorrectionForm({ entryId, version, input: initia
               <FieldLabel htmlFor="fix-origin">Origin</FieldLabel>
               <NativeSelect id="fix-origin" value={input.origin} aria-invalid={invalid("origin")} onChange={(e) => set("origin", e.target.value)}>
                 <NativeSelectOption value="">Not set</NativeSelectOption>
-                {origins.map((o) => <NativeSelectOption key={o.id} value={o.id}>{o.label_en}</NativeSelectOption>)}
+                {origins.map((o) => <NativeSelectOption key={o.id} value={o.id}>{originLabel(o, "en")}</NativeSelectOption>)}
               </NativeSelect>
               <FieldDescription>Use the origin the contributor confirmed; don’t guess from the dish name.</FieldDescription>
             </Field>

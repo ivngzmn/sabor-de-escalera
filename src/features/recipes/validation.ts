@@ -56,6 +56,8 @@ export interface Origin {
   id: string;
   label_en: string;
   label_es: string;
+  /** ISO 3166-1 alpha-2 code for countries, shown as a flag; null for “Not sure” and “Fusion”. */
+  country_code: string | null;
 }
 export interface Draft {
   id: string;
