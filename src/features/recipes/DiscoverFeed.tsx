@@ -23,6 +23,8 @@ const copy = {
     diet: "Dietary",
     sort: "Sort by",
     any: "Any",
+    all: "All",
+    more: "More filters",
     upTo: (m: number) => (m < 60 ? `Up to ${m} min` : `Up to ${m / 60} h`),
     vegan: "Vegan",
     vegetarian: "Vegetarian",
@@ -51,6 +53,8 @@ const copy = {
     diet: "Dieta",
     sort: "Ordenar por",
     any: "Cualquiera",
+    all: "Todas",
+    more: "Más filtros",
     upTo: (m: number) => (m < 60 ? `Hasta ${m} min` : `Hasta ${m / 60} h`),
     vegan: "Vegana",
     vegetarian: "Vegetariana",
@@ -298,14 +302,19 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
     return o ? labelFor(o, language) : undefined;
   };
   const sortValue = params.sort ?? defaultSort(params);
-  const filterClass = "flex min-w-36 flex-1 flex-col gap-1.5";
+  const filterClass = "flex min-w-36 flex-1 flex-col gap-1.5 sm:max-w-60";
+  const refinements = [params.origin, params.maxMinutes, params.diet].filter(Boolean).length;
+  // Plain browsing leads with the newest recipe as a wide card; searches and filters stay a uniform grid.
+  const featureFirst = !scope && toDiscoverSearch(params) === "" && items.length >= 4;
 
   return (
     <div className="flex flex-col gap-6">
       {/* Without JavaScript the form still submits ?q= as a plain GET search. */}
-      <form role="search" method="get" onSubmit={submit} data-hydrated={hydrated || undefined} className="flex flex-col gap-4 rounded-xl bg-card p-4 shadow-sm sm:p-6">
+      <form role="search" method="get" onSubmit={submit} data-hydrated={hydrated || undefined} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="recipe-search">{t.search}</Label>
+          <Label htmlFor="recipe-search" className="sr-only">
+            {t.search}
+          </Label>
           <div className="flex gap-2">
             <Input
               id="recipe-search"
@@ -317,62 +326,46 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
               onChange={(e) => setText(e.target.value)}
               autoComplete="off"
             />
-            <Button type="submit">
+            <Button type="submit" className="min-h-11">
               <MagnifyingGlassIcon aria-hidden="true" />
               {t.submit}
             </Button>
           </div>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <div className={filterClass}>
-            <Label htmlFor="filter-category">{t.category}</Label>
-            <NativeSelect id="filter-category" value={params.category ?? ""} onChange={(e) => set({ category: e.target.value || undefined })}>
-              <NativeSelectOption value="">{t.any}</NativeSelectOption>
-              {categories.map((c) => (
-                <NativeSelectOption key={c.id} value={c.id}>
-                  {language === "es" ? c.es : c.en}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </div>
-          {origins.length > 0 && (
-            <div className={filterClass}>
-              <Label htmlFor="filter-origin">{t.origin}</Label>
-              <NativeSelect id="filter-origin" value={params.origin ?? ""} onChange={(e) => set({ origin: e.target.value || undefined })}>
-                <NativeSelectOption value="">{t.any}</NativeSelectOption>
-                {origins.map((o) => (
-                  <NativeSelectOption key={o.id} value={o.id}>
-                    {labelFor(o, language)}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          {/* Chips are submit buttons, so without JavaScript they still filter with a plain GET. */}
+          <div role="group" aria-labelledby="filter-category-label" className="flex min-w-0 basis-full flex-col gap-1.5 md:basis-auto md:flex-1">
+            <span id="filter-category-label" className="sr-only">
+              {t.category}
+            </span>
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 py-1">
+              {[{ id: "", en: t.all, es: t.all }, ...categories].map((c) => {
+                const active = (params.category ?? "") === c.id;
+                return (
+                  <Button
+                    key={c.id || "all"}
+                    type="submit"
+                    name="category"
+                    value={c.id}
+                    size="sm"
+                    variant={active ? "default" : "outline"}
+                    aria-pressed={active}
+                    className="shrink-0 rounded-full"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      set({ category: c.id || undefined });
+                    }}
+                  >
+                    {language === "es" ? c.es : c.en}
+                  </Button>
+                );
+              })}
             </div>
-          )}
-          <div className={filterClass}>
-            <Label htmlFor="filter-time">{t.time}</Label>
-            <NativeSelect
-              id="filter-time"
-              value={params.maxMinutes ?? ""}
-              onChange={(e) => set({ maxMinutes: (Number(e.target.value) || undefined) as DiscoverParams["maxMinutes"] })}
-            >
-              <NativeSelectOption value="">{t.any}</NativeSelectOption>
-              {([30, 60, 120] as const).map((m) => (
-                <NativeSelectOption key={m} value={m}>
-                  {t.upTo(m)}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
           </div>
-          <div className={filterClass}>
-            <Label htmlFor="filter-diet">{t.diet}</Label>
-            <NativeSelect id="filter-diet" value={params.diet ?? ""} onChange={(e) => set({ diet: (e.target.value || undefined) as DiscoverParams["diet"] })}>
-              <NativeSelectOption value="">{t.any}</NativeSelectOption>
-              <NativeSelectOption value="vegan">{t.vegan}</NativeSelectOption>
-              <NativeSelectOption value="vegetarian">{t.vegetarian}</NativeSelectOption>
-            </NativeSelect>
-          </div>
-          <div className={filterClass}>
-            <Label htmlFor="filter-sort">{t.sort}</Label>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="filter-sort" className="shrink-0 text-sm text-muted-foreground">
+              {t.sort}
+            </Label>
             <NativeSelect id="filter-sort" value={sortValue} onChange={(e) => set({ sort: e.target.value as DiscoverParams["sort"] })}>
               {(["relevance", "newest", "rated", "saved"] as const)
                 .filter((s) => s !== "relevance" || params.q)
@@ -384,6 +377,50 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
             </NativeSelect>
           </div>
         </div>
+        <details open={refinements > 0 || undefined} className="group/more">
+          <summary className="w-fit cursor-pointer text-sm font-semibold text-primary-ink">
+            {t.more}
+            {refinements > 0 && ` (${refinements})`}
+          </summary>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {origins.length > 0 && (
+              <div className={filterClass}>
+                <Label htmlFor="filter-origin">{t.origin}</Label>
+                <NativeSelect id="filter-origin" value={params.origin ?? ""} onChange={(e) => set({ origin: e.target.value || undefined })}>
+                  <NativeSelectOption value="">{t.any}</NativeSelectOption>
+                  {origins.map((o) => (
+                    <NativeSelectOption key={o.id} value={o.id}>
+                      {labelFor(o, language)}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </div>
+            )}
+            <div className={filterClass}>
+              <Label htmlFor="filter-time">{t.time}</Label>
+              <NativeSelect
+                id="filter-time"
+                value={params.maxMinutes ?? ""}
+                onChange={(e) => set({ maxMinutes: (Number(e.target.value) || undefined) as DiscoverParams["maxMinutes"] })}
+              >
+                <NativeSelectOption value="">{t.any}</NativeSelectOption>
+                {([30, 60, 120] as const).map((m) => (
+                  <NativeSelectOption key={m} value={m}>
+                    {t.upTo(m)}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </div>
+            <div className={filterClass}>
+              <Label htmlFor="filter-diet">{t.diet}</Label>
+              <NativeSelect id="filter-diet" value={params.diet ?? ""} onChange={(e) => set({ diet: (e.target.value || undefined) as DiscoverParams["diet"] })}>
+                <NativeSelectOption value="">{t.any}</NativeSelectOption>
+                <NativeSelectOption value="vegan">{t.vegan}</NativeSelectOption>
+                <NativeSelectOption value="vegetarian">{t.vegetarian}</NativeSelectOption>
+              </NativeSelect>
+            </div>
+          </div>
+        </details>
       </form>
 
       <p role="status" aria-live="polite" className="sr-only">
@@ -392,14 +429,15 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
 
       {items.length > 0 ? (
         <ul role="list" aria-busy={status === "loading"} className="m-0 grid list-none gap-6 p-0 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((card) => (
-            <li key={card.id}>
+          {items.map((card, index) => (
+            <li key={card.id} className={featureFirst && index === 0 ? "sm:col-span-2 lg:col-span-3" : undefined}>
               <RecipeCard
                 card={card}
                 language={language}
                 originLabel={originLabel(card.origin)}
                 onToggleFavorite={toggleFavorite}
                 pending={pending === card.id}
+                featured={featureFirst && index === 0}
               />
             </li>
           ))}

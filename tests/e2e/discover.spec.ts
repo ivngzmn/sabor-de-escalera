@@ -17,8 +17,13 @@ test('discover search keeps state in the URL and recovers from failures', async 
 test('discover filters are labelled controls that update the URL', async ({ page }) => {
   await page.goto('/');
   await page.locator('form[data-hydrated]').waitFor();
-  await page.getByLabel('Category').selectOption('desserts');
+  const desserts = page.getByRole('group', { name: 'Category' }).getByRole('button', { name: 'Desserts' });
+  await desserts.click();
   await expect(page).toHaveURL(/category=desserts/);
+  await expect(desserts).toHaveAttribute('aria-pressed', 'true');
+  await page.getByText('More filters').click();
+  await page.getByLabel('Dietary').selectOption('vegan');
+  await expect(page).toHaveURL(/diet=vegan/);
   await page.getByLabel('Sort by').selectOption('rated');
   await expect(page).toHaveURL(/sort=rated/);
   await page.goto('/?lang=es');
