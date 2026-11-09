@@ -18,6 +18,10 @@ pnpm dlx skills add thesysdev/skills --skill openui
 <!-- openui:start -->
 <!-- OpenUI instructions for coding agents. Run `npx @openuidev/cli@latest setup-agent` to refresh. -->
 
+## Commits and branches
+
+Work on a typed branch, never on `main`: `feat/<topic>`, `fix/<topic>`, `chore/<topic>`, `docs/<topic>`, `refactor/<topic>`. Write commit messages and PR titles as Conventional Commits, `<type>(<scope>): <imperative summary>`, scoped by feature area (`recipes`, `accounts`, `media`, `import`, `admin`, …). In Claude Code, load the local `conventional-commits` skill before branching or committing.
+
 # OpenUI
 
 OpenUI turns model output into user interfaces. The model writes **OpenUI Lang**, a compact line-oriented language, using the components in a **component library**. A **renderer** draws the program while it streams. The app's **chat UI** hosts the renderer, and **OpenUI Gateway** serves the models.
