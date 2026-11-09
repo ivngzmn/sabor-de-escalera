@@ -69,6 +69,7 @@ import {
   LOGOUT,
   performSignOut,
 } from "@/features/accounts/sign-out";
+import { originLabel } from "./origin-label";
 import "./editor.css";
 
 /** Where a held-back exit goes once the member saves or discards. */
@@ -1235,7 +1236,7 @@ export default function RecipeEditor({
                             (value) => set("origin", value),
                             origins.map((o) => ({
                               value: o.id,
-                              label: o[lang === "es" ? "label_es" : "label_en"],
+                              label: originLabel(o, lang === "es" ? "es" : "en"),
                             })),
                             t("Choose…", "Elegir…"),
                           )}

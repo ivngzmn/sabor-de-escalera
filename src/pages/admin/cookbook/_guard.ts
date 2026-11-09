@@ -9,7 +9,8 @@ export async function adminOrResponse(request: Request, url: URL): Promise<Actor
   catch (error) {
     if (error instanceof ClerkResponseError) return error.response;
     if (error instanceof AccountError && error.status === 401)
-      return Response.redirect(new URL(signInHref(url.pathname, accountConfiguration()?.origin ?? url.origin, true), url), 303);
+      // Not Response.redirect(): its headers are immutable, and Astro adds headers to whatever a page returns.
+      return new Response(null, { status: 303, headers: { Location: signInHref(url.pathname, accountConfiguration()?.origin ?? url.origin, true) } });
     return accountFailure(error);
   }
 }

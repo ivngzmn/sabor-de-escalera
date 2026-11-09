@@ -17,7 +17,7 @@ The manifest is a JSON array with one entry per recipe, validated by `parseManif
 | `contributor`, `originalAuthor` | Historical credit exactly as printed, or `null`. Kept apart from the owning account. |
 | `sourceUrls` | Printed source or video links (http/https only). |
 | `language` | `en` or `es`: the language the recipe is written in. |
-| `flags` | Every uncertainty, e.g. `yield-unclear`, `quantity-unclear:<row>`, `category-unassigned`, `origin-unassigned`, `timing-missing`. |
+| `flags` | Every uncertainty, e.g. `yield-unclear`, `quantity-unclear:<row>` (rows counted from 1, as printed), `ingredient-missing:<name>`, `category-unassigned`, `origin-unassigned`, `timing-missing`. |
 | `recipe` | The recipe text: title, ingredients (with sections), instructions, yield, timing, story, notes. Photos and a confirmed scaling baseline are rejected; people add those during review. |
 
 Transcription rules:
@@ -42,6 +42,7 @@ pnpm cookbook:import reference/cookbook/manifest.json
 2. Its text review is approved.
 3. Its image review is approved.
 4. Every photo is a ready recipe asset with a `photo_credits` row.
+5. If it is adapted from a website, an admin has recorded how reuse was cleared.
 
 Published cookbook recipes have no owning account. Readers see "From the Escalera cookbook", plus the contributor and original author when the book names them.
 
@@ -79,9 +80,60 @@ Transcription flags for reviewers. These are counts of flags, and a recipe can c
 | `timing-prep-only` / `timing-excludes-soak` / `timing-missing` / `yield-missing` | 1 each | Timing or yield is incomplete as printed. |
 | `metric-amounts-unscaled` | 1 | Gram amounts inside ingredient names won't change when a reader scales. |
 
-## Not built yet
+## Review steps for admins
 
-- Attaching images with credits to ownerless recipes.
-- Admin correction of staged text, category, origin and baseline. That is main-plan Task 9.
+Only cookbook recipes go through this review. Recipes members submit publish immediately, as the spec asks for no premoderation.
 
-Until both exist, and until the production image service passes `media-proof.md`, no imported recipe can meet the publication rules.
+Each entry page shows these steps in order, highlights the current one and says what to check:
+
+1. **Fill in the details.** Compare the recipe with the book and complete what's missing. Never guess an origin, servings or time.
+2. **Clear the source** (recipes adapted from a website only). Find out whether it can be reused, and write down how that was settled. The note goes in the audit log, and the recipe can't publish without it. It is a written record rather than a tick box because the spec asks to track these issues and not to add a permission checkbox.
+3. **Add photos and credits.**
+4. **Approve the images.**
+5. **Review the text.** Do this last: correcting the text afterwards sends it back for review.
+6. **Publish.**
+
+While the correction form has unsaved edits, the review buttons pause, and leaving the page warns first. **Save corrections** also saves any changed photo credits.
+
+## Correcting, crediting and publishing
+
+The entry page at `/admin/cookbook/<entryId>` has a correction form for unpublished entries. It covers:
+
+- **Details:** title, category, origin, yield as printed, servings for scaling and whether that number is confirmed.
+- **Time:** one total, or prep, cook and rest.
+- **Wording:** each existing ingredient and step row. Rows can't be added, removed or change kind, so a correction can't rewrite the book.
+- **Photos:** add, remove, choose the cover, captions and alt text.
+
+Every save needs a reason, which goes into the content audit with the names of the changed fields. Saving against an older version than the one shown fails. Changed text sends the entry back to text review and outdates approved translations. Changed photos send it back to image review.
+
+Each saved photo has its own credit form:
+
+| Source | Required | Reader sees |
+| --- | --- | --- |
+| Contributor or owner | Photographer, how permission was given | Photo by … |
+| Pexels or Unsplash | Photographer, the photo's `https` page on pexels.com or unsplash.com, licence, retrieval date | Illustrative photo · Photo by … on Unsplash |
+| AI-generated | Generator and the terms the owner approved | AI-generated illustrative image |
+
+Cropping notes are optional. Changing a credit reopens image review. **Approve images and credits** works only when every photo has a credit. Readers see credits only once a recipe is published; licence and permission notes stay private.
+
+Adding photos needs uploads switched on (`MEDIA_PROVIDER`, see `media-proof.md`). In development, `MEDIA_PROVIDER=local` stores them under `.media-local/`.
+
+## Example recipes for testing
+
+Ten example recipes exercise the whole review without touching book recipes. Their text was written for this project (`scripts/example-recipes.json`), and their import keys start with `example-`. Their contributor reads "Example recipe (test data)" and they use book pages 401–410, so they sort after the book.
+
+```bash
+pnpm examples:seed --confirm-remote
+pnpm examples:remove --confirm-remote
+```
+
+- **Seed** stages them with confirmed details, uploaded photos and AI credits, ready at Approve the images. Ceviche Clásico stops at Clear the source, Empanadas de Carne carries a transcription note, Birria de Res has three photos, and Chuchitos and Pollo en Mole Negro are written in Spanish.
+- **Photos** are AI images from the owner's Stitch project, kept in `reference/examples/` (gitignored). Remove the examples before launch: the credit marks them as example-only.
+- **Remove** deletes the examples, including published ones, and their ImageKit files. The seven country origins it added stay, because real recipes need them.
+
+`--confirm-remote` is only needed for a non-local database.
+
+## Still blocked
+
+- **Photos:** live photos wait for the owner's ImageKit proof run and `MEDIA_LIVE_PROOF_PASSED`. Until then, no imported recipe can meet the 1–6 photo rule in production.
+- **Missing facts:** origin, servings and missing times still need answers from contributors or the owner. The form records them but must not guess them.

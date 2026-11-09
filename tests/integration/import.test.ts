@@ -62,7 +62,7 @@ test("reimport never overwrites reviewed entries", async () => {
 test("ambiguous values stay flagged", async () => {
   await load(sample());
   const row = (await pool.query("SELECT e.flags,r.input FROM cookbook_entries e JOIN recipes r ON r.id=e.recipe_id WHERE e.import_key='p05-sample-bean-stew'")).rows[0];
-  expect(row.flags).toEqual(["yield-unclear", "quantity-unclear:1"]);
+  expect(row.flags).toEqual(["yield-unclear", "quantity-unclear:2"]);
   expect(row.input.ingredients[1].quantity).toBe("1 can (size not given)");
   expect(row.input.language).toBe("es");
   expect(row.input.category).toBe("");
@@ -113,7 +113,7 @@ test("queue shows missing data and flags", async () => {
   const page = await (await queue()).listQueue(admin, "all");
   if (!page.ok) throw new Error(page.error.message);
   const stew = page.value.find((r) => r.key === "p05-sample-bean-stew")!;
-  expect(stew).toMatchObject({ pages: [5, 6], textReview: "pending", imageReview: "missing", eligible: false, flags: ["yield-unclear", "quantity-unclear:1"], translation: { en: "none" } });
+  expect(stew).toMatchObject({ pages: [5, 6], textReview: "pending", imageReview: "missing", eligible: false, flags: ["yield-unclear", "quantity-unclear:2"], translation: { en: "none" } });
   expect(stew.missing).toEqual(expect.arrayContaining(["category", "photos", "text-review", "image-review"]));
   const blocked = await (await queue()).listQueue(admin, "eligible");
   expect(blocked.ok && blocked.value).toEqual([]);

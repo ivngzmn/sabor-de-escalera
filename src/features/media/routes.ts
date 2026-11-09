@@ -1,7 +1,9 @@
 import { accounts, type createAccountService } from '../accounts/service';
 import { AccountError, assertSameOriginWrite } from '../accounts/permissions';
 import { ClerkResponseError, accountConfiguration } from '../../server/clerk';
-import { mediaService, MediaError, type createMediaService } from './service';
+import { mediaReadiness, mediaService, MediaError, type createMediaService } from './service';
+import { MAX_INPUT_BYTES } from './contracts';
+import { createLocalMediaProvider, LocalUploadError, localMediaRoot } from '../../server/local-media';
 const headers = { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' };
 interface Dependencies { accounts: ReturnType<typeof createAccountService>; media: ReturnType<typeof createMediaService>; origin: string; }
 function failure(error: unknown) {
@@ -26,10 +28,11 @@ export async function handleMediaWrite(request: Request, action: 'intents' | 'co
     assertSameOriginWrite(request, dependencies?.origin ?? accountConfiguration()?.origin ?? new URL(request.url).origin);
     const actor = await (dependencies?.accounts ?? accounts()).requireActor(request);
     const input = await readInput(request);
-    const allowed = action === 'intents' ? ['purpose', 'mime', 'size'] : action === 'complete' ? ['intentId'] : ['assetId'];
+    const allowed = action === 'intents' ? ['purpose', 'mime', 'size'] : action === 'complete' ? ['intentId', 'fileId'] : ['assetId'];
     if (Object.keys(input).some((key) => !allowed.includes(key))) throw new MediaError(400, 'Invalid request');
+    if (input.fileId !== undefined && (typeof input.fileId !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(input.fileId))) throw new MediaError(400, 'Invalid request');
     const service = dependencies?.media ?? mediaService();
-    const result = action === 'intents' ? await service.createUploadIntent(actor, input) : action === 'complete' ? await service.completeUpload(actor, String(input.intentId ?? '')) : await service.setAvatar(actor, input.assetId === null ? null : String(input.assetId ?? ''));
+    const result = action === 'intents' ? await service.createUploadIntent(actor, input) : action === 'complete' ? await service.completeUpload(actor, String(input.intentId ?? ''), input.fileId as string | undefined) : await service.setAvatar(actor, input.assetId === null ? null : String(input.assetId ?? ''));
     const responseHeaders: Record<string, string> = { ...headers };
     if (!result.ok && result.error.retryAfter) responseHeaders['Retry-After'] = String(result.error.retryAfter);
     return Response.json(result, { status: result.ok ? 200 : result.error.status, headers: responseHeaders });
@@ -38,8 +41,38 @@ export async function handleMediaWrite(request: Request, action: 'intents' | 'co
 export async function handleMediaRead(request: Request, assetId: string, dependencies?: Dependencies) {
   try {
     const actor = await (dependencies?.accounts ?? accounts()).requireActor(request);
-    const result = await (dependencies?.media ?? mediaService()).readDerivative(actor, assetId, new URL(request.url).searchParams.get('variant') ?? 'gallery');
+    const service = dependencies?.media ?? mediaService();
+    const variant = new URL(request.url).searchParams.get('variant') ?? 'gallery';
+    // An asset id never changes its contents, so the browser may keep the bytes, but these photos can be private
+    // drafts: no-cache makes it ask here on every use, and the owner check runs before a copy is confirmed.
+    const cached = { ...headers, 'Cache-Control': 'private, no-cache', ETag: `"${assetId}-${variant}"` };
+    if (request.headers.get('If-None-Match') === cached.ETag) {
+      const check = await service.checkDerivative(actor, assetId, variant);
+      return check.ok ? new Response(null, { status: 304, headers: cached }) : Response.json(check, { status: check.error.status, headers });
+    }
+    const result = await service.readDerivative(actor, assetId, variant);
     if (!result.ok) return Response.json(result, { status: result.error.status, headers });
-    return new Response(new Uint8Array(result.value), { headers: { ...headers, 'Content-Type': 'image/webp', 'Content-Length': String(result.value.length) } });
+    return new Response(new Uint8Array(result.value), { headers: { ...cached, 'Content-Type': 'image/webp', 'Content-Length': String(result.value.length) } });
   } catch (error) { return failure(error); }
+}
+interface LocalUploadDependencies { enabled: boolean; provider: ReturnType<typeof createLocalMediaProvider>; origin: string; }
+/** Receives development uploads that would otherwise go straight to ImageKit. Absent unless MEDIA_PROVIDER=local. */
+export async function handleLocalUpload(request: Request, dependencies?: LocalUploadDependencies) {
+  const readiness = mediaReadiness();
+  const enabled = dependencies?.enabled ?? (readiness.provider === 'local' && readiness.enabled);
+  if (!enabled) return new Response(null, { status: 404, headers });
+  try {
+    assertSameOriginWrite(request, dependencies?.origin ?? accountConfiguration()?.origin ?? new URL(request.url).origin);
+    if (Number(request.headers.get('Content-Length') ?? 0) > MAX_INPUT_BYTES + 65536) throw new LocalUploadError(400, 'Choose a photo up to 20 MB.');
+    const form = await request.formData().catch(() => null);
+    const file = form?.get('file');
+    const token = form?.get('token');
+    if (!(file instanceof File) || typeof token !== 'string') throw new LocalUploadError(400, 'Invalid request');
+    const provider = dependencies?.provider ?? createLocalMediaProvider({ root: localMediaRoot() });
+    await provider.acceptUpload(token, { type: file.type, bytes: Buffer.from(await file.arrayBuffer()) });
+    return Response.json({ ok: true }, { headers });
+  } catch (error) {
+    const status = error instanceof LocalUploadError || error instanceof AccountError ? error.status : 503;
+    return Response.json({ ok: false, error: { status, message: error instanceof LocalUploadError ? error.message : 'Photo upload failed.' } }, { status, headers });
+  }
 }

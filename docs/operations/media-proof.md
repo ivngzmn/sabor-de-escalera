@@ -1,6 +1,20 @@
 # Private media proof and release gate
 
-Status: **BLOCKED for live uploads and delivery**. `mediaReadiness().enabled` is deliberately false in server code, regardless of environment variables. No ImageKit account, API key, paid feature, deployment or live upload was provisioned. HEIC is not advertised or accepted. Local tests verify application contracts only; provider doubles are not privacy, conversion or quality evidence.
+Status: **BLOCKED for live ImageKit uploads and delivery** until the owner runs the proof below on their account. Uploads are off unless `MEDIA_PROVIDER` is set:
+
+- `MEDIA_PROVIDER=local` stores bounded, metadata-free WebP files under `.media-local/` (gitignored) so the whole upload, attach and delivery flow runs in development. It is refused when `NODE_ENV=production` or on Vercel. Local files prove application behaviour only, never ImageKit privacy.
+- `MEDIA_PROVIDER=imagekit` additionally needs the three ImageKit variables and `MEDIA_LIVE_PROOF_PASSED=YYYY-MM-DD`, the date the owner completed the runbook below. Keys alone never enable uploads.
+
+HEIC is not advertised or accepted. Local tests verify application contracts only; provider doubles are not privacy, conversion or quality evidence.
+
+## Owner runbook: proving ImageKit
+
+1. Create a free ImageKit account and turn on **Restrict unsigned image URLs** in its security settings. Generate the keys yourself; never paste them into chat, issues or commits.
+2. Put `IMAGEKIT_PUBLIC_KEY`, `IMAGEKIT_PRIVATE_KEY` and `IMAGEKIT_URL_ENDPOINT` in your private `.env` (or export them in your own terminal).
+3. Run `pnpm media:proof` (add `--large` once to send a 21 MB file). It uploads a rotated JPEG with GPS/camera metadata and checks: upload accepted; stored file private, upright, ≤2400 px, ≤2 MB WebP with no metadata; every delivery variant metadata-free; unsigned original, unsigned transform, built-in named thumbnails and expired signatures refused; token replay, changed signed fields, added unsigned fields, forged signature and SVG refused; deletion purge completes and every warmed variant stops serving. It deletes what it uploaded and prints PASS/FAIL per check with no keys or URLs.
+4. Still check by hand: visual quality and stored bytes on a handful of real phone photos, and the free-plan storage/delivery quota on the account dashboard.
+5. When every check passes, record the date and results under *Live evidence* below, then set `MEDIA_PROVIDER=imagekit` and `MEDIA_LIVE_PROOF_PASSED=<that date>` in the deployment environment. Unset it again if a later run fails.
+
 
 ## Implemented boundary
 
@@ -18,13 +32,43 @@ Avatar replacement validates ownership/purpose, updates the member and reference
 
 `media_references` is the source of liveness for recipe/cooking/avatar assets. Content services must lock asset rows, verify actor ownership, purpose and `ready` state, and write references in the same transaction as content. Deleting/hidden/deleted assets cannot be attached. Saved draft references never expire. Call `disposeUnusedAsset` only after committed removal/replacement; it rechecks references under an asset lock and changes state before contacting the provider. It is an internal server operation, not a public arbitrary-ID endpoint. Expired grant objects and abandoned unattached assets require a separate bounded reconciliation job. Candidate policy: after 24 hours, lock and recheck absence of references before tombstoning an unattached asset; for incomplete intents, resolve only the exact server-selected private path and queue provider deletion without downloading rejected bytes. Use bounded batches, retry transient errors and retain audit/tombstone evidence. Never expire saved draft references. This job is a later lifecycle task, not enabled here.
 
-The owner endpoint serves private derivatives through a same-origin no-store proxy. Task 5 also provides a public recipe proxy, documented in `recipe-editor.md`, which checks the intended reference and current publication state before and after provider transport. Fixed variants: thumb 320×240, card 640×480, gallery ≤1600×1600, avatar 256×256. Original/raw variants and arbitrary transforms are rejected. Bytes are bounded and decoded again; no ImageKit delivery URLs or signed URLs leave the server. Every public-content endpoint must independently query an active public reference and current recipe/profile visibility before each delivery; caller-provided visibility is never authority. Hiding must commit an asset/content denial before asynchronous cache work. Do not expose public delivery merely because an asset exists or belongs to a published contributor.
+The owner endpoint serves private derivatives through a same-origin proxy. Successful responses are `private, no-cache` with an ETag: asset ids never change their contents, so the browser keeps the bytes, but it must ask on every use. The owner check runs before a 304 confirms the copy, so signing out or losing access stops it, without any provider request. Public recipe photos and avatars are `private, max-age=300`, so hiding or removing one reaches a viewer who already loaded it within five minutes. Nothing is shared-cacheable, and errors stay `no-store`. Task 5 also provides a public recipe proxy, documented in `recipe-editor.md`, which checks the intended reference and current publication state before and after provider transport. Fixed variants: thumb 320×240, card 640×480, gallery ≤1600×1600, avatar 256×256. Original/raw variants and arbitrary transforms are rejected. Bytes are bounded and decoded again; no ImageKit delivery URLs or signed URLs leave the server. Every public-content endpoint must independently query an active public reference and current recipe/profile visibility before each delivery; caller-provided visibility is never authority. Hiding must commit an asset/content denial before asynchronous cache work. Do not expose public delivery merely because an asset exists or belongs to a published contributor.
 
 The 2 MB response cap is below Vercel's documented 4.5 MB function payload limit, but the proxy consumes function execution, outbound transfer and ImageKit delivery quota. Sharp native Linux execution on the deployed target, cold starts, latency and free capacity remain unverified. This design makes no capacity guarantee. Public caching requires a reviewed invalidation design in later content work.
 
+## Live run: November 2, 2026 (owner's free ImageKit account)
+
+`pnpm media:proof --large` passed all 18 checks.
+
+| Area | Result |
+| --- | --- |
+| Signed V2 upload | Accepted |
+| Stored original | A rotated 1800×1200 JPEG with GPS and camera tags was stored upright at 1200×1800, 27 KB, with no EXIF, GPS, XMP, ICC or orientation tag |
+| Delivery variants | thumb 320×240, card 640×480, gallery 1067×1600, avatar 256×256: all WebP with no metadata |
+| Unsigned access | Original, transformed URL, built-in named transforms (`ik_ml_thumbnail`, `media_library_thumbnail`) and expired signatures: all 401 |
+| Tampered uploads | Token replay, a changed signed field, an added unsigned field, a forged signature and SVG content: all 400 |
+| Deletion | Delete plus purge completed, and every warmed variant then stopped serving |
+
+The run also showed four ways ImageKit differs from what the original design assumed. Each is now handled in code:
+
+- **Token payload.** It must contain exactly the strings sent in the form: `true` must be signed as `"true"`. `grant()` now signs and returns the string form.
+- **Empty `extensions` list.** ImageKit rejects it, so the field is omitted, which runs no extensions. `tags` is omitted too.
+- **Format.** The pre-transform resizes to the 2400 px cap and strips metadata, but keeps JPEG as JPEG. PNG was stored as WebP. Stored originals may therefore be JPEG, PNG or WebP; every delivered variant is WebP.
+- **Search lag.** ImageKit's file search shows a new upload only after a few seconds (3 to 15 observed). Completion now looks the file up by the `fileId` from the upload response, accepted only when ImageKit reports it at the exact server-chosen private path. Path search is the fallback.
+
+- **Re-encoded originals.** ImageKit re-encodes even an untransformed signed URL: 942 bytes stored came back as 5,904. The server compares the two, so every completion failed until it began downloading with `tr:orig-true`. The proof script now checks for this too. A profile photo was then uploaded, saved and served end to end in the signed-in app (November 2), and removed again.
+
+**Known limit: the 20 MB input rule.** ImageKit evaluates upload `checks` after the pre-transform, so a 21.6 MB PNG passed the size check after shrinking to 3 MB. The uploader and the server's upload request (which declares the file size) both enforce 20 MB, but a tampered client can still push a larger file to ImageKit. It cannot become an asset: anything over the 2 MB stored bound is refused at completion. It can leave an orphaned file in ImageKit until the orphan cleanup job exists. Uploads are rate-limited to 30 per hour and 100 per day per member.
+
+**Still for the owner before setting `MEDIA_LIVE_PROOF_PASSED`:**
+- Check visual quality and stored bytes on several real phone photos.
+- Confirm the free-plan storage and delivery quota on the dashboard.
+
+HEIC stays denied.
+
 ## Live evidence required before changing the gate
 
-All are BLOCKED pending private provider configuration and owner-authorized provisioning:
+No live run recorded yet. `scripts/media-proof.ts` automates the checks below except HEIC, visual quality and quota; all remain BLOCKED until the owner records a passing run here:
 
 - Actual 20 MB JPEG/PNG/WebP upload through browser direct transport; reject >20 MB before storage, MIME spoofing, corrupt data, SVG and animated payloads. Establish decimal MB behavior.
 - Actual HEIC conversion with portrait/landscape EXIF rotations, GPS tags and difficult color/alpha/detail samples. HEIC remains denied until this passes and API/migration acceptance is deliberately changed.

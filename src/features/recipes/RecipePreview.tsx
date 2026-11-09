@@ -8,6 +8,9 @@ import {
   type RecipeInput,
   type Origin,
 } from "./validation";
+import type { PhotoCredit } from "./catalog";
+import { originLabel } from "./origin-label";
+import { photoCreditText } from "./photo-credit";
 export default function RecipePreview({
   input,
   id,
@@ -16,6 +19,8 @@ export default function RecipePreview({
   published = false,
   onOpenPhoto,
   servings,
+  credits = {},
+  titleAs: Title = "h1",
 }: {
   input: RecipeInput;
   id: string;
@@ -26,13 +31,18 @@ export default function RecipePreview({
   onOpenPhoto?: (index: number) => void;
   /** Reader-only: the chosen servings, shown on screen and in print. */
   servings?: { current: number; original: number };
+  /** Photo credits keyed by asset id; shown under each photo and in print. */
+  credits?: Record<string, PhotoCredit>;
+  /** h2 when the page already has its own h1, as on admin review pages. */
+  titleAs?: "h1" | "h2";
 }) {
   const t = (en: string, es: string) => (spanish ? es : en);
   // Published badges open Discover filtered to that category or origin.
   const discover = (key: string, value: string) =>
     `/?${new URLSearchParams({ [key]: value, ...(spanish ? { lang: "es" } : {}) })}`;
   const category = categories.find((c) => c.id === input.category)?.[spanish ? "es" : "en"];
-  const origin = origins.find((o) => o.id === input.origin)?.[spanish ? "label_es" : "label_en"];
+  const found = origins.find((o) => o.id === input.origin);
+  const origin = found && originLabel(found, spanish ? "es" : "en");
   return (
     <article className="recipe-preview">
       <div className="flex flex-wrap items-center gap-2">
@@ -41,17 +51,17 @@ export default function RecipePreview({
             <a href={discover("category", input.category)}>{category}</a>
           </Badge>
         ) : (
-          <Badge variant="tag">{category}</Badge>
+          category && <Badge variant="tag">{category}</Badge>
         )}
         {published && origin ? (
           <Badge variant="region" asChild>
             <a href={discover("origin", input.origin)}>{origin}</a>
           </Badge>
         ) : (
-          <Badge variant="region">{origin}</Badge>
+          origin && <Badge variant="region">{origin}</Badge>
         )}
       </div>
-      <h1>{input.title || t("Untitled recipe", "Receta sin título")}</h1>
+      <Title className={Title === "h2" ? "mt-2 mb-4 text-[clamp(2.25rem,2.5vw+1.25rem,3rem)] leading-[1.17]" : undefined}>{input.title || t("Untitled recipe", "Receta sin título")}</Title>
       <p>
         {t("Original language", "Idioma original")}:{" "}
         {input.language === "es" ? "Español" : "English"}
@@ -107,7 +117,12 @@ export default function RecipePreview({
                 }
               />
             </div>
-            <figcaption>{p.caption}</figcaption>
+            <figcaption>
+              {p.caption}
+              {credits[p.assetId] && (
+                <span className="photo-credit">{photoCreditText(credits[p.assetId], spanish ? "es" : "en")}</span>
+              )}
+            </figcaption>
             {onOpenPhoto ? (
               <button type="button" className="gallery-open" onClick={() => onOpenPhoto(i)}>
                 {t("View larger photo", "Ver foto más grande")}
