@@ -46,11 +46,11 @@ function FilterSelectChip({
   return (
     <div
       data-slot="filter-select-chip"
-      className={cn(chipBase, "focus-within:ring-[3px] focus-within:ring-ring", active ? chipActive : chipIdle, className)}
+      className={cn(chipBase, "has-[select:focus-visible]:ring-[3px] has-[select:focus-visible]:ring-ring", active ? chipActive : chipIdle, className)}
     >
       <span className="max-w-40 truncate">{valueLabel ?? label}</span>
       <ChevronDownIcon aria-hidden="true" className="size-4 shrink-0" />
-      <select aria-label={label} className="absolute -inset-y-0.5 inset-x-0 cursor-pointer opacity-0" {...props}>
+      <select aria-label={valueLabel && valueLabel !== label ? `${label}: ${valueLabel}` : label} className="absolute -inset-y-0.5 inset-x-0 cursor-pointer opacity-0" {...props}>
         {children}
       </select>
     </div>

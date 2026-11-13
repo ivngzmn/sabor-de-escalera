@@ -52,7 +52,7 @@ Ivan picked B, plus a Yelp-style "All" chip that slides out a panel with every f
 
 ## Decided
 
-- ▾ chips are native `<select>`s laid invisibly over a pill that shows the label and chevron. Native lists keep keyboard, screen-reader and mobile pickers working and need no new dependency. Each select gets an `aria-label` ("Origin") and its first option reads "Any origin" / "Cualquier origen" (likewise for time and diet).
+- ▾ chips are native `<select>`s laid invisibly over a pill that shows the label and chevron. Native lists keep keyboard, screen-reader and mobile pickers working and need no new dependency. Each select gets an `aria-label` that keeps the visible value ("Origin: México", or just "Origin" while nothing is chosen), so voice control matches the text on screen (WCAG 2.5.3) and its first option reads "Any origin" / "Cualquier origen" (likewise for time and diet).
 - The selects gain `name` attributes (`origin`, `time`, `diet`, `sort`) so the no-JS GET carries every filter, not just `q` and `category` as today.
 - Category chips stay submit buttons, so no-JS category filtering keeps working.
 - Built as small reusable pieces in `src/components/ui/`: a search-field wrapper, a `FilterChip` (button and select variants) and a shadcn-style left `Sheet` and a `SegmentedControl`, on the Radix Dialog and radio-group primitives already installed. No new dependency.

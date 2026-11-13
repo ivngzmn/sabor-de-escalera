@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FilterChip, FilterSelectChip } from "@/components/ui/filter-chip";
@@ -307,6 +307,8 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
     const o = origins.find((x) => x.id === id);
     return o ? labelFor(o, language) : undefined;
   };
+  // A real link, so clearing works before hydration and without JavaScript; "?" alone drops the query string.
+  const clearHref = `?${new URLSearchParams([...new URLSearchParams(toDiscoverSearch(clearFilters(params))), ...(language === "es" ? [["lang", "es"]] : [])])}`;
   const sortValue = params.sort ?? defaultSort(params);
   // Plain browsing leads with the newest recipe as a wide card; searches and filters stay a uniform grid.
   const featureFirst = !scope && toDiscoverSearch(params) === "" && items.length >= 4;
@@ -336,7 +338,17 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
           </Button>
         </SearchField>
         <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 py-1 md:flex-wrap md:overflow-visible">
-          {hydrated && <FilterPanel params={params} origins={origins} language={language} onApply={(next) => void replace(next)} />}
+          <FilterPanel
+            params={params}
+            origins={origins}
+            language={language}
+            onApply={(next) => {
+              // The draft was copied from `params`, which lags the typed text during the search debounce; the input is the source of truth.
+              const q = text.trim().slice(0, 100);
+              const { sort, ...rest } = next;
+              void replace({ ...rest, q: q || undefined, ...(sort && (q || sort !== "relevance") ? { sort } : {}) });
+            }}
+          />
           {/* Chips are submit buttons, so without JavaScript they still filter with a plain GET. */}
           <div role="group" aria-labelledby="filter-category-label" className="flex shrink-0 items-center gap-2">
             <span id="filter-category-label" className="sr-only">
@@ -417,9 +429,16 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
             ))}
           </FilterSelectChip>
           {activeFilterCount(params) > 0 && (
-            <Button type="button" variant="link" className="shrink-0" onClick={() => void replace(clearFilters(params))}>
+            <a
+              href={clearHref}
+              className={buttonVariants({ variant: "link", className: "shrink-0" })}
+              onClick={(e) => {
+                e.preventDefault();
+                void replace(clearFilters(params));
+              }}
+            >
               {t.clearFilters}
-            </Button>
+            </a>
           )}
         </div>
       </form>

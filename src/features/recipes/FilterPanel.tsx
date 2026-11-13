@@ -71,7 +71,7 @@ export function sortOptions(q?: string): CatalogSort[] {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="border-b border-border py-6">
+    <section className="border-b border-border py-6 last:border-b-0">
       <h3 className="mb-3 text-base font-semibold">{title}</h3>
       {children}
     </section>
@@ -106,7 +106,7 @@ export default function FilterPanel({
   return (
     <Sheet open={open} onOpenChange={change}>
       <SheetTrigger asChild>
-        <FilterChip active={count > 0}>
+        <FilterChip active={count > 0} aria-pressed={undefined} data-js-only>
           <MixerHorizontalIcon aria-hidden="true" className="size-4" />
           {count > 0 ? t.filtersCount(count) : t.filters}
         </FilterChip>
@@ -164,20 +164,22 @@ export default function FilterPanel({
               </FilterChip>
             </div>
           </Section>
-          <Section title={t.origin}>
-            <NativeSelect
-              aria-label={t.origin}
-              value={draft.origin ?? ""}
-              onChange={(event) => set({ origin: event.target.value || undefined })}
-            >
-              <NativeSelectOption value="">{t.anyOrigin}</NativeSelectOption>
-              {origins.map((origin) => (
-                <NativeSelectOption key={origin.id} value={origin.id}>
-                  {labelFor(origin, language)}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          </Section>
+          {origins.length > 0 && (
+            <Section title={t.origin}>
+              <NativeSelect
+                aria-label={t.origin}
+                value={draft.origin ?? ""}
+                onChange={(event) => set({ origin: event.target.value || undefined })}
+              >
+                <NativeSelectOption value="">{t.anyOrigin}</NativeSelectOption>
+                {origins.map((origin) => (
+                  <NativeSelectOption key={origin.id} value={origin.id}>
+                    {labelFor(origin, language)}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </Section>
+          )}
           <Section title={t.sort}>
             <div className="flex flex-wrap gap-2">
               {sortOptions(draft.q).map((option) => (

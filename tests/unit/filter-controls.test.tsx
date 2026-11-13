@@ -18,7 +18,7 @@ test("select chip names its select, shows the value when set, and truncates long
       <option value="do">República Dominicana</option>
     </FilterSelectChip>,
   );
-  expect(html).toContain('aria-label="Origin"');
+  expect(html).toContain('aria-label="Origin: República Dominicana"');
   expect(html).toContain('name="origin"');
   expect(html).toMatch(/<select[^>]*-inset-y-0\.5/);
   expect(html).toMatch(/max-w-40 truncate[^>]*>República Dominicana/);
@@ -29,6 +29,15 @@ test("select chip names its select, shows the value when set, and truncates long
       </FilterSelectChip>,
     ),
   ).toMatch(/>Origin</);
+});
+
+test("select chip keeps the visible value in its accessible name", () => {
+  const html = renderToStaticMarkup(
+    <FilterSelectChip label="Origin" valueLabel="México" active value="mx" onChange={() => {}}>
+      <option value="mx">México</option>
+    </FilterSelectChip>,
+  );
+  expect(html).toMatch(/aria-label="[^"]*México[^"]*"/);
 });
 
 test("segmented control is a labelled radio group with one checked segment", () => {

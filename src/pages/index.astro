@@ -36,6 +36,7 @@ const signInBase = signInHref(`${Astro.url.pathname}${Astro.url.search}`, accoun
       </div>
       <a href={href('/add-recipe')} data-slot="button" class={buttonVariants({ variant: 'outline' })}>{spanish ? 'Compartir tu receta' : 'Share your recipe'}</a>
     </header>
+    <noscript><style>[data-js-only]{display:none}</style></noscript>
     <DiscoverFeed client:load initial={initial} params={params} language={language} origins={origins} signInBase={signInBase} />
   </section>
 </AppLayout>

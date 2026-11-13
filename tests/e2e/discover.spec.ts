@@ -25,14 +25,14 @@ test('discover filters are chips and a panel that update the URL', async ({ page
   await expect(page).toHaveURL(/diet=vegan/);
   await page.getByLabel('Sort by').selectOption('rated');
   await expect(page).toHaveURL(/sort=rated/);
-  await page.getByRole('button', { name: 'Clear filters' }).click();
+  await page.getByRole('link', { name: 'Clear filters' }).click();
   await expect(page).toHaveURL(/\/\?sort=rated$/);
 });
 
 test('clear filters keeps the search text', async ({ page }) => {
   await page.goto('/?q=flan&diet=vegan');
   await page.locator('form[data-hydrated]').waitFor();
-  await page.getByRole('button', { name: 'Clear filters' }).click();
+  await page.getByRole('link', { name: 'Clear filters' }).click();
   await expect(page).toHaveURL(/\?q=flan$/);
 });
 
@@ -56,6 +56,14 @@ test('the filter panel applies on confirm and discards on escape or cancel', asy
   await panel.getByRole('button', { name: 'Cancel' }).click();
   await expect(panel).toBeHidden();
   await expect(page).not.toHaveURL(/time=/);
+  await expect(trigger).toBeFocused();
+  // Clicking the backdrop discards too.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await trigger.click();
+  await panel.getByRole('radio', { name: '2 h' }).click();
+  await page.mouse.click(1000, 400);
+  await expect(panel).toBeHidden();
+  await expect(page).not.toHaveURL(/time=/);
   // Apply applies.
   await trigger.click();
   await panel.getByRole('radio', { name: '1 h' }).click();
@@ -63,6 +71,7 @@ test('the filter panel applies on confirm and discards on escape or cancel', asy
   await panel.getByRole('button', { name: 'Apply filters' }).click();
   await expect(page).toHaveURL(/time=60&diet=vegan|diet=vegan.*time=60|time=60.*diet=vegan/);
   await expect(page.getByRole('button', { name: 'Filters · 2' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^filters/i })).toBeFocused();
   await page.goto('/?lang=es');
   await page.locator('form[data-hydrated]').waitFor();
   await page.getByRole('button', { name: /^filtros/i }).click();
