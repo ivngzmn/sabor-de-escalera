@@ -38,3 +38,16 @@ export function toDiscoverSearch(params: DiscoverParams): string {
   if (params.sort && params.sort !== defaultSort(params)) out.set("sort", params.sort);
   return out.toString();
 }
+
+/** How many filters (category, origin, time, diet) are set; the search text and sort are not filters. */
+export function activeFilterCount(params: DiscoverParams): number {
+  return [params.category, params.origin, params.maxMinutes, params.diet].filter(Boolean).length;
+}
+
+/** Drops every filter but keeps the search text and a non-default sort. */
+export function clearFilters(params: DiscoverParams): DiscoverParams {
+  const out: DiscoverParams = {};
+  if (params.q) out.q = params.q;
+  if (params.sort && params.sort !== defaultSort(params)) out.sort = params.sort;
+  return out;
+}
