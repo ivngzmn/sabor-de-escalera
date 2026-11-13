@@ -27,24 +27,16 @@ try {
 const signInBase = signInHref(`${Astro.url.pathname}${Astro.url.search}`, accountConfiguration()?.origin ?? Astro.url.origin);
 ---
 <AppLayout title={spanish ? 'Descubrir' : 'Discover'}>
-  <section class="grid items-center gap-8 overflow-hidden rounded-xl border border-border bg-muted p-6 shadow-sm md:p-10 lg:grid-cols-[1.1fr_1fr] lg:gap-12">
-    <div class="flex flex-col items-start gap-2">
-      <Badge variant="eyebrow">{spanish ? 'Recetario comunitario' : 'Community cookbook'}</Badge>
-      <h1>{spanish ? 'Sabores que nos unen.' : 'Flavors that bring us together.'}</h1>
-      <p class="intro">{spanish ? 'Un lugar para compartir recetas e historias, y cocinar juntos.' : 'A place to share recipes and stories, and cook together.'}</p>
-      <div class="mt-4 flex flex-wrap gap-3">
-        <a href="#recipes-heading" data-slot="button" class={buttonVariants()}>{spanish ? 'Explorar recetas' : 'Explore recipes'}</a>
-        <a href={href('/add-recipe')} data-slot="button" class={buttonVariants({ variant: 'outline' })}>{spanish ? 'Compartir tu receta' : 'Share your recipe'}</a>
+  <section aria-labelledby="recipes-heading" class="flex flex-col gap-6">
+    <header class="flex flex-wrap items-end justify-between gap-4">
+      <div class="flex flex-col items-start gap-2">
+        <Badge variant="eyebrow">{spanish ? 'Nuestra mesa compartida' : 'Our shared table'}</Badge>
+        <h1 id="recipes-heading" class="m-0">{spanish ? 'Descubre recetas' : 'Discover recipes'}</h1>
+        <p class="m-0 text-muted-foreground">{spanish ? 'Recetas e historias de nuestra comunidad, listas para cocinar juntos.' : 'Recipes and stories from our community, ready to cook together.'}</p>
       </div>
-    </div>
-    <figure class="m-0 flex flex-col justify-end gap-3 rounded-xl bg-primary p-8 text-primary-foreground shadow-md md:min-h-72 md:p-10">
-      <blockquote class="m-0 type-headline-lg">“{spanish ? 'Donde come uno, comen dos.' : 'Where one can eat, two can eat.'}”</blockquote>
-      <figcaption class="type-label-sm text-primary-foreground">{spanish ? 'Refrán tradicional' : 'Traditional proverb'}</figcaption>
-    </figure>
-  </section>
-  <section aria-labelledby="recipes-heading" class="mt-14 flex flex-col gap-4">
-    <Badge variant="eyebrow">{spanish ? 'Nuestra mesa compartida' : 'Our shared table'}</Badge>
-    <h2 id="recipes-heading" class="m-0">{spanish ? 'Descubre recetas' : 'Discover recipes'}</h2>
+      <a href={href('/add-recipe')} data-slot="button" class={buttonVariants({ variant: 'outline' })}>{spanish ? 'Compartir tu receta' : 'Share your recipe'}</a>
+    </header>
+    <noscript><style>[data-js-only]{display:none}</style></noscript>
     <DiscoverFeed client:load initial={initial} params={params} language={language} origins={origins} signInBase={signInBase} />
   </section>
 </AppLayout>

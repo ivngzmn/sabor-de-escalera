@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "@astrojs/react": "7.1.2",
-    "@astrojs/vercel": "11.0.13",
+    "@astrojs/vercel": "11.0.14",
     "@clerk/astro": "4.1.12",
     "@fontsource/playfair-display": "5.3.0",
     "@fontsource/plus-jakarta-sans": "5.3.0",

@@ -26,10 +26,11 @@
 :root {
   color-scheme: light;
   /* Stitch "Warm Editorial Heritage" palette (Sabor Escalera Recipes project). */
-  --color-cream: #fff8f5;
+  /* Warm linen canvas: a step below white so cards, inputs and outline buttons stand apart. */
+  --color-cream: #f6eee5;
   --color-surface: #ffffff;
-  --color-warm: #fff1e8;
-  --color-warm-strong: #feeadd;
+  --color-warm: #eee3d6;
+  --color-warm-strong: #e7d8c8;
   --color-terracotta: #a6331b;
   --color-terracotta-fill: #c84b31;
   --color-chili: #b22222;

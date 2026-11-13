@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { parseDiscoverParams, toDiscoverSearch } from "../../src/features/recipes/discover-state";
+import { activeFilterCount, clearFilters, parseDiscoverParams, toDiscoverSearch } from "../../src/features/recipes/discover-state";
 
 const roundTrip = (search: string) => toDiscoverSearch(parseDiscoverParams(new URLSearchParams(search)));
 
@@ -18,4 +18,15 @@ test("defaults are omitted and depend on whether there is a search", () => {
 test("unknown or unsafe values are dropped", () => {
   expect(roundTrip("category=snacks&time=45&diet=keto&sort=random&origin=%3Cscript%3E")).toBe("");
   expect(parseDiscoverParams(new URLSearchParams(`q=${"a".repeat(500)}`)).q).toHaveLength(100);
+});
+
+test("active filters count category, origin, time and diet only", () => {
+  expect(activeFilterCount({})).toBe(0);
+  expect(activeFilterCount({ q: "flan", sort: "rated" })).toBe(0);
+  expect(activeFilterCount({ category: "desserts", origin: "mexico", maxMinutes: 30, diet: "vegan" })).toBe(4);
+});
+
+test("clearing filters keeps the search and a non-default sort", () => {
+  expect(clearFilters({ q: "flan", category: "desserts", diet: "vegan", sort: "rated" })).toEqual({ q: "flan", sort: "rated" });
+  expect(clearFilters({ category: "main", sort: "newest" })).toEqual({});
 });
