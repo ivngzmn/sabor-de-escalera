@@ -20,6 +20,7 @@ test("select chip names its select, shows the value when set, and truncates long
   );
   expect(html).toContain('aria-label="Origin"');
   expect(html).toContain('name="origin"');
+  expect(html).toMatch(/<select[^>]*-inset-y-0\.5/);
   expect(html).toMatch(/max-w-40 truncate[^>]*>República Dominicana/);
   expect(
     renderToStaticMarkup(

@@ -50,7 +50,7 @@ function FilterSelectChip({
     >
       <span className="max-w-40 truncate">{valueLabel ?? label}</span>
       <ChevronDownIcon aria-hidden="true" className="size-4 shrink-0" />
-      <select aria-label={label} className="absolute inset-0 cursor-pointer opacity-0" {...props}>
+      <select aria-label={label} className="absolute -inset-y-0.5 inset-x-0 cursor-pointer opacity-0" {...props}>
         {children}
       </select>
     </div>
