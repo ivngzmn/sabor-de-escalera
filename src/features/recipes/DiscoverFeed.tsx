@@ -4,9 +4,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { FilterChip, FilterSelectChip } from "@/components/ui/filter-chip";
+import { SearchField } from "@/components/ui/search-field";
 import type { CatalogPage, RecipeCard as CardData } from "./catalog";
-import { defaultSort, toDiscoverSearch, type DiscoverParams } from "./discover-state";
+import { activeFilterCount, clearFilters, defaultSort, toDiscoverSearch, type DiscoverParams } from "./discover-state";
+import FilterPanel, { sortOptions } from "./FilterPanel";
 import { favoriteIntentFrom } from "./draft-intent";
 import { originLabel as labelFor } from "./origin-label";
 import RecipeCard from "./RecipeCard";
@@ -22,9 +24,12 @@ const copy = {
     time: "Total time",
     diet: "Dietary",
     sort: "Sort by",
-    any: "Any",
     all: "All",
-    more: "More filters",
+    timeChip: "Time",
+    clearFilters: "Clear filters",
+    anyOrigin: "Any origin",
+    anyTime: "Any time",
+    anyDiet: "Any diet",
     upTo: (m: number) => (m < 60 ? `Up to ${m} min` : `Up to ${m / 60} h`),
     vegan: "Vegan",
     vegetarian: "Vegetarian",
@@ -52,9 +57,12 @@ const copy = {
     time: "Tiempo total",
     diet: "Dieta",
     sort: "Ordenar por",
-    any: "Cualquiera",
     all: "Todas",
-    more: "Más filtros",
+    timeChip: "Tiempo",
+    clearFilters: "Borrar filtros",
+    anyOrigin: "Cualquier origen",
+    anyTime: "Cualquier tiempo",
+    anyDiet: "Cualquier dieta",
     upTo: (m: number) => (m < 60 ? `Hasta ${m} min` : `Hasta ${m / 60} h`),
     vegan: "Vegana",
     vegetarian: "Vegetariana",
@@ -302,125 +310,120 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
     return o ? labelFor(o, language) : undefined;
   };
   const sortValue = params.sort ?? defaultSort(params);
-  const filterClass = "flex min-w-36 flex-1 flex-col gap-1.5 sm:max-w-60";
-  const refinements = [params.origin, params.maxMinutes, params.diet].filter(Boolean).length;
   // Plain browsing leads with the newest recipe as a wide card; searches and filters stay a uniform grid.
   const featureFirst = !scope && toDiscoverSearch(params) === "" && items.length >= 4;
 
   return (
     <div className="flex flex-col gap-6">
       {/* Without JavaScript the form still submits ?q= as a plain GET search. */}
-      <form role="search" method="get" onSubmit={submit} data-hydrated={hydrated || undefined} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="recipe-search" className="sr-only">
-            {t.search}
-          </Label>
-          <div className="flex gap-2">
-            <Input
-              id="recipe-search"
-              name="q"
-              type="search"
-              value={text}
-              maxLength={100}
-              placeholder={t.searchHint}
-              onChange={(e) => setText(e.target.value)}
-              autoComplete="off"
-            />
-            <Button type="submit" className="min-h-11">
-              <MagnifyingGlassIcon aria-hidden="true" />
-              {t.submit}
-            </Button>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-end justify-between gap-3">
+      <form role="search" method="get" onSubmit={submit} data-hydrated={hydrated || undefined} className="flex flex-col gap-3">
+        <Label htmlFor="recipe-search" className="sr-only">
+          {t.search}
+        </Label>
+        <SearchField>
+          <Input
+            id="recipe-search"
+            name="q"
+            type="search"
+            value={text}
+            maxLength={100}
+            placeholder={t.searchHint}
+            onChange={(e) => setText(e.target.value)}
+            autoComplete="off"
+            className="border-0 bg-transparent text-base shadow-none focus-visible:ring-0"
+          />
+          <Button type="submit" className="min-h-11 self-center">
+            <MagnifyingGlassIcon aria-hidden="true" />
+            <span className="max-[399px]:sr-only">{t.submit}</span>
+          </Button>
+        </SearchField>
+        <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 py-1 md:flex-wrap md:overflow-visible">
+          {hydrated && <FilterPanel params={params} origins={origins} language={language} onApply={(next) => void replace(next)} />}
           {/* Chips are submit buttons, so without JavaScript they still filter with a plain GET. */}
-          <div role="group" aria-labelledby="filter-category-label" className="flex min-w-0 basis-full flex-col gap-1.5 md:basis-auto md:flex-1">
+          <div role="group" aria-labelledby="filter-category-label" className="flex shrink-0 items-center gap-2">
             <span id="filter-category-label" className="sr-only">
               {t.category}
             </span>
-            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 py-1">
-              {[{ id: "", en: t.all, es: t.all }, ...categories].map((c) => {
-                const active = (params.category ?? "") === c.id;
-                return (
-                  <Button
-                    key={c.id || "all"}
-                    type="submit"
-                    name="category"
-                    value={c.id}
-                    size="sm"
-                    variant={active ? "default" : "outline"}
-                    aria-pressed={active}
-                    className="shrink-0 rounded-full"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      set({ category: c.id || undefined });
-                    }}
-                  >
-                    {language === "es" ? c.es : c.en}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="filter-sort" className="shrink-0 text-sm text-muted-foreground">
-              {t.sort}
-            </Label>
-            <NativeSelect id="filter-sort" value={sortValue} onChange={(e) => set({ sort: e.target.value as DiscoverParams["sort"] })}>
-              {(["relevance", "newest", "rated", "saved"] as const)
-                .filter((s) => s !== "relevance" || params.q)
-                .map((s) => (
-                  <NativeSelectOption key={s} value={s}>
-                    {t.sorts[s]}
-                  </NativeSelectOption>
-                ))}
-            </NativeSelect>
-          </div>
-        </div>
-        <details open={refinements > 0 || undefined} className="group/more">
-          <summary className="w-fit cursor-pointer text-sm font-semibold text-primary-ink">
-            {t.more}
-            {refinements > 0 && ` (${refinements})`}
-          </summary>
-          <div className="mt-3 flex flex-wrap gap-3">
-            {origins.length > 0 && (
-              <div className={filterClass}>
-                <Label htmlFor="filter-origin">{t.origin}</Label>
-                <NativeSelect id="filter-origin" value={params.origin ?? ""} onChange={(e) => set({ origin: e.target.value || undefined })}>
-                  <NativeSelectOption value="">{t.any}</NativeSelectOption>
-                  {origins.map((o) => (
-                    <NativeSelectOption key={o.id} value={o.id}>
-                      {labelFor(o, language)}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-              </div>
-            )}
-            <div className={filterClass}>
-              <Label htmlFor="filter-time">{t.time}</Label>
-              <NativeSelect
-                id="filter-time"
-                value={params.maxMinutes ?? ""}
-                onChange={(e) => set({ maxMinutes: (Number(e.target.value) || undefined) as DiscoverParams["maxMinutes"] })}
+            {[{ id: "", en: t.all, es: t.all }, ...categories].map((c) => (
+              <FilterChip
+                key={c.id || "all"}
+                type="submit"
+                name="category"
+                value={c.id}
+                active={(params.category ?? "") === c.id}
+                onClick={(e) => {
+                  e.preventDefault();
+                  set({ category: c.id || undefined });
+                }}
               >
-                <NativeSelectOption value="">{t.any}</NativeSelectOption>
-                {([30, 60, 120] as const).map((m) => (
-                  <NativeSelectOption key={m} value={m}>
-                    {t.upTo(m)}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </div>
-            <div className={filterClass}>
-              <Label htmlFor="filter-diet">{t.diet}</Label>
-              <NativeSelect id="filter-diet" value={params.diet ?? ""} onChange={(e) => set({ diet: (e.target.value || undefined) as DiscoverParams["diet"] })}>
-                <NativeSelectOption value="">{t.any}</NativeSelectOption>
-                <NativeSelectOption value="vegan">{t.vegan}</NativeSelectOption>
-                <NativeSelectOption value="vegetarian">{t.vegetarian}</NativeSelectOption>
-              </NativeSelect>
-            </div>
+                {language === "es" ? c.es : c.en}
+              </FilterChip>
+            ))}
           </div>
-        </details>
+          <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-border" />
+          {origins.length > 0 && (
+            <FilterSelectChip
+              name="origin"
+              label={t.origin}
+              valueLabel={originLabel(params.origin ?? null)}
+              active={Boolean(params.origin)}
+              value={params.origin ?? ""}
+              onChange={(e) => set({ origin: e.target.value || undefined })}
+            >
+              <option value="">{t.anyOrigin}</option>
+              {origins.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {labelFor(o, language)}
+                </option>
+              ))}
+            </FilterSelectChip>
+          )}
+          <FilterSelectChip
+            name="time"
+            label={t.timeChip}
+            valueLabel={params.maxMinutes ? t.upTo(params.maxMinutes) : undefined}
+            active={Boolean(params.maxMinutes)}
+            value={params.maxMinutes ?? ""}
+            onChange={(e) => set({ maxMinutes: (Number(e.target.value) || undefined) as DiscoverParams["maxMinutes"] })}
+          >
+            <option value="">{t.anyTime}</option>
+            {([30, 60, 120] as const).map((m) => (
+              <option key={m} value={m}>
+                {t.upTo(m)}
+              </option>
+            ))}
+          </FilterSelectChip>
+          <FilterSelectChip
+            name="diet"
+            label={t.diet}
+            valueLabel={params.diet ? t[params.diet] : undefined}
+            active={Boolean(params.diet)}
+            value={params.diet ?? ""}
+            onChange={(e) => set({ diet: (e.target.value || undefined) as DiscoverParams["diet"] })}
+          >
+            <option value="">{t.anyDiet}</option>
+            <option value="vegan">{t.vegan}</option>
+            <option value="vegetarian">{t.vegetarian}</option>
+          </FilterSelectChip>
+          <FilterSelectChip
+            name="sort"
+            label={t.sort}
+            valueLabel={t.sorts[sortValue]}
+            value={sortValue}
+            onChange={(e) => set({ sort: e.target.value as DiscoverParams["sort"] })}
+          >
+            {sortOptions(params.q).map((s) => (
+              <option key={s} value={s}>
+                {t.sorts[s]}
+              </option>
+            ))}
+          </FilterSelectChip>
+          {activeFilterCount(params) > 0 && (
+            <Button type="button" variant="link" className="shrink-0" onClick={() => void replace(clearFilters(params))}>
+              {t.clearFilters}
+            </Button>
+          )}
+        </div>
       </form>
 
       <p role="status" aria-live="polite" className="sr-only">
