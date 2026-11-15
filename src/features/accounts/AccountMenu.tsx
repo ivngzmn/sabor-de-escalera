@@ -187,54 +187,40 @@ export default function AccountMenu({
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         {me && !me.onboarded ? (
-          <DropdownMenuItem asChild>
-            <a href={href("/onboarding?returnTo=%2Fprofile")}>
-              <PersonIcon aria-hidden="true" />
-              {t.finish}
-            </a>
+          <DropdownMenuItem render={<a href={href("/onboarding?returnTo=%2Fprofile")} />}>
+            <PersonIcon aria-hidden="true" />
+            {t.finish}
           </DropdownMenuItem>
         ) : (
           <DropdownMenuGroup>
-            <DropdownMenuItem asChild>
-              <a href={href("/profile")}>
-                <PersonIcon aria-hidden="true" />
-                {t.profile}
-              </a>
+            <DropdownMenuItem render={<a href={href("/profile")} />}>
+              <PersonIcon aria-hidden="true" />
+              {t.profile}
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <a href={href("/profile/settings")}>
-                <Pencil1Icon aria-hidden="true" />
-                {t.edit}
-              </a>
+            <DropdownMenuItem render={<a href={href("/profile/settings")} />}>
+              <Pencil1Icon aria-hidden="true" />
+              {t.edit}
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <a href={href("/profile?tab=recipes")}>
-                <ReaderIcon aria-hidden="true" />
-                {t.recipes}
-              </a>
+            <DropdownMenuItem render={<a href={href("/profile?tab=recipes")} />}>
+              <ReaderIcon aria-hidden="true" />
+              {t.recipes}
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <a href={href("/profile?tab=drafts")}>
-                <FileTextIcon aria-hidden="true" />
-                {t.drafts}
-              </a>
+            <DropdownMenuItem render={<a href={href("/profile?tab=drafts")} />}>
+              <FileTextIcon aria-hidden="true" />
+              {t.drafts}
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <a href={href("/profile?tab=favorites")}>
-                <HeartIcon aria-hidden="true" />
-                {t.favorites}
-              </a>
+            <DropdownMenuItem render={<a href={href("/profile?tab=favorites")} />}>
+              <HeartIcon aria-hidden="true" />
+              {t.favorites}
             </DropdownMenuItem>
           </DropdownMenuGroup>
         )}
         {me && me.role !== "member" && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <a href={href("/admin")}>
-                <LockClosedIcon aria-hidden="true" />
-                {t.admin}
-              </a>
+            <DropdownMenuItem render={<a href={href("/admin")} />}>
+              <LockClosedIcon aria-hidden="true" />
+              {t.admin}
             </DropdownMenuItem>
           </>
         )}

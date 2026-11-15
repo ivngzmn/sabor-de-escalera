@@ -574,13 +574,20 @@ export default function RecipeEditor({
     const known = options.some((option) => option.value === value);
     return (
       <Select
-        value={known ? (value ?? "") : ""}
-        onValueChange={(next) => onChange(next === NONE_VALUE ? "" : next)}
+        items={
+          placeholder
+            ? [{ value: NONE_VALUE, label: placeholder }, ...options]
+            : options
+        }
+        value={known && value ? value : null}
+        onValueChange={(next: string | null) =>
+          onChange(next === null || next === NONE_VALUE ? "" : next)
+        }
       >
         <SelectTrigger className="w-full" {...controlProps(field)}>
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
-        <SelectContent position="popper">
+        <SelectContent>
           {placeholder && (
             <SelectItem value={NONE_VALUE}>{placeholder}</SelectItem>
           )}
