@@ -44,13 +44,13 @@ const t = spanish
 <AppLayout title={recipe?.input.title ?? (spanish ? 'Receta no disponible' : 'Recipe unavailable')}>
   {recipe ? (
     <>
-      <p class="m-0 mb-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+      <RecipeReader client:load id={recipe.id} url={recipe.url!} input={recipe.input} origins={origins} language={language} translation={translation} credits={photoCredits} />
+      <p class="m-0 mt-10 flex border-t pt-4 flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
         {credit && <span>{t.cookbook}{credit.contributor && ` · ${t.contributed} ${credit.contributor}`}{credit.originalAuthor && ` · ${t.original} ${credit.originalAuthor}`}</span>}
         {authorName && <span>{t.by} <a href={`/members/${recipe.ownerId}${spanish ? '?lang=es' : ''}`}>{authorName}</a></span>}
         <span>{t.published}: <time datetime={recipe.publishedAt!}>{date(recipe.publishedAt!)}</time></span>
         <span>{t.updated}: <time datetime={recipe.updatedAt}>{date(recipe.updatedAt)}</time></span>
       </p>
-      <RecipeReader client:load id={recipe.id} url={recipe.url!} input={recipe.input} origins={origins} language={language} translation={translation} credits={photoCredits} />
     </>
   ) : (
     <Empty className="rounded-xl border border-dashed border-input/40 bg-card/60"><EmptyHeader>

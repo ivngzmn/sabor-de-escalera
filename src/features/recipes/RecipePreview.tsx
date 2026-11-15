@@ -1,7 +1,7 @@
+import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
 import {
   categories,
   totalMinutes,
@@ -20,6 +20,7 @@ export default function RecipePreview({
   onOpenPhoto,
   servings,
   credits = {},
+  controls,
   titleAs: Title = "h1",
 }: {
   input: RecipeInput;
@@ -33,6 +34,8 @@ export default function RecipePreview({
   servings?: { current: number; original: number };
   /** Photo credits keyed by asset id; shown under each photo and in print. */
   credits?: Record<string, PhotoCredit>;
+  /** Reader-only: rendered between the photos and the ingredients. */
+  controls?: ReactNode;
   /** h2 when the page already has its own h1, as on admin review pages. */
   titleAs?: "h1" | "h2";
 }) {
@@ -85,25 +88,19 @@ export default function RecipePreview({
           {input.sourceCredit}
         </p>
       )}
-      {input.story && (
-        <div className="recipe-story">
-          <Badge variant="eyebrow">
-            {t("The story behind the dish", "La historia detrás del platillo")}
-          </Badge>
-          <p className="author-text">{input.story}</p>
-        </div>
-      )}
-      <Separator className="my-6" />
-      <div className="recipe-gallery">
-        {input.photos.map((p, i) => (
-          <figure key={p.assetId}>
-            <div className={cn(i === 0 && "cover-frame")}>
+      {input.photos.length > 0 && (
+        <ul className="recipe-gallery" aria-label={t("Photos", "Fotos")}>
+          {input.photos.map((p, i) => {
+            const full = published
+              ? `/api/recipes/${id}/photos/${p.assetId}?variant=gallery`
+              : `/api/media/${p.assetId}?variant=gallery`;
+            const thumb = published
+              ? `/api/recipes/${id}/photos/${p.assetId}?variant=card`
+              : `/api/media/${p.assetId}?variant=card`;
+            const label = `${t("View larger photo", "Ver foto más grande")}: ${p.caption}`;
+            const image = (
               <img
-                src={
-                  published
-                    ? `/api/recipes/${id}/photos/${p.assetId}?variant=gallery`
-                    : `/api/media/${p.assetId}?variant=gallery`
-                }
+                src={thumb}
                 width={p.width ?? 640}
                 height={p.height ?? 480}
                 alt={p.alt || p.caption}
@@ -116,34 +113,37 @@ export default function RecipePreview({
                     : undefined
                 }
               />
-            </div>
-            <figcaption>
-              {p.caption}
-              {credits[p.assetId] && (
-                <span className="photo-credit">{photoCreditText(credits[p.assetId], spanish ? "es" : "en")}</span>
-              )}
-            </figcaption>
-            {onOpenPhoto ? (
-              <button type="button" className="gallery-open" onClick={() => onOpenPhoto(i)}>
-                {t("View larger photo", "Ver foto más grande")}
-                <span className="sr-only">: {p.caption}</span>
-              </button>
-            ) : i === 0 && (
-              <a
-                href={
-                  published
-                    ? `/api/recipes/${id}/photos/${p.assetId}?variant=gallery`
-                    : `/api/media/${p.assetId}?variant=gallery`
-                }
-                target="_blank"
-                rel="noopener"
-              >
-                {t("View full photo", "Ver foto completa")}
-              </a>
-            )}
-          </figure>
-        ))}
-      </div>
+            );
+            return (
+              <li key={p.assetId}>
+                {onOpenPhoto ? (
+                  <button type="button" className="gallery-open" aria-label={label} onClick={() => onOpenPhoto(i)}>
+                    {image}
+                  </button>
+                ) : (
+                  <a className="gallery-open" href={full} target="_blank" rel="noopener" aria-label={label}>
+                    {image}
+                  </a>
+                )}
+                {credits[p.assetId] && (
+                  <span className="photo-credit">{photoCreditText(credits[p.assetId], spanish ? "es" : "en")}</span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {input.story && (
+        <div className="recipe-story">
+          <Badge variant="eyebrow">
+            {t("The story behind the dish", "La historia detrás del platillo")}
+          </Badge>
+          <p className="author-text">{input.story}</p>
+        </div>
+      )}
+      <Separator className="my-6" />
+      <div className="recipe-layout">
+      {controls && <div className="recipe-controls">{controls}</div>}
       <div className="recipe-columns">
         <Card>
           <CardContent>
@@ -182,6 +182,7 @@ export default function RecipePreview({
         </section>
           </CardContent>
         </Card>
+      </div>
       </div>
       {input.notes && (
         <section>

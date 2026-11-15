@@ -100,6 +100,62 @@ export default function RecipeReader({
   }
   const src = (assetId: string) => `/api/recipes/${id}/photos/${assetId}?variant=gallery`;
 
+  const controls = (
+    <>
+        <div data-print-hide className="mb-6 flex flex-wrap items-end justify-between gap-4 rounded-xl border bg-card p-4 shadow-sm lg:flex-col lg:items-stretch lg:justify-start">
+          {baseline && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="servings">{t.servings}</Label>
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="outline" size="icon" aria-label={t.fewer} onClick={() => set(servings - 1)} disabled={servings <= 1}>
+                  <MinusIcon aria-hidden="true" />
+                </Button>
+                <Input
+                  id="servings"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={99}
+                  value={servings}
+                  onChange={(e) => set(Number(e.target.value))}
+                  className="w-20 text-center"
+                  aria-describedby="servings-original"
+                />
+                <Button type="button" variant="outline" size="icon" aria-label={t.more} onClick={() => set(servings + 1)} disabled={servings >= 99}>
+                  <PlusIcon aria-hidden="true" />
+                </Button>
+                {servings !== baseline && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setServings(baseline)}>
+                    {t.reset}
+                  </Button>
+                )}
+              </div>
+              <p id="servings-original" className="m-0 text-sm text-muted-foreground">
+                {t.original(baseline)}
+              </p>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2 lg:flex-col lg:[&>*]:w-full">
+            <Button type="button" variant="outline" onClick={copyLink}>
+              <CopyIcon aria-hidden="true" />
+              {t.copy}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => window.print()}>
+              {t.print}
+            </Button>
+            <Button ref={cookButton} type="button" onClick={() => setCooking(true)}>
+              <ReaderIcon aria-hidden="true" />
+              {t.cook}
+            </Button>
+          </div>
+          <p role="status" className="m-0 w-full text-sm text-muted-foreground empty:hidden">
+            {status}
+          </p>
+        </div>
+      {baseline && servings !== baseline && <p className="m-0 mb-4 text-sm text-muted-foreground">{t.scaledNote}</p>}
+    </>
+  );
+
   return (
     <div className="flex flex-col gap-6" data-servings={servings}>
       {original !== language && (
@@ -109,58 +165,7 @@ export default function RecipeReader({
           </AlertDescription>
         </Alert>
       )}
-      <div data-print-hide className="flex flex-wrap items-end justify-between gap-4 rounded-xl bg-card p-4 shadow-sm">
-        {baseline && (
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="servings">{t.servings}</Label>
-            <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" size="icon" aria-label={t.fewer} onClick={() => set(servings - 1)} disabled={servings <= 1}>
-                <MinusIcon aria-hidden="true" />
-              </Button>
-              <Input
-                id="servings"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={99}
-                value={servings}
-                onChange={(e) => set(Number(e.target.value))}
-                className="w-20 text-center"
-                aria-describedby="servings-original"
-              />
-              <Button type="button" variant="outline" size="icon" aria-label={t.more} onClick={() => set(servings + 1)} disabled={servings >= 99}>
-                <PlusIcon aria-hidden="true" />
-              </Button>
-              {servings !== baseline && (
-                <Button type="button" variant="ghost" size="sm" onClick={() => setServings(baseline)}>
-                  {t.reset}
-                </Button>
-              )}
-            </div>
-            <p id="servings-original" className="m-0 text-sm text-muted-foreground">
-              {t.original(baseline)}
-            </p>
-          </div>
-        )}
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={copyLink}>
-            <CopyIcon aria-hidden="true" />
-            {t.copy}
-          </Button>
-          <Button type="button" variant="outline" onClick={() => window.print()}>
-            {t.print}
-          </Button>
-          <Button ref={cookButton} type="button" onClick={() => setCooking(true)}>
-            <ReaderIcon aria-hidden="true" />
-            {t.cook}
-          </Button>
-        </div>
-        <p role="status" className="m-0 w-full text-sm text-muted-foreground empty:hidden">
-          {status}
-        </p>
-      </div>
-      {baseline && servings !== baseline && <p className="m-0 text-sm text-muted-foreground">{t.scaledNote}</p>}
-      <RecipePreview input={shown} id={id} origins={origins} spanish={language === "es"} published credits={credits} onOpenPhoto={openPhoto} servings={baseline ? { current: servings, original: baseline } : undefined} />
+      <RecipePreview input={shown} id={id} origins={origins} spanish={language === "es"} published credits={credits} onOpenPhoto={openPhoto} controls={controls} servings={baseline ? { current: servings, original: baseline } : undefined} />
       <GalleryDialog
         photos={shown.photos}
         index={photo}
