@@ -129,7 +129,7 @@ const copy = {
 };
 
 const triggerClass =
-  "min-h-11 flex-none gap-2 rounded-md px-4 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm data-[state=active]:hover:bg-primary";
+  "min-h-11 flex-none gap-2 rounded-md px-4 text-sm font-semibold text-muted-foreground hover:bg-muted hover:text-foreground data-selected:bg-primary data-selected:text-primary-foreground data-selected:shadow-sm data-selected:hover:bg-primary";
 
 function RecipeCard({
   recipe,
@@ -296,7 +296,8 @@ export default function ProfileTabs({
     language === "es"
       ? `${path}${path.includes("?") ? "&" : "?"}lang=es`
       : path;
-  const change = (value: string) => {
+  const change = (value: string | null) => {
+    if (value === null) return;
     const next = value as ProfileTab;
     setTab(next);
     const url = new URL(window.location.href);

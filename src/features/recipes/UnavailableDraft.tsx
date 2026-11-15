@@ -39,10 +39,8 @@ export default function UnavailableDraft({
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
-        <Button asChild>
-          <a href={spanish ? "/add-recipe?lang=es" : "/add-recipe"}>
-            {spanish ? "Empezar otra receta" : "Start a new recipe"}
-          </a>
+        <Button render={<a href={spanish ? "/add-recipe?lang=es" : "/add-recipe"} />}>
+          {spanish ? "Empezar otra receta" : "Start a new recipe"}
         </Button>
       </EmptyContent>
     </Empty>

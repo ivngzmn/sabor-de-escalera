@@ -47,15 +47,15 @@ export default function RecipePreview({
     <article className="recipe-preview">
       <div className="flex flex-wrap items-center gap-2">
         {published && category ? (
-          <Badge variant="tag" asChild>
-            <a href={discover("category", input.category)}>{category}</a>
+          <Badge variant="tag" render={<a href={discover("category", input.category)} />}>
+            {category}
           </Badge>
         ) : (
           category && <Badge variant="tag">{category}</Badge>
         )}
         {published && origin ? (
-          <Badge variant="region" asChild>
-            <a href={discover("origin", input.origin)}>{origin}</a>
+          <Badge variant="region" render={<a href={discover("origin", input.origin)} />}>
+            {origin}
           </Badge>
         ) : (
           origin && <Badge variant="region">{origin}</Badge>

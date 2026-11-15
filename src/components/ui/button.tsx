@@ -2,10 +2,10 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
-import * as Slot from "@radix-ui/react-slot";
+import { Button as ButtonPrimitive } from "@ui-sdk/react/button";
 
 const buttonVariants = cva(
-  "cursor-pointer inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-semibold whitespace-normal text-center transition-[color,background-color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "cursor-pointer inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-semibold whitespace-normal text-center transition-[color,background-color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring data-disabled:pointer-events-none data-disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
@@ -42,17 +42,14 @@ function Button({
   className,
   variant = "default",
   size = "default",
-  asChild = false,
+  type = "submit",
   ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean;
-  }) {
-  const Comp = asChild ? Slot.Root : "button";
-
+}: Omit<React.ComponentProps<typeof ButtonPrimitive>, "className"> &
+  VariantProps<typeof buttonVariants> & { className?: string }) {
   return (
-    <Comp
-      data-slot="button"
+    <ButtonPrimitive
+      // ui-sdk defaults to type="button"; forms here rely on the native submit default.
+      type={type}
       data-variant={variant}
       data-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
