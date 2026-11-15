@@ -36,7 +36,7 @@ export default function GalleryDialog({
   return (
     <Dialog open={photo !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="w-full max-w-5xl"
+        className="w-full max-w-5xl sm:max-w-5xl"
         finalFocus={() => returnFocus()}
         onKeyDown={(e) => {
           if (e.key === "ArrowRight") step(1);
