@@ -110,18 +110,6 @@ export default function RecipeCard({ card, language, originLabel, onToggleFavori
           </CardDescription>
         </CardHeader>
         <CardFooter className={cn("justify-between gap-3 pt-4 pb-5 text-sm", !featured && "mt-auto")}>
-          {ratingsEnabled && (
-            <span className="inline-flex items-center gap-1 font-semibold text-primary-ink">
-              {card.ratingCount ? (
-                <>
-                  <StarFilledIcon aria-hidden="true" />
-                  {card.ratingAverage} ({card.ratingCount})
-                </>
-              ) : (
-                t.notRated
-              )}
-            </span>
-          )}
           {onToggleFavorite && (
             <Button
               type="button"
@@ -131,11 +119,23 @@ export default function RecipeCard({ card, language, originLabel, onToggleFavori
               aria-label={card.favorited ? t.unsave(card.title) : t.save(card.title)}
               disabled={pending}
               onClick={() => onToggleFavorite(card)}
-              className="relative z-10 ml-auto"
+              className="relative z-10 -ms-3"
             >
               <FavoriteHeart active={card.favorited} />
               {card.favoriteCount > 0 && <span>{card.favoriteCount}</span>}
             </Button>
+          )}
+          {ratingsEnabled && (
+            <span className="ml-auto inline-flex items-center gap-1 font-semibold text-primary-ink">
+              {card.ratingCount ? (
+                <>
+                  <StarFilledIcon aria-hidden="true" />
+                  {card.ratingAverage} ({card.ratingCount})
+                </>
+              ) : (
+                t.notRated
+              )}
+            </span>
           )}
         </CardFooter>
       </div>
