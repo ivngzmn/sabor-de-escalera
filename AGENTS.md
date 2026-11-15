@@ -20,7 +20,7 @@ pnpm dlx skills add thesysdev/skills --skill openui
 
 ## Component behavior comes from ui-sdk
 
-`@ui-sdk/react` and `@ui-sdk/core` supply unstyled behavior for components: keyboard navigation, focus, popups and ARIA. Both are pinned to a beta release. Build new components on them. The existing shadcn components in `src/components/ui` stay on Radix until they are migrated on purpose.
+`@ui-sdk/react` and `@ui-sdk/core` supply unstyled behavior for components: keyboard navigation, focus, popups and ARIA. Both are pinned to a beta release. Build new components on them. Most components in `src/components/ui` already wrap ui-sdk parts. `dropdown-menu.tsx` and `select.tsx` still use Radix until they are migrated.
 
 Before using ui-sdk:
 

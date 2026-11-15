@@ -105,11 +105,9 @@ export default function FilterPanel({
 
   return (
     <Sheet open={open} onOpenChange={change}>
-      <SheetTrigger asChild>
-        <FilterChip active={count > 0} aria-pressed={undefined} data-js-only>
-          <MixerHorizontalIcon aria-hidden="true" className="size-4" />
-          {count > 0 ? t.filtersCount(count) : t.filters}
-        </FilterChip>
+      <SheetTrigger render={<FilterChip active={count > 0} aria-pressed={undefined} data-js-only />}>
+        <MixerHorizontalIcon aria-hidden="true" className="size-4" />
+        {count > 0 ? t.filtersCount(count) : t.filters}
       </SheetTrigger>
       <SheetContent>
         <SheetHeader className="flex-row items-center justify-between">
@@ -191,11 +189,7 @@ export default function FilterPanel({
           </Section>
         </SheetBody>
         <SheetFooter>
-          <SheetClose asChild>
-            <Button type="button" variant="link">
-              {t.cancel}
-            </Button>
-          </SheetClose>
+          <SheetClose render={<Button type="button" variant="link" />}>{t.cancel}</SheetClose>
           <Button
             type="button"
             onClick={() => {

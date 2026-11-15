@@ -51,10 +51,7 @@ export default function LeaveDraftDialog(props: Props) {
       <DialogContent
         showCloseButton={false}
         // Focus the safe primary action, never Discard: Enter must not delete.
-        onOpenAutoFocus={(event) => {
-          event.preventDefault();
-          save.current?.focus();
-        }}
+        initialFocus={() => save.current}
       >
         <DialogHeader>
           <DialogTitle>
