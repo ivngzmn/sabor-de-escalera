@@ -11,6 +11,7 @@ import {
 import type { PhotoCredit } from "./catalog";
 import { originLabel } from "./origin-label";
 import { photoCreditText } from "./photo-credit";
+import PhotoCarousel from "./PhotoCarousel";
 export default function RecipePreview({
   input,
   id,
@@ -88,57 +89,29 @@ export default function RecipePreview({
           {input.sourceCredit}
         </p>
       )}
-      {input.photos.length > 0 && (
-        <ul className="recipe-gallery" aria-label={t("Photos", "Fotos")}>
-          {input.photos.map((p, i) => {
-            const full = published
-              ? `/api/recipes/${id}/photos/${p.assetId}?variant=gallery`
-              : `/api/media/${p.assetId}?variant=gallery`;
-            const thumb = published
-              ? `/api/recipes/${id}/photos/${p.assetId}?variant=card`
-              : `/api/media/${p.assetId}?variant=card`;
-            const label = `${t("View larger photo", "Ver foto más grande")}: ${p.caption}`;
-            const image = (
-              <img
-                src={thumb}
-                width={p.width ?? 640}
-                height={p.height ?? 480}
-                alt={p.alt || p.caption}
-                style={
-                  i === 0
-                    ? {
-                        objectPosition: `${p.crop.x}% ${p.crop.y}%`,
-                        transform: `scale(${p.crop.zoom})`,
-                      }
-                    : undefined
-                }
-              />
-            );
-            return (
-              <li key={p.assetId}>
-                {onOpenPhoto ? (
-                  <button type="button" className="gallery-open" aria-label={label} onClick={() => onOpenPhoto(i)}>
-                    {image}
-                  </button>
-                ) : (
-                  <a className="gallery-open" href={full} target="_blank" rel="noopener" aria-label={label}>
-                    {image}
-                  </a>
-                )}
-                {credits[p.assetId] && (
-                  <span className="photo-credit">{photoCreditText(credits[p.assetId], spanish ? "es" : "en")}</span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {input.story && (
-        <div className="recipe-story">
-          <Badge variant="eyebrow">
-            {t("The story behind the dish", "La historia detrás del platillo")}
-          </Badge>
-          <p className="author-text">{input.story}</p>
+      {(input.photos.length > 0 || input.story) && (
+        <div className="recipe-hero" data-has-photos={input.photos.length > 0 ? "" : undefined}>
+          {input.photos.length > 0 && (
+            <PhotoCarousel
+              photos={input.photos}
+              spanish={spanish}
+              src={(p) =>
+                published
+                  ? `/api/recipes/${id}/photos/${p.assetId}?variant=gallery`
+                  : `/api/media/${p.assetId}?variant=gallery`
+              }
+              credit={(p) => (credits[p.assetId] ? photoCreditText(credits[p.assetId], spanish ? "es" : "en") : "")}
+              onOpen={onOpenPhoto}
+            />
+          )}
+          {input.story && (
+            <div className="recipe-story">
+              <Badge variant="eyebrow">
+                {t("The story behind the dish", "La historia detrás del platillo")}
+              </Badge>
+              <p className="author-text">{input.story}</p>
+            </div>
+          )}
         </div>
       )}
       <Separator className="my-6" />

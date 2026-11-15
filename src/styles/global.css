@@ -142,7 +142,6 @@
 @media print {
   [data-print-hide],
   [data-community],
-  .recipe-gallery li:not(:first-child) { display: none !important; }
   .recipe-columns { display: block; }
   .recipe-columns section,
   .recipe-steps li { break-inside: avoid; }
