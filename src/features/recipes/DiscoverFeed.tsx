@@ -88,6 +88,8 @@ interface Props {
   language: "en" | "es";
   origins: Origin[];
   scope?: "favorites";
+  /** Shows ratings and the Highest rated sort. */
+  ratingsEnabled?: boolean;
   /** Same-origin sign-in URL used when a guest tries to save. */
   signInBase: string;
 }
@@ -99,7 +101,7 @@ interface Restore {
 }
 
 /** Discover/Favorites feed: URL-backed filters, debounced search with stale-request cancellation, accessible incremental loading. */
-export default function DiscoverFeed({ initial, params: initialParams, language, origins, scope, signInBase }: Props) {
+export default function DiscoverFeed({ initial, params: initialParams, language, origins, scope, signInBase, ratingsEnabled = false }: Props) {
   const t = copy[language];
   const [params, setParams] = useState<DiscoverParams>(initialParams);
   const [text, setText] = useState(initialParams.q ?? "");
@@ -343,6 +345,7 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
             params={params}
             origins={origins}
             language={language}
+            ratingsEnabled={ratingsEnabled}
             onApply={(next) => {
               // The draft was copied from `params`, which lags the typed text during the search debounce; the input is the source of truth.
               const q = text.trim().slice(0, 100);
@@ -423,7 +426,7 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
             value={sortValue}
             onChange={(e) => set({ sort: e.target.value as DiscoverParams["sort"] })}
           >
-            {sortOptions(params.q).map((s) => (
+            {sortOptions(params.q, ratingsEnabled).map((s) => (
               <option key={s} value={s}>
                 {t.sorts[s]}
               </option>
@@ -458,6 +461,7 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
                 originLabel={originLabel(card.origin)}
                 onToggleFavorite={toggleFavorite}
                 pending={pending === card.id}
+                ratingsEnabled={ratingsEnabled}
                 featured={featureFirst && index === 0}
               />
             </li>

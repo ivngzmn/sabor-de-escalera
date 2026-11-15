@@ -30,3 +30,9 @@ test("clearing filters keeps the search and a non-default sort", () => {
   expect(clearFilters({ q: "flan", category: "desserts", diet: "vegan", sort: "rated" })).toEqual({ q: "flan", sort: "rated" });
   expect(clearFilters({ category: "main", sort: "newest" })).toEqual({});
 });
+
+test("a shared rated sort link is ignored while ratings are off", () => {
+  const off = (search: string) => toDiscoverSearch(parseDiscoverParams(new URLSearchParams(search), { ratings: false }));
+  expect(off("sort=rated&category=desserts")).toBe("category=desserts");
+  expect(off("sort=saved")).toBe("sort=saved");
+});

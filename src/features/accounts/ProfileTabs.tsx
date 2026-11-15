@@ -242,6 +242,7 @@ export default function ProfileTabs({
   deleted = [],
   drafts: initialDrafts,
   favorites,
+  ratingsEnabled = false,
 }: {
   initialTab: ProfileTab;
   language: "en" | "es";
@@ -250,6 +251,7 @@ export default function ProfileTabs({
   drafts: ProfileRecipe[];
   /** Server-seeded Favorites feed; omitted when the list could not be loaded. */
   favorites?: { initial: CatalogPage | null; origins: Origin[]; signInBase: string };
+  ratingsEnabled?: boolean;
 }) {
   const t = copy[language];
   const [tab, setTab] = useState<ProfileTab>(initialTab);
@@ -406,6 +408,7 @@ export default function ProfileTabs({
               origins={favorites.origins}
               scope="favorites"
               signInBase={favorites.signInBase}
+              ratingsEnabled={ratingsEnabled}
             />
           ) : <EmptyState
             icon={<HeartIcon aria-hidden="true" />}

@@ -5,6 +5,7 @@ import { Badge } from '../../components/ui/badge';
 import { buttonVariants } from '../../components/ui/button';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { MemberAvatar } from '../../features/accounts/MemberAvatar';
+import { readServerConfig } from '../../server/config';
 import ProfileTabs, { type ProfileRecipe, type ProfileTab } from '../../features/accounts/ProfileTabs';
 import { accounts, type Actor } from '../../features/accounts/service';
 import { AccountError, signInHref } from '../../features/accounts/permissions';
@@ -94,6 +95,6 @@ const stats = [
   {actor.suspended && <Alert className="mt-6"><AlertDescription>{t.suspended}</AlertDescription></Alert>}
   {listUnavailable && <Alert variant="destructive" className="mt-6"><AlertDescription>{t.unavailable}</AlertDescription></Alert>}
   <div class="mt-10">
-    <ProfileTabs client:load initialTab={initialTab} language={language} published={published} deleted={deleted} drafts={drafts} favorites={favorites} />
+    <ProfileTabs client:load initialTab={initialTab} language={language} published={published} deleted={deleted} drafts={drafts} favorites={favorites} ratingsEnabled={readServerConfig().ratingsEnabled} />
   </div>
 </AppLayout>

@@ -7,8 +7,10 @@ import { MemberAvatar } from '../../features/accounts/MemberAvatar';
 import RecipeCard from '../../features/recipes/RecipeCard';
 import { catalogService } from '../../features/recipes/catalog';
 import { optionalActor } from '../../features/recipes/catalog-routes';
+import { readServerConfig } from '../../server/config';
 const spanish = Astro.url.searchParams.get('lang') === 'es';
 const language = spanish ? 'es' : 'en';
+const ratingsEnabled = readServerConfig().ratingsEnabled;
 Astro.response.headers.set('Cache-Control', 'private, no-store');
 const service = catalogService();
 let member = null;
@@ -44,14 +46,14 @@ const since = member ? new Intl.DateTimeFormat(language, { month: 'long', year: 
       <section aria-labelledby="member-recipes" class="mt-10 flex flex-col gap-4">
         <Badge variant="eyebrow"><h2 id="member-recipes" class="m-0 text-inherit">{t.recipes}</h2></Badge>
         {recipes?.ok && recipes.value.items.length ? (
-          <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{recipes.value.items.map((card) => <RecipeCard card={card} language={language} />)}</div>
+          <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{recipes.value.items.map((card) => <RecipeCard card={card} language={language} ratingsEnabled={ratingsEnabled} />)}</div>
         ) : <p class="text-muted-foreground">{recipes?.ok ? t.noRecipes : t.retry}</p>}
       </section>
       <section aria-labelledby="member-saved" class="mt-10 flex flex-col gap-4">
         <Badge variant="eyebrow"><h2 id="member-saved" class="m-0 text-inherit">{t.saved}</h2></Badge>
         {saved?.ok ? (
           saved.value.items.length
-            ? <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{saved.value.items.map((card) => <RecipeCard card={card} language={language} />)}</div>
+            ? <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{saved.value.items.map((card) => <RecipeCard card={card} language={language} ratingsEnabled={ratingsEnabled} />)}</div>
             : <p class="text-muted-foreground">{t.noSaved}</p>
         ) : <p class="text-muted-foreground">{saved?.error.status === 404 ? t.privateSaved : t.retry}</p>}
       </section>

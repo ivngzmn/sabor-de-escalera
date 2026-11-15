@@ -4,6 +4,8 @@ export function readServerConfig(environment: ServerEnvironment = process.env) {
   const emailNotificationsEnabled = environment.EMAIL_NOTIFICATIONS_ENABLED === 'true';
   const autoTranslationEnabled = environment.AUTO_TRANSLATION_ENABLED === 'true';
   const analyticsEnabled = environment.ANALYTICS_ENABLED === 'true';
+  // Ratings stay hidden until members can rate a recipe in the UI.
+  const ratingsEnabled = environment.RATINGS_ENABLED === 'true';
   if (emailNotificationsEnabled && (!environment.RESEND_API_KEY || !environment.RESEND_FROM_EMAIL || environment.RESEND_DOMAIN_VERIFIED !== 'true')) {
     throw new Error('Email notifications require verified server configuration');
   }
@@ -13,7 +15,7 @@ export function readServerConfig(environment: ServerEnvironment = process.env) {
   if (analyticsEnabled && !environment.POSTHOG_PROJECT_KEY) {
     throw new Error('Analytics require verified server configuration and per-device consent');
   }
-  return Object.freeze({ emailNotificationsEnabled, autoTranslationEnabled, analyticsEnabled });
+  return Object.freeze({ emailNotificationsEnabled, autoTranslationEnabled, analyticsEnabled, ratingsEnabled });
 }
 
 // Invoke providers lazily: disabled features must never import or call an SDK.

@@ -23,10 +23,10 @@ test('discover filters are chips and a panel that update the URL', async ({ page
   await expect(desserts).toHaveAttribute('aria-pressed', 'true');
   await page.getByLabel('Dietary').selectOption('vegan');
   await expect(page).toHaveURL(/diet=vegan/);
-  await page.getByLabel('Sort by').selectOption('rated');
-  await expect(page).toHaveURL(/sort=rated/);
+  await page.getByLabel('Sort by').selectOption('saved');
+  await expect(page).toHaveURL(/sort=saved/);
   await page.getByRole('link', { name: 'Clear filters' }).click();
-  await expect(page).toHaveURL(/\/\?sort=rated$/);
+  await expect(page).toHaveURL(/\/\?sort=saved$/);
 });
 
 test('clear filters keeps the search text', async ({ page }) => {

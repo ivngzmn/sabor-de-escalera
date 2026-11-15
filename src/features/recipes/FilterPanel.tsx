@@ -64,9 +64,9 @@ const copy = {
 const short = (minutes: number) => (minutes < 60 ? `${minutes} min` : `${minutes / 60} h`);
 
 /** Sort choices for a query: best match only makes sense when there is a search. */
-export function sortOptions(q?: string): CatalogSort[] {
+export function sortOptions(q?: string, ratings = true): CatalogSort[] {
   const all: CatalogSort[] = ["relevance", "newest", "rated", "saved"];
-  return q ? all : all.filter((sort) => sort !== "relevance");
+  return all.filter((sort) => (q || sort !== "relevance") && (ratings || sort !== "rated"));
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -84,12 +84,15 @@ export default function FilterPanel({
   language,
   onApply,
   defaultOpen = false,
+  ratingsEnabled = false,
 }: {
   params: DiscoverParams;
   origins: Origin[];
   language: "en" | "es";
   onApply(next: DiscoverParams): void;
   defaultOpen?: boolean;
+  /** Offers the Highest rated sort; off until members can rate recipes. */
+  ratingsEnabled?: boolean;
 }) {
   const t = copy[language];
   const [open, setOpen] = useState(defaultOpen);
@@ -180,7 +183,7 @@ export default function FilterPanel({
           )}
           <Section title={t.sort}>
             <div className="flex flex-wrap gap-2">
-              {sortOptions(draft.q).map((option) => (
+              {sortOptions(draft.q, ratingsEnabled).map((option) => (
                 <FilterChip key={option} active={sort === option} onClick={() => set({ sort: option })}>
                   {t.sorts[option]}
                 </FilterChip>

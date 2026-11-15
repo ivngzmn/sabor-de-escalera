@@ -36,10 +36,12 @@ export interface RecipeCardProps {
   pending?: boolean;
   /** Wide lead card: photo beside the details from md up, larger photo and title. */
   featured?: boolean;
+  /** Shows the rating; off until members can rate recipes. */
+  ratingsEnabled?: boolean;
 }
 
 /** Discover/Favorites/profile card: 16:10 cover with reserved space, stretched title link, favorite control above it. */
-export default function RecipeCard({ card, language, originLabel, onToggleFavorite, pending, featured }: RecipeCardProps) {
+export default function RecipeCard({ card, language, originLabel, onToggleFavorite, pending, featured, ratingsEnabled = false }: RecipeCardProps) {
   const t = copy[language];
   const href = language === "es" ? `${card.url}?lang=es` : card.url;
   return (
@@ -108,16 +110,18 @@ export default function RecipeCard({ card, language, originLabel, onToggleFavori
           </CardDescription>
         </CardHeader>
         <CardFooter className={cn("justify-between gap-3 pt-4 pb-5 text-sm", !featured && "mt-auto")}>
-          <span className="inline-flex items-center gap-1 font-semibold text-primary-ink">
-            {card.ratingCount ? (
-              <>
-                <StarFilledIcon aria-hidden="true" />
-                {card.ratingAverage} ({card.ratingCount})
-              </>
-            ) : (
-              t.notRated
-            )}
-          </span>
+          {ratingsEnabled && (
+            <span className="inline-flex items-center gap-1 font-semibold text-primary-ink">
+              {card.ratingCount ? (
+                <>
+                  <StarFilledIcon aria-hidden="true" />
+                  {card.ratingAverage} ({card.ratingCount})
+                </>
+              ) : (
+                t.notRated
+              )}
+            </span>
+          )}
           {onToggleFavorite && (
             <Button
               type="button"
@@ -127,7 +131,7 @@ export default function RecipeCard({ card, language, originLabel, onToggleFavori
               aria-label={card.favorited ? t.unsave(card.title) : t.save(card.title)}
               disabled={pending}
               onClick={() => onToggleFavorite(card)}
-              className="relative z-10"
+              className="relative z-10 ml-auto"
             >
               <FavoriteHeart active={card.favorited} />
               {card.favoriteCount > 0 && <span>{card.favoriteCount}</span>}
