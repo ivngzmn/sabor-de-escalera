@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CopyIcon, HeartFilledIcon, HeartIcon, MinusIcon, PlusIcon, ReaderIcon } from "@radix-ui/react-icons";
+import { CopyIcon, MinusIcon, PlusIcon, ReaderIcon } from "@radix-ui/react-icons";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FavoriteHeart } from "@/components/ui/favorite-heart";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/toaster";
@@ -186,8 +187,8 @@ export default function RecipeReader({
           )}
           <div className="flex flex-wrap gap-2 lg:flex-col lg:[&>*]:w-full">
             {favorite && (
-            <Button type="button" variant={saved ? "default" : "outline"} aria-pressed={saved} onClick={() => setFavorite(!saved)}>
-              {saved ? <HeartFilledIcon aria-hidden="true" /> : <HeartIcon aria-hidden="true" />}
+            <Button type="button" variant={saved ? "default" : "outline"} className="[--heart-fill:white]" aria-pressed={saved} onClick={() => setFavorite(!saved)}>
+              <FavoriteHeart active={saved} />
               {saved ? t.saved : t.save}
             </Button>
           )}

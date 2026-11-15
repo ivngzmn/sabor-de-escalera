@@ -1,5 +1,6 @@
-import { ClockIcon, HeartFilledIcon, HeartIcon, StarFilledIcon } from "@radix-ui/react-icons";
+import { ClockIcon, StarFilledIcon } from "@radix-ui/react-icons";
 import { Badge } from "@/components/ui/badge";
+import { FavoriteHeart } from "@/components/ui/favorite-heart";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -128,7 +129,7 @@ export default function RecipeCard({ card, language, originLabel, onToggleFavori
               onClick={() => onToggleFavorite(card)}
               className="relative z-10"
             >
-              {card.favorited ? <HeartFilledIcon aria-hidden="true" /> : <HeartIcon aria-hidden="true" />}
+              <FavoriteHeart active={card.favorited} />
               {card.favoriteCount > 0 && <span>{card.favoriteCount}</span>}
             </Button>
           )}
