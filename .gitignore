@@ -22,3 +22,4 @@ skills-lock.json
 reference/
 # Local development media (MEDIA_PROVIDER=local)
 .media-local/
+/docs
