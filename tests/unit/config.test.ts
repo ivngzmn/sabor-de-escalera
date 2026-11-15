@@ -7,7 +7,13 @@ test('missing secrets leave all optional providers disabled', () => {
     emailNotificationsEnabled: false,
     autoTranslationEnabled: false,
     analyticsEnabled: false,
+    ratingsEnabled: false,
   });
+});
+
+test('ratings turn on only with the exact flag value', () => {
+  expect(readServerConfig({ RATINGS_ENABLED: 'true' }).ratingsEnabled).toBe(true);
+  expect(readServerConfig({ RATINGS_ENABLED: 'yes' }).ratingsEnabled).toBe(false);
 });
 
 test('truthy flag typos cannot activate paid or consent-dependent providers', () => {

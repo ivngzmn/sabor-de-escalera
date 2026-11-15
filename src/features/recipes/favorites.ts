@@ -14,6 +14,18 @@ export function createFavoriteService({ pool }: { pool: Pool }) {
     return null;
   }
   return {
+    async state(memberId: string | null, recipeId: string): Promise<{ favorited: boolean; count: number }> {
+      if (!isId(recipeId)) return { favorited: false, count: 0 };
+      try {
+        const { rows } = await pool.query(
+          "SELECT count(*)::int AS n, coalesce(bool_or(member_id = $2::uuid), false) AS mine FROM recipe_favorites WHERE recipe_id=$1",
+          [recipeId, memberId && isId(memberId) ? memberId : null],
+        );
+        return { favorited: Boolean(rows[0]?.mine), count: rows[0]?.n ?? 0 };
+      } catch {
+        return { favorited: false, count: 0 };
+      }
+    },
     async add(actor: Actor | null, recipeId: string): Promise<Result<{ favorited: true }>> {
       const denied = await guard(actor, recipeId);
       if (denied) return denied;

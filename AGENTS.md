@@ -18,6 +18,22 @@ pnpm dlx skills add thesysdev/skills --skill openui
 <!-- openui:start -->
 <!-- OpenUI instructions for coding agents. Run `npx @openuidev/cli@latest setup-agent` to refresh. -->
 
+## Component behavior comes from ui-sdk
+
+`@ui-sdk/react` and `@ui-sdk/core` supply unstyled behavior for components: keyboard navigation, focus, popups and ARIA. Both are pinned to a beta release. Build new components on them. The components in `src/components/ui` wrap ui-sdk parts, and Radix is no longer installed. Icons still come from `@radix-ui/react-icons`.
+
+Before using ui-sdk:
+
+1. Follow the `ui-sdk` skill if it's installed.
+2. Read `node_modules/@ui-sdk/react/docs/llms.txt`.
+3. To build a new component, also search `node_modules/@ui-sdk/react/docs/core.md` by heading, and read `rendering.md` next to it.
+
+The OpenUI rule above still applies to every UI change. Install the skill on a fresh clone:
+
+```bash
+pnpm dlx skills add vercel-labs/ui --skill ui-sdk
+```
+
 ## Commits and branches
 
 Work on a typed branch, never on `main`: `feat/<topic>`, `fix/<topic>`, `chore/<topic>`, `docs/<topic>`, `refactor/<topic>`. Write commit messages and PR titles as Conventional Commits, `<type>(<scope>): <imperative summary>`, scoped by feature area (`recipes`, `accounts`, `media`, `import`, `admin`, …). In Claude Code, load the local `conventional-commits` skill before branching or committing.

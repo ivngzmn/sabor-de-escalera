@@ -10,12 +10,14 @@ import { draftsService } from '../features/recipes/drafts';
 import type { Origin } from '../features/recipes/validation';
 import { signInHref } from '../features/accounts/permissions';
 import { accountConfiguration } from '../server/clerk';
+import { readServerConfig } from '../server/config';
 const spanish = Astro.url.searchParams.get('lang') === 'es';
 const language = spanish ? 'es' : 'en';
 const href = (path: string) => spanish ? `${path}?lang=es` : path;
 // Favorite state is per viewer, so the page itself is never shared-cached.
 Astro.response.headers.set('Cache-Control', 'private, no-store');
-const params = parseDiscoverParams(Astro.url.searchParams);
+const ratingsEnabled = readServerConfig().ratingsEnabled;
+const params = parseDiscoverParams(Astro.url.searchParams, { ratings: ratingsEnabled });
 let initial: CatalogPage | null = null;
 let origins: Origin[] = [];
 try {
@@ -37,6 +39,6 @@ const signInBase = signInHref(`${Astro.url.pathname}${Astro.url.search}`, accoun
       <a href={href('/add-recipe')} data-slot="button" class={buttonVariants({ variant: 'outline' })}>{spanish ? 'Compartir tu receta' : 'Share your recipe'}</a>
     </header>
     <noscript><style>[data-js-only]{display:none}</style></noscript>
-    <DiscoverFeed client:load initial={initial} params={params} language={language} origins={origins} signInBase={signInBase} />
+    <DiscoverFeed client:load initial={initial} params={params} language={language} origins={origins} signInBase={signInBase} ratingsEnabled={ratingsEnabled} />
   </section>
 </AppLayout>

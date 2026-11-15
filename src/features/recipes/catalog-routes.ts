@@ -3,6 +3,7 @@ import { AccountError, assertSameOriginWrite, signInHref } from "../accounts/per
 import { ClerkResponseError, accountConfiguration } from "../../server/clerk";
 import { catalogService, type CatalogScope, type createCatalogService } from "./catalog";
 import { parseDiscoverParams } from "./discover-state";
+import { readServerConfig } from "../../server/config";
 import { favoriteService, type createFavoriteService } from "./favorites";
 import { isId } from "./validation";
 
@@ -43,7 +44,7 @@ export async function handleCatalogRequest(request: Request, dependencies?: Cata
     } else if (kind !== null) return failure(400, "Invalid request.");
     const cursor = search.get("cursor") ?? undefined;
     const output = await (dependencies?.catalog ?? catalogService()).list(
-      { ...parseDiscoverParams(search), cursor, scope, language: search.get("lang") === "es" ? "es" : "en" },
+      { ...parseDiscoverParams(search, { ratings: readServerConfig().ratingsEnabled }), cursor, scope, language: search.get("lang") === "es" ? "es" : "en" },
       viewer?.id ?? null,
     );
     return Response.json(output, { status: output.ok ? 200 : output.error.status, headers });

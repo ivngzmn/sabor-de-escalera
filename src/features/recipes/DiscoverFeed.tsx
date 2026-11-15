@@ -10,6 +10,7 @@ import type { CatalogPage, RecipeCard as CardData } from "./catalog";
 import { activeFilterCount, clearFilters, defaultSort, toDiscoverSearch, type DiscoverParams } from "./discover-state";
 import FilterPanel, { sortOptions } from "./FilterPanel";
 import { favoriteIntentFrom } from "./draft-intent";
+import { toast } from "@/components/ui/toaster";
 import { originLabel as labelFor } from "./origin-label";
 import RecipeCard from "./RecipeCard";
 import { categories, type Origin } from "./validation";
@@ -87,6 +88,8 @@ interface Props {
   language: "en" | "es";
   origins: Origin[];
   scope?: "favorites";
+  /** Shows ratings and the Highest rated sort. */
+  ratingsEnabled?: boolean;
   /** Same-origin sign-in URL used when a guest tries to save. */
   signInBase: string;
 }
@@ -98,7 +101,7 @@ interface Restore {
 }
 
 /** Discover/Favorites feed: URL-backed filters, debounced search with stale-request cancellation, accessible incremental loading. */
-export default function DiscoverFeed({ initial, params: initialParams, language, origins, scope, signInBase }: Props) {
+export default function DiscoverFeed({ initial, params: initialParams, language, origins, scope, signInBase, ratingsEnabled = false }: Props) {
   const t = copy[language];
   const [params, setParams] = useState<DiscoverParams>(initialParams);
   const [text, setText] = useState(initialParams.q ?? "");
@@ -271,10 +274,10 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
           return;
         }
         if (!res.ok) throw new Error();
-        setAnnouncement(favorited ? t.saved(card.title) : t.unsaved(card.title));
+        toast.success(favorited ? t.saved(card.title) : t.unsaved(card.title));
       } catch {
         setItems((current) => (current.some((c) => c.id === card.id) ? current.map((c) => (c.id === card.id ? card : c)) : [card, ...current]));
-        setAnnouncement(t.saveFailed);
+        toast.error(t.saveFailed);
       } finally {
         setPending(null);
       }
@@ -342,6 +345,7 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
             params={params}
             origins={origins}
             language={language}
+            ratingsEnabled={ratingsEnabled}
             onApply={(next) => {
               // The draft was copied from `params`, which lags the typed text during the search debounce; the input is the source of truth.
               const q = text.trim().slice(0, 100);
@@ -422,7 +426,7 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
             value={sortValue}
             onChange={(e) => set({ sort: e.target.value as DiscoverParams["sort"] })}
           >
-            {sortOptions(params.q).map((s) => (
+            {sortOptions(params.q, ratingsEnabled).map((s) => (
               <option key={s} value={s}>
                 {t.sorts[s]}
               </option>
@@ -457,6 +461,7 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
                 originLabel={originLabel(card.origin)}
                 onToggleFavorite={toggleFavorite}
                 pending={pending === card.id}
+                ratingsEnabled={ratingsEnabled}
                 featured={featureFirst && index === 0}
               />
             </li>

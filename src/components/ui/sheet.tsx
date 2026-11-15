@@ -1,30 +1,33 @@
-// Left-anchored sheet on the Radix dialog primitive; full width on phones, 400px from sm up.
+// Left-anchored sheet on the ui-sdk dialog; full width on phones, 400px from sm up.
 import * as React from "react";
 import { cn } from "../../lib/utils";
-import { Dialog as DialogPrimitive } from "radix-ui";
+import {
+  Dialog as Sheet,
+  DialogBackdrop,
+  DialogClose as SheetClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger as SheetTrigger,
+} from "@ui-sdk/react/dialog";
 
-const Sheet = DialogPrimitive.Root;
-const SheetTrigger = DialogPrimitive.Trigger;
-const SheetClose = DialogPrimitive.Close;
+type WithClassName<T> = Omit<T, "className"> & { className?: string };
 
-function SheetContent({ children, className, ...props }: React.ComponentProps<typeof DialogPrimitive.Content>) {
+function SheetContent({ children, className, ...props }: WithClassName<React.ComponentProps<typeof DialogContent>>) {
   return (
-    <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay
-        data-slot="sheet-overlay"
-        className="fixed inset-0 z-50 bg-overlay motion-safe:data-[state=open]:animate-overlay-in"
-      />
-      <DialogPrimitive.Content
-        data-slot="sheet-content"
+    <>
+      <DialogBackdrop className="fixed inset-0 z-50 bg-overlay motion-safe:data-open:animate-overlay-in" />
+      <DialogContent
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-full w-full flex-col bg-card shadow-lg outline-none sm:max-w-[400px] motion-safe:data-[state=open]:animate-sheet-in",
+          // right-auto undoes the native dialog's inset: 0; max-h-none lifts its height cap.
+          "fixed inset-y-0 right-auto left-0 z-50 flex h-full max-h-none w-full max-w-none flex-col bg-card text-foreground shadow-lg outline-none sm:max-w-[400px] motion-safe:data-open:animate-sheet-in",
           className,
         )}
         {...props}
       >
         {children}
-      </DialogPrimitive.Content>
-    </DialogPrimitive.Portal>
+      </DialogContent>
+    </>
   );
 }
 
@@ -32,14 +35,13 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
   return <div data-slot="sheet-header" className={cn("flex flex-col gap-1 px-6 py-4", className)} {...props} />;
 }
 
-function SheetTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
-  return <DialogPrimitive.Title data-slot="sheet-title" className={cn("type-title-md", className)} {...props} />;
+function SheetTitle({ className, ...props }: WithClassName<React.ComponentProps<typeof DialogTitle>>) {
+  return <DialogTitle className={cn("type-title-md", className)} {...props} />;
 }
 
-function SheetDescription({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Description>) {
+function SheetDescription({ className, ...props }: WithClassName<React.ComponentProps<typeof DialogDescription>>) {
   return (
-    <DialogPrimitive.Description
-      data-slot="sheet-description"
+    <DialogDescription
       className={cn("text-sm text-muted-foreground", className)}
       {...props}
     />

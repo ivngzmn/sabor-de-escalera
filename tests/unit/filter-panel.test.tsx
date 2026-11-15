@@ -5,6 +5,7 @@ import FilterPanel, { sortOptions } from "../../src/features/recipes/FilterPanel
 test("best match is only offered with a search", () => {
   expect(sortOptions()).toEqual(["newest", "rated", "saved"]);
   expect(sortOptions("flan")).toEqual(["relevance", "newest", "rated", "saved"]);
+  expect(sortOptions("flan", false)).toEqual(["relevance", "newest", "saved"]);
 });
 
 test("the trigger counts active filters", () => {

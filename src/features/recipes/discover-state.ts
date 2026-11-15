@@ -10,7 +10,7 @@ const diets = ["vegan", "vegetarian"] as const;
 export const defaultSort = (params: { q?: string }): CatalogSort => (params.q ? "relevance" : "newest");
 
 /** Reads shareable Discover state from a URL; unknown values are dropped, never trusted. */
-export function parseDiscoverParams(search: URLSearchParams): DiscoverParams {
+export function parseDiscoverParams(search: URLSearchParams, { ratings = true }: { ratings?: boolean } = {}): DiscoverParams {
   const params: DiscoverParams = {};
   const q = search.get("q")?.trim().slice(0, 100);
   if (q) params.q = q;
@@ -23,7 +23,7 @@ export function parseDiscoverParams(search: URLSearchParams): DiscoverParams {
   const diet = search.get("diet");
   if (diets.includes(diet as (typeof diets)[number])) params.diet = diet as (typeof diets)[number];
   const sort = search.get("sort") as CatalogSort | null;
-  if (sort && sorts.includes(sort) && sort !== defaultSort(params) && (sort !== "relevance" || params.q)) params.sort = sort;
+  if (sort && sorts.includes(sort) && (ratings || sort !== "rated") && sort !== defaultSort(params) && (sort !== "relevance" || params.q)) params.sort = sort;
   return params;
 }
 

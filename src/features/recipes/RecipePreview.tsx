@@ -1,7 +1,7 @@
+import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
 import {
   categories,
   totalMinutes,
@@ -11,6 +11,7 @@ import {
 import type { PhotoCredit } from "./catalog";
 import { originLabel } from "./origin-label";
 import { photoCreditText } from "./photo-credit";
+import PhotoCarousel from "./PhotoCarousel";
 export default function RecipePreview({
   input,
   id,
@@ -20,6 +21,7 @@ export default function RecipePreview({
   onOpenPhoto,
   servings,
   credits = {},
+  controls,
   titleAs: Title = "h1",
 }: {
   input: RecipeInput;
@@ -33,6 +35,8 @@ export default function RecipePreview({
   servings?: { current: number; original: number };
   /** Photo credits keyed by asset id; shown under each photo and in print. */
   credits?: Record<string, PhotoCredit>;
+  /** Reader-only: rendered between the photos and the ingredients. */
+  controls?: ReactNode;
   /** h2 when the page already has its own h1, as on admin review pages. */
   titleAs?: "h1" | "h2";
 }) {
@@ -47,15 +51,15 @@ export default function RecipePreview({
     <article className="recipe-preview">
       <div className="flex flex-wrap items-center gap-2">
         {published && category ? (
-          <Badge variant="tag" asChild>
-            <a href={discover("category", input.category)}>{category}</a>
+          <Badge variant="tag" render={<a href={discover("category", input.category)} />}>
+            {category}
           </Badge>
         ) : (
           category && <Badge variant="tag">{category}</Badge>
         )}
         {published && origin ? (
-          <Badge variant="region" asChild>
-            <a href={discover("origin", input.origin)}>{origin}</a>
+          <Badge variant="region" render={<a href={discover("origin", input.origin)} />}>
+            {origin}
           </Badge>
         ) : (
           origin && <Badge variant="region">{origin}</Badge>
@@ -85,65 +89,34 @@ export default function RecipePreview({
           {input.sourceCredit}
         </p>
       )}
-      {input.story && (
-        <div className="recipe-story">
-          <Badge variant="eyebrow">
-            {t("The story behind the dish", "La historia detrás del platillo")}
-          </Badge>
-          <p className="author-text">{input.story}</p>
+      {(input.photos.length > 0 || input.story) && (
+        <div className="recipe-hero" data-has-photos={input.photos.length > 0 ? "" : undefined}>
+          {input.photos.length > 0 && (
+            <PhotoCarousel
+              photos={input.photos}
+              spanish={spanish}
+              src={(p) =>
+                published
+                  ? `/api/recipes/${id}/photos/${p.assetId}?variant=gallery`
+                  : `/api/media/${p.assetId}?variant=gallery`
+              }
+              credit={(p) => (credits[p.assetId] ? photoCreditText(credits[p.assetId], spanish ? "es" : "en") : "")}
+              onOpen={onOpenPhoto}
+            />
+          )}
+          {input.story && (
+            <div className="recipe-story">
+              <Badge variant="eyebrow">
+                {t("The story behind the dish", "La historia detrás del platillo")}
+              </Badge>
+              <p className="author-text">{input.story}</p>
+            </div>
+          )}
         </div>
       )}
       <Separator className="my-6" />
-      <div className="recipe-gallery">
-        {input.photos.map((p, i) => (
-          <figure key={p.assetId}>
-            <div className={cn(i === 0 && "cover-frame")}>
-              <img
-                src={
-                  published
-                    ? `/api/recipes/${id}/photos/${p.assetId}?variant=gallery`
-                    : `/api/media/${p.assetId}?variant=gallery`
-                }
-                width={p.width ?? 640}
-                height={p.height ?? 480}
-                alt={p.alt || p.caption}
-                style={
-                  i === 0
-                    ? {
-                        objectPosition: `${p.crop.x}% ${p.crop.y}%`,
-                        transform: `scale(${p.crop.zoom})`,
-                      }
-                    : undefined
-                }
-              />
-            </div>
-            <figcaption>
-              {p.caption}
-              {credits[p.assetId] && (
-                <span className="photo-credit">{photoCreditText(credits[p.assetId], spanish ? "es" : "en")}</span>
-              )}
-            </figcaption>
-            {onOpenPhoto ? (
-              <button type="button" className="gallery-open" onClick={() => onOpenPhoto(i)}>
-                {t("View larger photo", "Ver foto más grande")}
-                <span className="sr-only">: {p.caption}</span>
-              </button>
-            ) : i === 0 && (
-              <a
-                href={
-                  published
-                    ? `/api/recipes/${id}/photos/${p.assetId}?variant=gallery`
-                    : `/api/media/${p.assetId}?variant=gallery`
-                }
-                target="_blank"
-                rel="noopener"
-              >
-                {t("View full photo", "Ver foto completa")}
-              </a>
-            )}
-          </figure>
-        ))}
-      </div>
+      <div className="recipe-layout">
+      {controls && <div className="recipe-controls">{controls}</div>}
       <div className="recipe-columns">
         <Card>
           <CardContent>
@@ -182,6 +155,7 @@ export default function RecipePreview({
         </section>
           </CardContent>
         </Card>
+      </div>
       </div>
       {input.notes && (
         <section>

@@ -97,11 +97,8 @@ export default function CookingMode({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-h-[100dvh] w-full max-w-3xl overflow-y-auto sm:max-h-[90dvh]"
-        onCloseAutoFocus={(e) => {
-          e.preventDefault();
-          returnFocus.current?.focus();
-        }}
+        className="max-h-[100dvh] w-full max-w-3xl overflow-y-auto sm:max-h-[90dvh] sm:max-w-3xl"
+        finalFocus={() => returnFocus.current}
       >
         <DialogHeader>
           <DialogTitle className="type-headline-md">{title}</DialogTitle>

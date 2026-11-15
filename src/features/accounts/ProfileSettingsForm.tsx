@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CheckIcon, EyeOpenIcon, LockClosedIcon } from "@radix-ui/react-icons";
-import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
+import { Radio, RadioGroup, RadioIndicator } from "@ui-sdk/react/radio";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -224,9 +224,11 @@ export default function ProfileSettingsForm({
                 </div>
               </div>
             )}
-            <RadioGroupPrimitive.Root
+            <RadioGroup
               value={avatar}
-              onValueChange={(value) => setAvatar(value as AvatarChoice)}
+              onValueChange={(value) => {
+                if (value !== null) setAvatar(value as AvatarChoice);
+              }}
               aria-labelledby="avatar-heading"
               aria-describedby="avatar-intro"
               className="grid grid-cols-2 gap-3 sm:grid-cols-4"
@@ -235,18 +237,17 @@ export default function ProfileSettingsForm({
                 <label
                   key={choice}
                   htmlFor={`avatar-${choice}`}
-                  className="relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-border bg-muted/60 px-3 py-4 text-center text-sm font-semibold transition-[background-color,box-shadow] hover:bg-muted has-[[data-state=checked]]:bg-card has-[[data-state=checked]]:shadow-md has-[[data-state=checked]]:ring-2 has-[[data-state=checked]]:ring-primary has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring"
+                  className="relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-border bg-muted/60 px-3 py-4 text-center text-sm font-semibold transition-[background-color,box-shadow] hover:bg-muted has-[[data-checked]]:bg-card has-[[data-checked]]:shadow-md has-[[data-checked]]:ring-2 has-[[data-checked]]:ring-primary has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring"
                 >
-                  <RadioGroupPrimitive.Item
-                    data-slot="radio-group-item"
+                  <Radio
                     id={`avatar-${choice}`}
                     value={choice}
-                    className="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full border border-input bg-card outline-none data-[state=checked]:border-primary data-[state=checked]:bg-primary"
+                    className="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full border border-input bg-card outline-none data-checked:border-primary data-checked:bg-primary"
                   >
-                    <RadioGroupPrimitive.Indicator>
+                    <RadioIndicator>
                       <CheckIcon aria-hidden="true" className="size-4 text-primary-foreground" />
-                    </RadioGroupPrimitive.Indicator>
-                  </RadioGroupPrimitive.Item>
+                    </RadioIndicator>
+                  </Radio>
                   <span
                     aria-hidden="true"
                     className="flex size-14 items-center justify-center rounded-full bg-accent font-serif text-2xl text-primary-ink"
@@ -256,7 +257,7 @@ export default function ProfileSettingsForm({
                   {t.choices[choice]}
                 </label>
               ))}
-            </RadioGroupPrimitive.Root>
+            </RadioGroup>
             <FieldSeparator />
             <ImageUploader
               purpose="avatar"
