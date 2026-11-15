@@ -10,6 +10,7 @@ import type { CatalogPage, RecipeCard as CardData } from "./catalog";
 import { activeFilterCount, clearFilters, defaultSort, toDiscoverSearch, type DiscoverParams } from "./discover-state";
 import FilterPanel, { sortOptions } from "./FilterPanel";
 import { favoriteIntentFrom } from "./draft-intent";
+import { toast } from "@/components/ui/toaster";
 import { originLabel as labelFor } from "./origin-label";
 import RecipeCard from "./RecipeCard";
 import { categories, type Origin } from "./validation";
@@ -271,10 +272,10 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
           return;
         }
         if (!res.ok) throw new Error();
-        setAnnouncement(favorited ? t.saved(card.title) : t.unsaved(card.title));
+        toast.success(favorited ? t.saved(card.title) : t.unsaved(card.title));
       } catch {
         setItems((current) => (current.some((c) => c.id === card.id) ? current.map((c) => (c.id === card.id ? card : c)) : [card, ...current]));
-        setAnnouncement(t.saveFailed);
+        toast.error(t.saveFailed);
       } finally {
         setPending(null);
       }
