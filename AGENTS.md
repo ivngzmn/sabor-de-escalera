@@ -20,7 +20,7 @@ pnpm dlx skills add thesysdev/skills --skill openui
 
 ## Component behavior comes from ui-sdk
 
-`@ui-sdk/react` and `@ui-sdk/core` supply unstyled behavior for components: keyboard navigation, focus, popups and ARIA. Both are pinned to a beta release. Build new components on them. Most components in `src/components/ui` already wrap ui-sdk parts. `dropdown-menu.tsx` and `select.tsx` still use Radix until they are migrated.
+`@ui-sdk/react` and `@ui-sdk/core` supply unstyled behavior for components: keyboard navigation, focus, popups and ARIA. Both are pinned to a beta release. Build new components on them. The components in `src/components/ui` wrap ui-sdk parts, and Radix is no longer installed. Icons still come from `@radix-ui/react-icons`.
 
 Before using ui-sdk:
 
