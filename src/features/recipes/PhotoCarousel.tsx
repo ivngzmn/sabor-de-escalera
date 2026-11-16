@@ -35,7 +35,7 @@ export default function PhotoCarousel({
   const current = photos[page - 1] ?? photos[0];
   return (
     <Carousel aria-label={t("Recipe photos", "Fotos de la receta")} page={page} onPageChange={setPage} loop className="photo-carousel relative overflow-hidden rounded-xl bg-neutral-900 shadow-md">
-      <CarouselViewport className="aspect-[4/3] w-full">
+      <CarouselViewport className="aspect-[4/3] w-full [scrollbar-width:none]">
         <CarouselContent className="h-full">
           {photos.map((photo, i) => {
             const image = (
@@ -45,6 +45,7 @@ export default function PhotoCarousel({
                 height={photo.height ?? 900}
                 alt={photo.alt || photo.caption}
                 loading={i === 0 ? "eager" : "lazy"}
+                referrerPolicy="no-referrer"
                 draggable={false}
                 className="size-full object-cover"
                 style={{ objectPosition: `${photo.crop.x}% ${photo.crop.y}%`, scale: photo.crop.zoom }}

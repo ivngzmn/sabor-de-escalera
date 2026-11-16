@@ -1,6 +1,7 @@
 /* Layout belongs to the island; surfaces and controls use shadcn tokens. */
-body {
-  padding-block-end: var(--privacy-clearance, 0px);
+/* The footer, not the body, makes room for the launcher, so its background runs to the page edge. */
+.site-footer {
+  padding-block-end: max(2.25rem, var(--privacy-clearance, 0px));
 }
 .privacy-panel {
   width: 100%;
@@ -51,9 +52,6 @@ body {
   }
 }
 @media print {
-  body {
-    padding-block-end: 0;
-  }
   .privacy-panel-floating,
   .privacy-launcher {
     display: none;

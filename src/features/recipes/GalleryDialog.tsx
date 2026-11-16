@@ -70,7 +70,7 @@ export default function GalleryDialog({
               onPageChange={(page) => onIndexChange(page - 1)}
               className="relative size-full"
             >
-              <CarouselViewport className="size-full outline-none">
+              <CarouselViewport className="size-full outline-none [scrollbar-width:none]">
                 <CarouselContent className="size-full">
                   {photos.map((item, i) => (
                     <CarouselItem key={item.assetId} className="relative size-full basis-full overflow-hidden">

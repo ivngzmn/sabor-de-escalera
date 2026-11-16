@@ -6,7 +6,6 @@ import {
   ReaderIcon,
   TrashIcon,
 } from "@radix-ui/react-icons";
-import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -151,13 +150,14 @@ function RecipeCard({
     dateStyle: "medium",
   }).format(new Date(recipe.date));
   return (
-    <Card className="group gap-0 overflow-hidden py-0 shadow-md transition-shadow hover:shadow-lg">
+    <Card className="group gap-0 overflow-hidden border border-border py-0 shadow-xs transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-md">
       <div className="relative aspect-[16/10] overflow-hidden bg-muted">
         {recipe.cover ? (
           <img
             src={recipe.cover}
             alt={recipe.coverAlt}
             loading="lazy"
+            referrerPolicy="no-referrer"
             className="size-full object-cover transition-transform duration-500 motion-safe:group-hover:scale-105"
           />
         ) : (
@@ -169,9 +169,9 @@ function RecipeCard({
           </div>
         )}
         {(kind === "drafts" || recipe.state !== "published") && (
-          <Badge variant="region" className="absolute top-3 left-3">
+          <span className="absolute top-3 left-3 rounded-md bg-background/90 px-2.5 py-0.5 text-xs font-semibold text-foreground shadow-xs backdrop-blur-sm">
             {kind === "drafts" ? t.draft : recipe.state === "deleted" ? t.deletedBadge : t.unpublished}
-          </Badge>
+          </span>
         )}
       </div>
       <CardHeader className="pt-5">
@@ -305,7 +305,13 @@ export default function ProfileTabs({
     const url = new URL(window.location.href);
     if (next === "favorites") url.searchParams.delete("tab");
     else url.searchParams.set("tab", next);
-    history.replaceState(history.state, "", url);
+    if (url.href !== window.location.href) {
+      try {
+        history.replaceState(history.state, "", url);
+      } catch {
+        /* History updates throttled or restricted. */
+      }
+    }
   };
   const shareLink = (
     <a
@@ -416,7 +422,7 @@ export default function ProfileTabs({
             body={t.noFavoritesBody}
             action={
               <a
-                href={href("/")}
+                href={href("/discover")}
                 data-slot="button"
                 className={buttonVariants({ variant: "outline" })}
               >

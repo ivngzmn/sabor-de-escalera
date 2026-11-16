@@ -7,12 +7,12 @@ test('unavailable recipes show the left-the-table page in both languages', async
   const response = await page.goto('/recipes/not-a-recipe/anything');
   expect(response?.status()).toBe(404);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Oops—this recipe has left the table.');
-  await expect(page.getByRole('link', { name: 'Explore Recipes' })).toHaveAttribute('href', '/');
+  await expect(page.getByRole('link', { name: 'Explore Recipes' })).toHaveAttribute('href', '/discover');
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze();
   expect(results.violations).toEqual([]);
   await page.goto('/recipes/not-a-recipe/x?lang=es');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Uy, esta receta se ha ido de la mesa.');
-  await expect(page.getByRole('link', { name: 'Explorar recetas' })).toHaveAttribute('href', '/?lang=es');
+  await expect(page.getByRole('link', { name: 'Explorar recetas' })).toHaveAttribute('href', '/discover?lang=es');
 });
 
 test('a database outage is not reported as a missing recipe', async ({ page }) => {

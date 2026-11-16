@@ -30,32 +30,33 @@ const share = (n: number) => (summary.total ? `${(n / summary.total) * 100}%` : 
 ---
 <AppLayout title="Cookbook review">
   <a href="/admin" class="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary-ink no-underline hover:underline"><ArrowLeftIcon aria-hidden="true" />Administration</a>
-  <div class="flex max-w-3xl flex-col gap-2">
+  <div class="flex max-w-3xl flex-col gap-1.5">
+    <p class="m-0 text-xs font-semibold tracking-wider text-primary-ink uppercase">Editorial queue</p>
     <h1 class="m-0">Cookbook review</h1>
     <p class="intro m-0">Every recipe from the book waits here unpublished until its details, photos and credits are complete and both reviews are done. Being in the book is not permission to reuse its text or photos on the web.</p>
   </div>
 
   {queue.ok && (
-    <section aria-labelledby="book-progress" class="mt-8 flex flex-col gap-4 rounded-xl bg-card p-5 shadow-sm sm:p-6">
+    <section aria-labelledby="book-progress" class="mt-8 flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-xs sm:p-6">
       <div class="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
-        <h2 id="book-progress" class="type-headline-sm m-0">{summary.published} of {summary.total} recipes published</h2>
-        <p class="m-0 text-sm text-muted-foreground">{summary.ready} ready to publish, {summary.blocked} still need work</p>
+        <h2 id="book-progress" class="type-headline-sm m-0 tabular-nums">{summary.published} of {summary.total} recipes published</h2>
+        <p class="m-0 text-sm text-muted-foreground tabular-nums">{summary.ready} ready to publish, {summary.blocked} still need work</p>
       </div>
-      <div aria-hidden="true" class="flex h-3 overflow-hidden rounded-full bg-muted">
-        <span class="bg-secondary" style={`width:${share(summary.published)}`}></span>
+      <div aria-hidden="true" class="flex h-2.5 overflow-hidden rounded-full bg-muted">
+        <span class="bg-primary" style={`width:${share(summary.published)}`}></span>
         <span class="bg-masa" style={`width:${share(summary.ready)}`}></span>
       </div>
       <ul class="m-0 flex list-none flex-wrap gap-x-5 gap-y-1 p-0 text-sm text-muted-foreground" aria-label="Legend">
-        <li class="inline-flex items-center gap-2"><span aria-hidden="true" class="size-2.5 rounded-full bg-secondary"></span>Published</li>
+        <li class="inline-flex items-center gap-2"><span aria-hidden="true" class="size-2.5 rounded-full bg-primary"></span>Published</li>
         <li class="inline-flex items-center gap-2"><span aria-hidden="true" class="size-2.5 rounded-full bg-masa"></span>Ready to publish</li>
-        <li class="inline-flex items-center gap-2"><span aria-hidden="true" class="size-2.5 rounded-full border border-input bg-muted"></span>Needs work</li>
+        <li class="inline-flex items-center gap-2"><span aria-hidden="true" class="size-2.5 rounded-full border border-border bg-muted"></span>Needs work</li>
       </ul>
     </section>
   )}
 
   {waiting > 0 ? (
-    <section aria-labelledby="pending-translations" class="mt-6 flex flex-col gap-3 rounded-xl border border-masa/40 bg-masa-soft p-5">
-      <h2 id="pending-translations" class="type-headline-sm m-0">{waiting} {waiting === 1 ? 'translation is' : 'translations are'} waiting for approval</h2>
+    <section aria-labelledby="pending-translations" class="mt-6 flex flex-col gap-3 rounded-2xl border border-masa/40 bg-masa-soft p-5">
+      <h2 id="pending-translations" class="type-headline-sm m-0 tabular-nums">{waiting} {waiting === 1 ? 'translation is' : 'translations are'} waiting for approval</h2>
       {proposals.ok && <BulkApprove client:load proposals={proposals.value} />}
     </section>
   ) : !proposals.ok ? <p role="alert" class="mt-6">{proposals.error.message}</p> : null}
@@ -63,31 +64,31 @@ const share = (n: number) => (summary.total ? `${(n / summary.total) * 100}%` : 
   <section aria-labelledby="staged-recipes" class="mt-10 flex flex-col gap-4">
     <div class="flex flex-wrap items-end justify-between gap-4">
       <h2 id="staged-recipes" class="m-0">Recipes</h2>
-      <nav aria-label="Filter recipes" class="flex flex-wrap gap-1 rounded-xl bg-muted p-1">
+      <nav aria-label="Filter recipes" class="flex flex-wrap gap-1 rounded-xl border border-border bg-muted p-1">
         {tabs.map(([value, label]) => (
           <a
             href={value === 'all' ? '/admin/cookbook' : `/admin/cookbook?filter=${value}`}
             aria-current={value === filter ? 'page' : undefined}
-            class:list={['inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold no-underline', value === filter ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground']}
-          >{label}<span class="rounded-full bg-background px-2 text-xs tabular-nums">{views[value].length}</span></a>
+            class:list={['inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold no-underline', value === filter ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground']}
+          >{label}<span class="rounded-full bg-muted px-2 text-xs tabular-nums">{views[value].length}</span></a>
         ))}
       </nav>
     </div>
 
     {!queue.ok ? <p role="alert">{queue.error.message}</p> : rows.length === 0 ? (
-      <p class="rounded-xl border border-dashed border-input/60 p-6 text-muted-foreground">{filter === 'eligible' ? 'Nothing is ready to publish yet. Open a recipe to fill in what it needs.' : 'No recipes in this view.'}</p>
+      <p class="rounded-2xl border border-dashed border-border p-6 text-muted-foreground">{filter === 'eligible' ? 'Nothing is ready to publish yet. Open a recipe to fill in what it needs.' : 'No recipes in this view.'}</p>
     ) : (
-      <ul class="m-0 flex list-none flex-col gap-2 p-0">
+      <ul class="m-0 flex list-none flex-col gap-2.5 p-0">
         {rows.map((r) => {
           const needs = r.state === 'published' ? '' : stillNeeds(r.missing);
           return (
-            <li class="relative grid items-center gap-x-6 gap-y-3 rounded-xl bg-card p-4 shadow-xs transition-shadow focus-within:ring-[3px] focus-within:ring-ring hover:shadow-md sm:p-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto]">
+            <li class="relative grid items-center gap-x-6 gap-y-3 rounded-2xl border border-border bg-card p-4 shadow-xs transition-[box-shadow,border-color] focus-within:ring-[3px] focus-within:ring-ring hover:border-primary/40 hover:shadow-sm sm:p-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto]">
               <div class="flex min-w-0 flex-col gap-0.5">
                 <a href={`/admin/cookbook/${r.entryId}`} class="font-serif text-lg leading-snug text-foreground no-underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none">{r.title}</a>
-                <span class="text-sm text-muted-foreground">Book page {r.pages.join('–')}{r.contributor ? `, from ${r.contributor}` : ''}</span>
+                <span class="text-sm text-muted-foreground tabular-nums">Book page {r.pages.join('–')}{r.contributor ? `, from ${r.contributor}` : ''}</span>
               </div>
               <div class="flex min-w-0 flex-col gap-0.5 text-sm">
-                <span class:list={['font-semibold', (r.eligible || r.state === 'published') && 'text-secondary']}>{stepSummary(r)}</span>
+                <span class:list={['font-semibold', (r.eligible || r.state === 'published') && 'text-primary-ink']}>{stepSummary(r)}</span>
                 {needs && <span class="text-muted-foreground">{needs}</span>}
               </div>
               <span aria-hidden="true" class={buttonVariants({ variant: 'outline', size: 'sm' })}>{r.state === 'published' ? 'View' : 'Review'}</span>

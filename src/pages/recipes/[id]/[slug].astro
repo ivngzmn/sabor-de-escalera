@@ -52,7 +52,7 @@ const t = spanish
   {recipe ? (
     <>
       <RecipeReader client:load id={recipe.id} url={recipe.url!} input={recipe.input} origins={origins} language={language} translation={translation} credits={photoCredits} favorite={favorite} />
-      <p class="m-0 mt-10 flex border-t pt-4 flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+      <p class="m-0 mt-10 flex border-t border-border pt-4 flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
         {credit && <span>{t.cookbook}{credit.contributor && ` · ${t.contributed} ${credit.contributor}`}{credit.originalAuthor && ` · ${t.original} ${credit.originalAuthor}`}</span>}
         {authorName && <span>{t.by} <a href={`/members/${recipe.ownerId}${spanish ? '?lang=es' : ''}`}>{authorName}</a></span>}
         <span>{t.published}: <time datetime={recipe.publishedAt!}>{date(recipe.publishedAt!)}</time></span>
@@ -60,9 +60,9 @@ const t = spanish
       </p>
     </>
   ) : (
-    <Empty className="rounded-xl border border-dashed border-input/40 bg-card/60"><EmptyHeader>
+    <Empty className="rounded-2xl border border-dashed border-border bg-card/70"><EmptyHeader>
       <EmptyTitle><h1>{failed ? t.unavailable : t.gone}</h1></EmptyTitle>
-      <EmptyDescription><a href={spanish ? '/?lang=es' : '/'} data-slot="button" class={buttonVariants()}>{t.explore}</a></EmptyDescription>
+      <EmptyDescription><a href={spanish ? '/discover?lang=es' : '/discover'} data-slot="button" class={buttonVariants()}>{t.explore}</a></EmptyDescription>
     </EmptyHeader></Empty>
   )}
 </AppLayout>

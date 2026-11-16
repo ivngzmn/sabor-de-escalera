@@ -341,11 +341,10 @@ function ProfilePreview({
   );
   if (compact)
     return (
-      <div className="flex items-center gap-4 overflow-hidden rounded-xl bg-card p-3 shadow-sm" aria-live="polite">
-        <div aria-hidden="true" className="h-16 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-primary via-primary-ink to-masa" />
-        {avatar("size-14 rounded-lg", "rounded-lg font-serif text-2xl")}
+      <div className="flex items-center gap-4 overflow-hidden rounded-2xl border border-border bg-card p-3.5 shadow-xs" aria-live="polite">
+        {avatar("size-14 rounded-xl", "rounded-xl font-serif text-2xl")}
         <div className="flex min-w-0 flex-col">
-          <span className="text-xs text-muted-foreground">{t.preview}</span>
+          <span className="text-xs font-semibold tracking-wider text-primary-ink uppercase">{t.preview}</span>
           <span className="truncate font-serif text-xl">{shown}</span>
           <span className="truncate text-sm text-muted-foreground">{about.trim() || t.noBio}</span>
         </div>
@@ -353,20 +352,15 @@ function ProfilePreview({
     );
   return (
     <div className="flex flex-col gap-4" aria-live="polite">
-      <p className="m-0 text-sm font-semibold text-muted-foreground">{t.preview}</p>
-      <figure className="m-0 overflow-hidden rounded-xl bg-card shadow-md">
-        <div aria-hidden="true" className="relative h-20 bg-gradient-to-r from-primary via-primary-ink to-masa">
-          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-        </div>
-        <div className="flex flex-col gap-2 px-5 pb-5">
-          <div className="relative z-10 -mt-10 self-start rounded-xl bg-card p-1 shadow-lg">
-            {avatar("size-20 rounded-lg", "rounded-lg font-serif text-3xl")}
-          </div>
+      <p className="m-0 text-xs font-semibold tracking-wider text-primary-ink uppercase">{t.preview}</p>
+      <figure className="m-0 overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs">
+        <div className="flex flex-col gap-3">
+          {avatar("size-20 rounded-xl", "rounded-xl font-serif text-3xl")}
           <p className="type-headline-sm m-0 break-words">{shown}</p>
           <p className={cn("m-0 text-sm break-words", about.trim() ? "text-foreground" : "text-muted-foreground")}>
             {about.trim() || t.noBio}
           </p>
-          <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-muted px-3 py-1 text-sm">
+          <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
             {savedPublic ? (
               <EyeOpenIcon aria-hidden="true" className="size-4 text-primary-ink" />
             ) : (
@@ -377,7 +371,7 @@ function ProfilePreview({
         </div>
         <figcaption className="sr-only">{t.onProfile}</figcaption>
       </figure>
-      <figure className="m-0 flex flex-col gap-2 rounded-xl border border-border bg-card/70 p-4">
+      <figure className="m-0 flex flex-col gap-1.5 rounded-2xl border border-border bg-card p-4 shadow-xs">
         <figcaption className="text-xs font-semibold text-muted-foreground">{t.onRecipes}</figcaption>
         <p className="m-0 text-sm">
           {t.by} <span className="font-semibold text-primary-ink underline underline-offset-2">{shown}</span>

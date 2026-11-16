@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CopyIcon, MinusIcon, PlusIcon, ReaderIcon } from "@radix-ui/react-icons";
+import { CopyIcon, ReaderIcon } from "@radix-ui/react-icons";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FavoriteHeart } from "@/components/ui/favorite-heart";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  NumberInput,
+  NumberInputControl,
+  NumberInputDecrement,
+  NumberInputGroup,
+  NumberInputIncrement,
+} from "@/components/ui/number-input";
 import { toast } from "@/components/ui/toaster";
 import { favoriteIntentFrom } from "./draft-intent";
 import CookingMode from "./CookingMode";
@@ -90,6 +96,7 @@ export default function RecipeReader({
   const [saving, setSaving] = useState(false);
   const [cooking, setCooking] = useState(false);
   const [photo, setPhoto] = useState<number | null>(null);
+  const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
   const cookButton = useRef<HTMLButtonElement>(null);
   const opener = useRef<HTMLElement | null>(null);
   const openPhoto = (index: number) => {
@@ -109,6 +116,16 @@ export default function RecipeReader({
   }, [input, translation, language, baseline, servings]);
   const original = input.language === "es" ? "es" : "en";
   const set = (n: number) => setServings(clampServings(n));
+
+  const toggleIngredient = (index: number, next: boolean) => {
+    setCheckedIngredients((prev) => {
+      const updated = new Set(prev);
+      if (next) updated.add(index);
+      else updated.delete(index);
+      return updated;
+    });
+  };
+
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(new URL(url, window.location.origin).href);
@@ -145,67 +162,82 @@ export default function RecipeReader({
     const here = new URL(window.location.href);
     if (favoriteIntentFrom(here) !== id) return;
     here.searchParams.delete("save");
-    history.replaceState(history.state, "", here);
+    if (here.href !== window.location.href) {
+      try {
+        history.replaceState(history.state, "", here);
+      } catch {
+        /* History updates throttled or restricted. */
+      }
+    }
     if (favorite?.signedIn && !favorite.favorited) void setFavorite(true);
   }, []);
   const src = (assetId: string) => `/api/recipes/${id}/photos/${assetId}?variant=gallery`;
 
   const controls = (
     <>
-        <div data-print-hide className="mb-6 flex flex-wrap items-end justify-between gap-4 rounded-xl border bg-card p-4 shadow-sm lg:flex-col lg:items-stretch lg:justify-start">
-          {baseline && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="servings">{t.servings}</Label>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" variant="outline" size="icon" aria-label={t.fewer} onClick={() => set(servings - 1)} disabled={servings <= 1}>
-                  <MinusIcon aria-hidden="true" />
+      <div
+        data-print-hide
+        className="mb-6 flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-border bg-card p-4 shadow-xs lg:flex-col lg:items-stretch lg:justify-start"
+      >
+        {baseline && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="servings">{t.servings}</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <NumberInput
+                value={servings}
+                min={1}
+                max={99}
+                step={1}
+                onValueChange={(next) => {
+                  if (next !== null && !Number.isNaN(next)) set(next);
+                }}
+              >
+                <NumberInputGroup>
+                  <NumberInputDecrement aria-label={t.fewer} />
+                  <NumberInputControl id="servings" aria-describedby="servings-original" />
+                  <NumberInputIncrement aria-label={t.more} />
+                </NumberInputGroup>
+              </NumberInput>
+              {servings !== baseline && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setServings(baseline)}>
+                  {t.reset}
                 </Button>
-                <Input
-                  id="servings"
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={99}
-                  value={servings}
-                  onChange={(e) => set(Number(e.target.value))}
-                  className="w-20 shrink-0 text-center"
-                  aria-describedby="servings-original"
-                />
-                <Button type="button" variant="outline" size="icon" aria-label={t.more} onClick={() => set(servings + 1)} disabled={servings >= 99}>
-                  <PlusIcon aria-hidden="true" />
-                </Button>
-                {servings !== baseline && (
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setServings(baseline)}>
-                    {t.reset}
-                  </Button>
-                )}
-              </div>
-              <p id="servings-original" className="m-0 text-sm text-muted-foreground">
-                {t.original(baseline)}
-              </p>
+              )}
             </div>
-          )}
-          <div className="flex flex-wrap gap-2 lg:flex-col lg:[&>*]:w-full">
-            {favorite && (
-            <Button type="button" variant={saved ? "default" : "outline"} className="[--heart-fill:white]" aria-pressed={saved} onClick={() => setFavorite(!saved)}>
+            <p id="servings-original" className="m-0 text-xs text-muted-foreground tabular-nums">
+              {t.original(baseline)}
+            </p>
+          </div>
+        )}
+        <div className="flex flex-col gap-2 max-sm:w-full sm:flex-row sm:flex-wrap lg:flex-col lg:flex-nowrap">
+          <Button ref={cookButton} type="button" onClick={() => setCooking(true)}>
+            <ReaderIcon aria-hidden="true" />
+            {t.cook}
+          </Button>
+          {favorite && (
+            <Button
+              type="button"
+              variant={saved ? "secondary" : "outline"}
+              className={saved ? "[--heart-fill:var(--primary-ink)]" : undefined}
+              aria-pressed={saved}
+              onClick={() => setFavorite(!saved)}
+            >
               <FavoriteHeart active={saved} />
               {saved ? t.saved : t.save}
             </Button>
           )}
           <Button type="button" variant="outline" onClick={copyLink}>
-              <CopyIcon aria-hidden="true" />
-              {t.copy}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => window.print()}>
-              {t.print}
-            </Button>
-            <Button ref={cookButton} type="button" onClick={() => setCooking(true)}>
-              <ReaderIcon aria-hidden="true" />
-              {t.cook}
-            </Button>
-          </div>
+            <CopyIcon aria-hidden="true" />
+            {t.copy}
+          </Button>
+          <Button type="button" variant="outline" onClick={() => window.print()}>
+            {t.print}
+          </Button>
         </div>
-      {baseline && servings !== baseline && <p className="m-0 mb-4 text-sm text-muted-foreground">{t.scaledNote}</p>}
+      </div>
+      {baseline && servings !== baseline && (
+        <p className="m-0 mb-4 text-sm text-muted-foreground">{t.scaledNote}</p>
+      )}
     </>
   );
 
@@ -214,11 +246,26 @@ export default function RecipeReader({
       {original !== language && (
         <Alert>
           <AlertDescription>
-            {translation ? t.translated(languageName[language][original]) : t.fallback(languageName[language][original])}
+            {translation
+              ? t.translated(languageName[language][original])
+              : t.fallback(languageName[language][original])}
           </AlertDescription>
         </Alert>
       )}
-      <RecipePreview input={shown} id={id} origins={origins} spanish={language === "es"} published credits={credits} onOpenPhoto={openPhoto} controls={controls} servings={baseline ? { current: servings, original: baseline } : undefined} />
+      <RecipePreview
+        input={shown}
+        id={id}
+        origins={origins}
+        spanish={language === "es"}
+        published
+        credits={credits}
+        onOpenPhoto={openPhoto}
+        controls={controls}
+        servings={baseline ? { current: servings, original: baseline } : undefined}
+        checkedIngredients={checkedIngredients}
+        onToggleIngredient={toggleIngredient}
+        onClearIngredients={() => setCheckedIngredients(new Set())}
+      />
       <GalleryDialog
         photos={shown.photos}
         index={photo}
@@ -237,6 +284,9 @@ export default function RecipeReader({
         instructions={shown.instructions}
         language={language}
         returnFocus={cookButton}
+        checkedIngredients={checkedIngredients}
+        onToggleIngredient={toggleIngredient}
+        onClearIngredients={() => setCheckedIngredients(new Set())}
       />
     </div>
   );

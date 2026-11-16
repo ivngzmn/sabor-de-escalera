@@ -2,12 +2,12 @@
 import { ArrowLeftIcon } from '@radix-ui/react-icons';
 import AppLayout from '../../layouts/AppLayout.astro';
 import { Alert, AlertDescription } from '../../components/ui/alert';
-import { Badge } from '../../components/ui/badge';
 import ProfileSettingsForm from '../../features/accounts/ProfileSettingsForm';
 import { accounts, type Actor } from '../../features/accounts/service';
 import { AccountError, assertSameOriginWrite, signInHref } from '../../features/accounts/permissions';
 import { accountFailure } from '../../features/accounts/routes';
 import { mediaReadiness } from '../../features/media/service';
+import { isPreviewMode } from '../../server/preview-store';
 import { accountConfiguration, ClerkResponseError } from '../../server/clerk';
 const spanish = Astro.url.searchParams.get('lang') === 'es';
 const href = (path: string) => spanish ? `${path}?lang=es` : path;
@@ -44,10 +44,10 @@ const t = spanish
 ---
 <AppLayout title={t.title}>
   <a href={href('/profile')} class="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary-ink no-underline hover:underline"><ArrowLeftIcon aria-hidden="true" />{t.back}</a>
-  <div class="flex max-w-3xl flex-col items-start gap-2">
-    <Badge variant="eyebrow">{t.eyebrow}</Badge>
-    <h1>{t.title}</h1>
-    <p class="intro">{t.intro}</p>
+  <div class="flex max-w-3xl flex-col items-start gap-1.5">
+    <p class="m-0 text-xs font-semibold tracking-wider text-primary-ink uppercase">{t.eyebrow}</p>
+    <h1 class="m-0">{t.title}</h1>
+    <p class="intro m-0">{t.intro}</p>
   </div>
   {errorMessage && <Alert variant="destructive" id="settings-error" className="mt-6 max-w-3xl"><AlertDescription><a href="#display-name">{errorMessage}</a></AlertDescription></Alert>}
   <div class="mt-8">
@@ -60,7 +60,7 @@ const t = spanish
       avatarPreset={preset}
       avatarAssetId={actor.avatarAssetId ?? null}
       savedListPublic={field('savedListPublic') === undefined ? actor.savedListPublic : field('savedListPublic') === 'true'}
-      mediaAvailable={mediaReadiness().enabled}
+      mediaAvailable={mediaReadiness().enabled || isPreviewMode()}
       error={errorMessage || undefined}
       cancelHref={href('/profile')}
       privacyHref={href('/privacy')}

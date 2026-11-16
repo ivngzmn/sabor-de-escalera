@@ -1,5 +1,6 @@
 import RecipePlaceholder from "@/components/RecipePlaceholder";
 import { cn } from "@/lib/utils";
+import { ChevronDownIcon, EyeOpenIcon } from "@radix-ui/react-icons";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -8,9 +9,14 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsiblePanel,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import { Progress, ProgressIndicator, ProgressTrack } from "@/components/ui/progress";
 import {
   Field,
   FieldGroup,
@@ -128,6 +134,8 @@ export default function RecipeEditor({
     >([]),
     [paste, setPaste] = useState(""),
     [pasteLines, setPasteLines] = useState<string[] | null>(null),
+    [pasteOpen, setPasteOpen] = useState(false),
+    [showLivePreview, setShowLivePreview] = useState(true),
     [confirmDelete, setConfirmDelete] = useState(false),
     [leaving, setLeaving] = useState<LeaveTarget | null>(null);
   const current = useRef(input),
@@ -180,7 +188,13 @@ export default function RecipeEditor({
     saved.current = next.input;
     const url = new URL(location.href);
     url.searchParams.set("draft", next.id);
-    history.replaceState(null, "", url);
+    if (url.href !== location.href) {
+      try {
+        history.replaceState(null, "", url);
+      } catch {
+        /* History updates throttled or restricted. */
+      }
+    }
   }
   function stop(error: Failure) {
     setOperationError(false);
@@ -487,7 +501,13 @@ export default function RecipeEditor({
         });
       const url = new URL(location.href);
       url.searchParams.set("lang", next);
-      history.replaceState(null, "", url);
+      if (url.href !== location.href) {
+        try {
+          history.replaceState(null, "", url);
+        } catch {
+          /* History updates throttled or restricted. */
+        }
+      }
       if (readConsent().preferences) {
         try {
           localStorage.setItem("escalera:preferences:language", next);
@@ -950,7 +970,9 @@ export default function RecipeEditor({
     <div className="recipe-editor">
       <header className="editor-header">
         <div className="flex flex-col gap-1">
-          <Badge variant="eyebrow">{t("From your kitchen", "Desde tu cocina")}</Badge>
+          <p className="m-0 text-xs font-semibold tracking-wider text-primary-ink uppercase">
+            {t("From your kitchen", "Desde tu cocina")}
+          </p>
           <h1>{t("Share your recipe", "Comparte tu receta")}</h1>
           <p className="intro">
             {draft?.label ?? t("New recipe", "Receta nueva")}
@@ -963,6 +985,20 @@ export default function RecipeEditor({
           </p>
         </div>
         <div className="editor-actions">
+          {step < 4 && (
+            <Button
+              type="button"
+              variant={showLivePreview ? "secondary" : "outline"}
+              className="hidden xl:inline-flex"
+              aria-pressed={showLivePreview}
+              onClick={() => setShowLivePreview((prev) => !prev)}
+            >
+              <EyeOpenIcon aria-hidden="true" />
+              {showLivePreview
+                ? t("Hide preview", "Ocultar vista previa")
+                : t("Live preview", "Vista previa")}
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -1110,35 +1146,42 @@ export default function RecipeEditor({
           </Button>
         </section>
       )}
-      <nav
-        aria-label={t("Recipe steps", "Pasos de la receta")}
-        className="editor-tabs"
-      >
-        {[
-          t("Details", "Detalles"),
-          t("Photos", "Fotos"),
-          t("Ingredients", "Ingredientes"),
-          t("Instructions", "Instrucciones"),
-          t("Preview", "Vista previa"),
-        ].map((name, index) => (
-          <Button
-            type="button"
-            key={index}
-            disabled={!ready}
-            variant="ghost"
-            aria-current={step === index ? "step" : undefined}
-            onClick={() => goToStep(index)}
-          >
-            <span aria-hidden="true" className="editor-step-number">
-              {String(index + 1).padStart(2, "0")}
-            </span>
-            {name}
-          </Button>
-        ))}
-        <div aria-hidden="true" className="editor-progress">
-          <span style={{ width: `${((step + 1) / 5) * 100}%` }} />
-        </div>
-      </nav>
+      <div className="mb-6 flex flex-col gap-2">
+        <nav
+          aria-label={t("Recipe steps", "Pasos de la receta")}
+          className="editor-tabs !my-0"
+        >
+          {[
+            t("Details", "Detalles"),
+            t("Photos", "Fotos"),
+            t("Ingredients", "Ingredientes"),
+            t("Instructions", "Instrucciones"),
+            t("Preview", "Vista previa"),
+          ].map((name, index) => (
+            <Button
+              type="button"
+              key={index}
+              disabled={!ready}
+              variant="ghost"
+              aria-current={step === index ? "step" : undefined}
+              onClick={() => goToStep(index)}
+            >
+              <span aria-hidden="true" className="editor-step-number">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              {name}
+            </Button>
+          ))}
+        </nav>
+        <Progress
+          value={((step + 1) / 5) * 100}
+          aria-label={t("Step progress", "Progreso del borrador")}
+        >
+          <ProgressTrack className="h-1.5">
+            <ProgressIndicator />
+          </ProgressTrack>
+        </Progress>
+      </div>
       {errors.length > 0 && (
         <section aria-label={t("Publication checklist", "Lista para publicar")}>
           <h2>{t("Before you publish", "Antes de publicar")}</h2>
@@ -1163,6 +1206,13 @@ export default function RecipeEditor({
       {!draft && !ready && (
         <RecipePlaceholder variant="editor" state="loading" language={lang} />
       )}
+      <div
+        className={cn(
+          step < 4 &&
+            showLivePreview &&
+            "xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(0,0.88fr)] xl:items-start xl:gap-6",
+        )}
+      >
       <Card className={cn(!draft && !ready && "hidden")}>
         <CardHeader>
           <CardTitle role="heading" aria-level={2}>
@@ -1474,6 +1524,7 @@ export default function RecipeEditor({
                             width={p.width ?? 640}
                             height={p.height ?? 480}
                             alt={p.alt || p.caption}
+                            referrerPolicy="no-referrer"
                             style={{
                               objectPosition: `${p.crop.x}% ${p.crop.y}%`,
                               transform: `scale(${p.crop.zoom})`,
@@ -1659,7 +1710,7 @@ export default function RecipeEditor({
                                 ? t("Section", "Sección")
                                 : `${t("Ingredient", "Ingrediente")} ${i + 1}`}
                             </FieldLegend>
-                            <div className="editor-grid">
+                            <div className={r.kind === "section" ? "editor-grid" : "editor-grid-ingredients"}>
                               {(r.kind === "section"
                                 ? (["name"] as const)
                                 : ([
@@ -1678,12 +1729,45 @@ export default function RecipeEditor({
                                 >
                                   {label(
                                     `ingredients.${i}.${k}`,
-                                    `${{ quantity: "Quantity", unit: "Unit", name: "Ingredient name", notes: "Ingredient notes" }[k]} ${i + 1}`,
-                                    `${{ quantity: "Cantidad", unit: "Unidad", name: "Ingrediente", notes: "Notas del ingrediente" }[k]} ${i + 1}`,
+                                    r.kind === "section"
+                                      ? t("Section heading", "Título de sección")
+                                      : `${{ quantity: "Qty", unit: "Unit", name: "Ingredient", notes: "Notes" }[k]} ${i + 1}`,
+                                    r.kind === "section"
+                                      ? t("Section heading", "Título de sección")
+                                      : `${{ quantity: "Cant.", unit: "Unidad", name: "Ingrediente", notes: "Notas" }[k]} ${i + 1}`,
                                   )}
                                   <Input
                                     {...controlProps(`ingredients.${i}.${k}`)}
                                     value={r[k]}
+                                    onKeyDown={(e) => {
+                                      if (
+                                        e.key === "Enter" &&
+                                        !e.shiftKey &&
+                                        r.kind === "ingredient" &&
+                                        k === "name" &&
+                                        i === input.ingredients.length - 1 &&
+                                        input.ingredients.length < 100
+                                      ) {
+                                        e.preventDefault();
+                                        set("ingredients", [
+                                          ...input.ingredients,
+                                          {
+                                            kind: "ingredient",
+                                            quantity: "",
+                                            unit: "",
+                                            name: "",
+                                            notes: "",
+                                          },
+                                        ]);
+                                        requestAnimationFrame(() =>
+                                          document
+                                            .getElementById(
+                                              fieldId(`ingredients.${i + 1}.quantity`),
+                                            )
+                                            ?.focus(),
+                                        );
+                                      }
+                                    }}
                                     onChange={(e) =>
                                       set(
                                         "ingredients",
@@ -1777,115 +1861,153 @@ export default function RecipeEditor({
                         </Button>
                       ))}
                     </div>
-                    <Field>
-                      <Label htmlFor="paste-lines">
-                        {step === 2
-                          ? t(
-                              "Paste ingredient lines",
-                              "Pegar líneas de ingredientes",
-                            )
-                          : t(
-                              "Paste instruction lines",
-                              "Pegar líneas de instrucciones",
-                            )}
-                      </Label>
-                      <Textarea
-                        id="paste-lines"
-                        value={paste}
-                        onChange={(e) => {
-                          setPaste(e.target.value);
-                          setPasteLines(null);
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        disabled={!paste.trim()}
-                        onClick={() =>
-                          setPasteLines(
-                            paste.split(/\r?\n/).filter((line) => line.trim()),
-                          )
+                    <Collapsible
+                      open={pasteOpen || pasteLines !== null}
+                      onOpenChange={setPasteOpen}
+                      className="rounded-xl border border-border bg-muted/40 p-3"
+                    >
+                      <CollapsibleTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="w-full justify-between font-semibold text-foreground"
+                          />
                         }
                       >
-                        {t("Review pasted lines", "Revisar líneas pegadas")}
-                      </Button>
-                    </Field>
-                    {pasteLines && (
-                      <section>
-                        <h3>
-                          {t(
-                            "Confirm ambiguous text",
-                            "Confirmar el texto ambiguo",
-                          )}
-                        </h3>
-                        <p>
-                          {t(
-                            "Nothing has been added. Lines stay as written; review quantities and sections yourself.",
-                            "No se ha añadido nada. Las líneas se conservan: revisa cantidades y secciones.",
-                          )}
-                        </p>
-                        <ul>
-                          {pasteLines.map((line, i) => (
-                            <li key={i}>{line}</li>
-                          ))}
-                        </ul>
-                        <Button
-                          type="button"
-                          onClick={() => {
-                            if (
-                              step === 2 &&
-                              input.ingredients.length + pasteLines.length <=
-                                100
-                            ) {
-                              set("ingredients", [
-                                ...input.ingredients,
-                                ...pasteLines.map(
-                                  (name) =>
-                                    ({
-                                      kind: "ingredient",
-                                      quantity: "",
-                                      unit: "",
-                                      name,
-                                      notes: "",
-                                    }) as Ingredient,
-                                ),
-                              ]);
+                        <span>
+                          {step === 2
+                            ? t(
+                                "Paste ingredient lines at once",
+                                "Pegar varias líneas de ingredientes",
+                              )
+                            : t(
+                                "Paste instruction lines at once",
+                                "Pegar varias líneas de instrucciones",
+                              )}
+                        </span>
+                        <ChevronDownIcon aria-hidden="true" className="size-4" />
+                      </CollapsibleTrigger>
+                      <CollapsiblePanel className="pt-3">
+                        <Field>
+                          <Label htmlFor="paste-lines">
+                            {step === 2
+                              ? t(
+                                  "Paste ingredient lines",
+                                  "Pegar líneas de ingredientes",
+                                )
+                              : t(
+                                  "Paste instruction lines",
+                                  "Pegar líneas de instrucciones",
+                                )}
+                          </Label>
+                          <Textarea
+                            id="paste-lines"
+                            value={paste}
+                            onChange={(e) => {
+                              setPaste(e.target.value);
                               setPasteLines(null);
-                              setPaste("");
-                            } else if (
-                              step === 3 &&
-                              input.instructions.length + pasteLines.length <=
-                                50
-                            ) {
-                              set("instructions", [
-                                ...input.instructions,
-                                ...pasteLines.map(
-                                  (text) =>
-                                    ({ kind: "step", text }) as Instruction,
-                                ),
-                              ]);
-                              setPasteLines(null);
-                              setPaste("");
-                            } else
-                              setFailure({
-                                status: 422,
-                                message:
-                                  "Too many rows. Shorten the pasted list.",
-                              });
-                          }}
-                        >
-                          {t(
-                            "Confirm lines as written",
-                            "Confirmar líneas sin cambios",
-                          )}
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => setPasteLines(null)}
-                        >
-                          {t("Cancel", "Cancelar")}
-                        </Button>
-                      </section>
-                    )}
+                            }}
+                          />
+                          <div className="mt-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={!paste.trim()}
+                              onClick={() =>
+                                setPasteLines(
+                                  paste.split(/\r?\n/).filter((line) => line.trim()),
+                                )
+                              }
+                            >
+                              {t("Review pasted lines", "Revisar líneas pegadas")}
+                            </Button>
+                          </div>
+                        </Field>
+                        {pasteLines && (
+                          <section className="mt-3 rounded-lg border border-border bg-card p-3">
+                            <h3 className="mt-0 text-base">
+                              {t(
+                                "Confirm ambiguous text",
+                                "Confirmar el texto ambiguo",
+                              )}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {t(
+                                "Nothing has been added. Lines stay as written; review quantities and sections yourself.",
+                                "No se ha añadido nada. Las líneas se conservan: revisa cantidades y secciones.",
+                              )}
+                            </p>
+                            <ul className="my-2 list-disc pl-5 text-sm">
+                              {pasteLines.map((line, i) => (
+                                <li key={i}>{line}</li>
+                              ))}
+                            </ul>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                onClick={() => {
+                                  if (
+                                    step === 2 &&
+                                    input.ingredients.length + pasteLines.length <=
+                                      100
+                                  ) {
+                                    set("ingredients", [
+                                      ...input.ingredients,
+                                      ...pasteLines.map(
+                                        (name) =>
+                                          ({
+                                            kind: "ingredient",
+                                            quantity: "",
+                                            unit: "",
+                                            name,
+                                            notes: "",
+                                          }) as Ingredient,
+                                      ),
+                                    ]);
+                                    setPasteLines(null);
+                                    setPaste("");
+                                    setPasteOpen(false);
+                                  } else if (
+                                    step === 3 &&
+                                    input.instructions.length + pasteLines.length <=
+                                      50
+                                  ) {
+                                    set("instructions", [
+                                      ...input.instructions,
+                                      ...pasteLines.map(
+                                        (text) =>
+                                          ({ kind: "step", text }) as Instruction,
+                                      ),
+                                    ]);
+                                    setPasteLines(null);
+                                    setPaste("");
+                                    setPasteOpen(false);
+                                  } else
+                                    setFailure({
+                                      status: 422,
+                                      message:
+                                        "Too many rows. Shorten the pasted list.",
+                                    });
+                                }}
+                              >
+                                {t(
+                                  "Confirm lines as written",
+                                  "Confirmar líneas sin cambios",
+                                )}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setPasteLines(null)}
+                              >
+                                {t("Cancel", "Cancelar")}
+                              </Button>
+                            </div>
+                          </section>
+                        )}
+                      </CollapsiblePanel>
+                    </Collapsible>
                   </section>
                 )}
                 {step === 4 && draft && (
@@ -1910,6 +2032,30 @@ export default function RecipeEditor({
           </form>
         </CardContent>
       </Card>
+      {step < 4 && showLivePreview && (
+        <aside
+          aria-label={t("Live recipe preview", "Vista previa en vivo")}
+          className="hidden xl:sticky xl:top-20 xl:block xl:max-h-[calc(100dvh-6.5rem)] xl:overflow-y-auto xl:rounded-2xl xl:border xl:border-border xl:bg-card xl:p-6 xl:shadow-xs"
+        >
+          <div className="mb-4 flex items-center justify-between border-b border-border pb-2.5">
+            <span className="text-xs font-semibold tracking-wider text-primary-ink uppercase">
+              {t("Live preview", "Vista previa en vivo")}
+            </span>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {input.ingredients.filter((r) => r.kind === "ingredient" && r.name.trim()).length}{" "}
+              {t("ingredients", "ingredientes")}
+            </span>
+          </div>
+          <RecipePreview
+            input={input}
+            id={draft?.id ?? "preview"}
+            origins={origins}
+            spanish={lang === "es"}
+            titleAs="h2"
+          />
+        </aside>
+      )}
+      </div>
       <div className="editor-actions">
         {step > 0 && (
           <Button

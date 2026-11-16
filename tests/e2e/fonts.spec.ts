@@ -20,7 +20,7 @@ test.beforeEach(async ({ page, baseURL }) => {
   });
 });
 
-const selectors = ['.brand', '.header-inner', 'h1', '.intro'];
+const selectors = ['.brand', '.header-inner', 'h1', 'h1 + p'];
 const geometry = (page: Page) => page.evaluate((targets) => targets.map((selector) => {
   const element = document.querySelector(selector)!;
   const box = element.getBoundingClientRect();
@@ -33,9 +33,9 @@ const loadedFonts = (page: Page) => page.evaluate(async () => {
   // A new document can report ready before all CSS font usage is discovered.
   // Compare geometry only after the three actual faces finish loading.
   await Promise.all([
-    document.fonts.load('600 24px "Playfair Display"'),
-    document.fonts.load('400 16px "Plus Jakarta Sans"'),
-    document.fonts.load('600 16px "Plus Jakarta Sans"'),
+    document.fonts.load('600 24px "Fraunces"'),
+    document.fonts.load('400 16px "DM Sans"'),
+    document.fonts.load('600 16px "DM Sans"'),
   ]);
   await document.fonts.ready;
 });
@@ -70,12 +70,12 @@ for (const width of [390, 1440]) for (const language of ['en', 'es']) {
       await expect(page.locator('h1')).toBeVisible();
       // The heading/body are briefly withheld by the font face, while the page is rendered.
       expect(await textInk(page, 'h1')).toBeLessThan(1);
-      expect(await textInk(page, '.intro')).toBeLessThan(1);
+      expect(await textInk(page, 'h1 + p')).toBeLessThan(1);
       release();
       await loadedFonts(page);
       await painted(page);
       expect(await textInk(page, 'h1')).toBeGreaterThan(1);
-      expect(await textInk(page, '.intro')).toBeGreaterThan(1);
+      expect(await textInk(page, 'h1 + p')).toBeGreaterThan(1);
       const home = await geometry(page);
       await page.getByRole('contentinfo').getByRole('link', { name: language === 'es' ? 'Acerca de' : 'About', exact: true }).click();
       await page.getByRole('link', { name: 'Sabor de Escalera', exact: true }).click();
@@ -107,9 +107,9 @@ for (const width of [390, 1440]) for (const language of ['en', 'es']) {
     }
     expect(fonts).toHaveLength(3);
     expect(await page.evaluate(() => [...document.fonts].map((font) => [font.family, font.weight, font.status]))).toEqual([
-      ['Playfair Display', '600', 'loaded'], ['Plus Jakarta Sans', '400', 'loaded'], ['Plus Jakarta Sans', '600', 'loaded'],
+      ['Fraunces', '600', 'loaded'], ['DM Sans', '400', 'loaded'], ['DM Sans', '600', 'loaded'],
     ]);
-    expect(await page.evaluate(() => document.fonts.check('600 24px "Playfair Display"', 'Español áéíóúüñ¿¡') && document.fonts.check('400 16px "Plus Jakarta Sans"', 'Español áéíóúüñ¿¡'))).toBe(true);
+    expect(await page.evaluate(() => document.fonts.check('600 24px "Fraunces"', 'Español áéíóúüñ¿¡') && document.fonts.check('400 16px "DM Sans"', 'Español áéíóúüñ¿¡'))).toBe(true);
     const home = await geometry(page);
     await page.getByRole('contentinfo').getByRole('link', { name: language === 'es' ? 'Acerca de' : 'About', exact: true }).click();
     await page.getByRole('link', { name: 'Sabor de Escalera', exact: true }).click();
@@ -130,7 +130,7 @@ test('failed fonts leave readable EN/ES pages and keyboard navigation', async ({
     await page.evaluate(() => document.fonts.ready);
     const before = await geometry(page);
     expect(await textInk(page, 'h1')).toBeGreaterThan(1);
-    expect(await textInk(page, '.intro')).toBeGreaterThan(1);
+    expect(await textInk(page, 'h1 + p')).toBeGreaterThan(1);
     await expect(page.locator('h1')).toBeVisible();
     expect(await page.locator('h1').evaluate((heading) => getComputedStyle(heading).opacity)).toBe('1');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -138,6 +138,8 @@ test('failed fonts leave readable EN/ES pages and keyboard navigation', async ({
     await expect(page.getByRole('link', { name: language === 'es' ? 'Saltar al contenido' : 'Skip to content' })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('main')).toBeFocused();
+    // The skip link scrolls to main and the sticky header follows; measure from the top again.
+    await page.evaluate(() => scrollTo(0, 0));
     await painted(page);
     expect(await geometry(page)).toEqual(before);
   }
@@ -153,7 +155,7 @@ test('a stalled font becomes readable after the native block budget', async ({ p
     await page.waitForTimeout(3400);
     await painted(page);
     expect(await textInk(page, 'h1')).toBeGreaterThan(1);
-    expect(await textInk(page, '.intro')).toBeGreaterThan(1);
+    expect(await textInk(page, 'h1 + p')).toBeGreaterThan(1);
     await expect(page.getByRole('link', { name: 'Descubrir', exact: true })).toBeVisible();
   } finally { release(); }
 });

@@ -71,10 +71,99 @@ export function sortOptions(q?: string, ratings = true): CatalogSort[] {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="border-b border-border py-6 last:border-b-0">
-      <h3 className="mb-3 text-base font-semibold">{title}</h3>
+    <section className="border-b border-border py-5 first:pt-0 last:border-b-0 last:pb-0">
+      <h3 className="mb-3 text-sm font-semibold tracking-wide text-muted-foreground uppercase">{title}</h3>
       {children}
     </section>
+  );
+}
+
+export function FilterControls({
+  draft,
+  origins,
+  language,
+  ratingsEnabled = false,
+  onChange,
+}: {
+  draft: DiscoverParams;
+  origins: Origin[];
+  language: "en" | "es";
+  ratingsEnabled?: boolean;
+  onChange: (patch: Partial<DiscoverParams>) => void;
+}) {
+  const t = copy[language];
+  const sort = draft.sort ?? defaultSort(draft);
+
+  return (
+    <div className="flex flex-col">
+      <Section title={t.time}>
+        <SegmentedControl
+          aria-label={t.time}
+          value={String(draft.maxMinutes ?? "any")}
+          onValueChange={(value) =>
+            onChange({ maxMinutes: value === "any" ? undefined : (Number(value) as DiscoverParams["maxMinutes"]) })
+          }
+          options={[
+            { value: "any", label: t.any },
+            ...([30, 60, 120] as const).map((m) => ({ value: String(m), label: short(m) })),
+          ]}
+        />
+      </Section>
+      <Section title={t.category}>
+        <div className="flex flex-wrap gap-2">
+          <FilterChip active={!draft.category} onClick={() => onChange({ category: undefined })}>
+            {t.all}
+          </FilterChip>
+          {categories.map((category) => (
+            <FilterChip
+              key={category.id}
+              active={draft.category === category.id}
+              onClick={() => onChange({ category: category.id })}
+            >
+              {category[language]}
+            </FilterChip>
+          ))}
+        </div>
+      </Section>
+      <Section title={t.diet}>
+        <div className="flex flex-wrap gap-2">
+          <FilterChip active={!draft.diet} onClick={() => onChange({ diet: undefined })}>
+            {t.any}
+          </FilterChip>
+          <FilterChip active={draft.diet === "vegan"} onClick={() => onChange({ diet: "vegan" })}>
+            {t.vegan}
+          </FilterChip>
+          <FilterChip active={draft.diet === "vegetarian"} onClick={() => onChange({ diet: "vegetarian" })}>
+            {t.vegetarian}
+          </FilterChip>
+        </div>
+      </Section>
+      {origins.length > 0 && (
+        <Section title={t.origin}>
+          <NativeSelect
+            aria-label={t.origin}
+            value={draft.origin ?? ""}
+            onChange={(event) => onChange({ origin: event.target.value || undefined })}
+          >
+            <NativeSelectOption value="">{t.anyOrigin}</NativeSelectOption>
+            {origins.map((origin) => (
+              <NativeSelectOption key={origin.id} value={origin.id}>
+                {labelFor(origin, language)}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </Section>
+      )}
+      <Section title={t.sort}>
+        <div className="flex flex-wrap gap-2">
+          {sortOptions(draft.q, ratingsEnabled).map((option) => (
+            <FilterChip key={option} active={sort === option} onClick={() => onChange({ sort: option })}>
+              {t.sorts[option]}
+            </FilterChip>
+          ))}
+        </div>
+      </Section>
+    </div>
   );
 }
 
@@ -104,7 +193,6 @@ export default function FilterPanel({
     setOpen(open);
   };
   const set = (patch: Partial<DiscoverParams>) => setDraft((current) => ({ ...current, ...patch }));
-  const sort = draft.sort ?? defaultSort(draft);
 
   return (
     <Sheet open={open} onOpenChange={change}>
@@ -123,73 +211,13 @@ export default function FilterPanel({
         </SheetHeader>
         <SheetDescription className="sr-only">{t.description}</SheetDescription>
         <SheetBody>
-          <Section title={t.time}>
-            <SegmentedControl
-              aria-label={t.time}
-              value={String(draft.maxMinutes ?? "any")}
-              onValueChange={(value) =>
-                set({ maxMinutes: value === "any" ? undefined : (Number(value) as DiscoverParams["maxMinutes"]) })
-              }
-              options={[
-                { value: "any", label: t.any },
-                ...([30, 60, 120] as const).map((m) => ({ value: String(m), label: short(m) })),
-              ]}
-            />
-          </Section>
-          <Section title={t.category}>
-            <div className="flex flex-wrap gap-2">
-              <FilterChip active={!draft.category} onClick={() => set({ category: undefined })}>
-                {t.all}
-              </FilterChip>
-              {categories.map((category) => (
-                <FilterChip
-                  key={category.id}
-                  active={draft.category === category.id}
-                  onClick={() => set({ category: category.id })}
-                >
-                  {category[language]}
-                </FilterChip>
-              ))}
-            </div>
-          </Section>
-          <Section title={t.diet}>
-            <div className="flex flex-wrap gap-2">
-              <FilterChip active={!draft.diet} onClick={() => set({ diet: undefined })}>
-                {t.any}
-              </FilterChip>
-              <FilterChip active={draft.diet === "vegan"} onClick={() => set({ diet: "vegan" })}>
-                {t.vegan}
-              </FilterChip>
-              <FilterChip active={draft.diet === "vegetarian"} onClick={() => set({ diet: "vegetarian" })}>
-                {t.vegetarian}
-              </FilterChip>
-            </div>
-          </Section>
-          {origins.length > 0 && (
-            <Section title={t.origin}>
-              <NativeSelect
-                aria-label={t.origin}
-                value={draft.origin ?? ""}
-                onChange={(event) => set({ origin: event.target.value || undefined })}
-              >
-                <NativeSelectOption value="">{t.anyOrigin}</NativeSelectOption>
-                {origins.map((origin) => (
-                  <NativeSelectOption key={origin.id} value={origin.id}>
-                    {labelFor(origin, language)}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            </Section>
-          )}
-          <Section title={t.sort}>
-            <div className="flex flex-wrap gap-2">
-              {sortOptions(draft.q, ratingsEnabled).map((option) => (
-                <FilterChip key={option} active={sort === option} onClick={() => set({ sort: option })}>
-                  {t.sorts[option]}
-                </FilterChip>
-              ))}
-            </div>
-          </Section>
+          <FilterControls
+            draft={draft}
+            origins={origins}
+            language={language}
+            ratingsEnabled={ratingsEnabled}
+            onChange={set}
+          />
         </SheetBody>
         <SheetFooter>
           <SheetClose render={<Button type="button" variant="link" />}>{t.cancel}</SheetClose>

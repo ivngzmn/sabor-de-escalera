@@ -94,11 +94,11 @@ test('server secret canaries do not enter HTML or browser-loaded assets', async 
 test('discover shows a localized retry instead of an empty grid when recipes cannot load', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
+  await page.goto('/discover');
   await expect(page.getByRole('heading', { name: 'Discover recipes' })).toBeVisible();
   await expect(page.getByRole('alert')).toContainText('We couldn’t load recipes.');
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.goto('/?lang=es');
+  await page.goto('/discover?lang=es');
   await expect(page.getByRole('alert')).toContainText('No pudimos cargar las recetas.');
 });

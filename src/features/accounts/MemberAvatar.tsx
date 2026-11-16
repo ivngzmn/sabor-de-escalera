@@ -41,6 +41,7 @@ export function MemberAvatar({
           width={256}
           height={256}
           decoding="async"
+          referrerPolicy="no-referrer"
           className="size-full object-cover"
         />
       ) : (
