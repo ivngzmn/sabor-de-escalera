@@ -7,7 +7,6 @@ import {
   BookmarkIcon,
   CheckIcon,
   ChevronDownIcon,
-  GlobeIcon,
   Pencil2Icon,
   PlusIcon,
 } from "@radix-ui/react-icons";
@@ -40,7 +39,6 @@ import {
 
 interface TimelineChapter {
   id: string;
-  marker: string;
   era: string;
   dateTime: string;
   title: string;
@@ -51,7 +49,7 @@ interface TimelineChapter {
 }
 
 interface PillarTab {
-  id: "share" | "save" | "bilingual";
+  id: "share" | "save";
   tabLabel: string;
   heading: string;
   summary: string;
@@ -75,11 +73,6 @@ const copy = {
     heroCaptionTitle: "Born from the printed Escalera Recipe Book",
     heroCaptionBody: "¡Provecho! Enjoy! — Gathered dish by dish from community kitchens.",
     heroFallbackLabel: "Escalera community cookbook table",
-    facts: [
-      { label: "Origin", value: "Printed Escalera Recipe Book" },
-      { label: "Languages", value: "English & Español" },
-      { label: "Regional kitchens", value: (count: number) => `${count} regional traditions` },
-    ],
     bookEyebrow: "The book behind the site",
     bookHeading: "Born from the Escalera Recipe Book",
     bookParagraphs: [
@@ -91,7 +84,6 @@ const copy = {
     chapters: [
       {
         id: "print-book",
-        marker: "01",
         era: "The printed edition",
         dateTime: "2024",
         title: "Gathered page by page in print",
@@ -103,7 +95,6 @@ const copy = {
       },
       {
         id: "bilingual-edition",
-        marker: "02",
         era: "Two languages",
         dateTime: "2025",
         title: "Edited for kitchens in English and Spanish",
@@ -115,7 +106,6 @@ const copy = {
       },
       {
         id: "living-table",
-        marker: "03",
         era: "Open web pantry",
         dateTime: "2026",
         title: "Now growing with every home cook",
@@ -159,20 +149,6 @@ const copy = {
         actionLabel: "Browse Discover",
         actionHref: "/discover",
       },
-      {
-        id: "bilingual",
-        tabLabel: "Two languages",
-        heading: "Cook cleanly in English or Spanish",
-        summary:
-          "Read and share recipes in English or Spanish, the way they’re cooked at home.",
-        highlights: [
-          "Switch the entire site and catalog between English and Español anytime.",
-          "Approved translations preserve cultural dish names alongside clear instructions.",
-          "Search ingredients or titles naturally across both languages.",
-        ],
-        actionLabel: "Cambiar a Español",
-        actionHref: "/about?lang=es",
-      },
     ] as PillarTab[],
     thanksEyebrow: "Acknowledgments",
     thanksHeading: "Thank you to everyone who made it happen",
@@ -185,11 +161,6 @@ const copy = {
         id: "credit",
         q: "How are original contributors and print recipes credited?",
         a: "Entries digitized from the printed Escalera Recipe Book carry their original attribution and notes, and every member who submits a new dish links directly to their profile and photo credits.",
-      },
-      {
-        id: "translations",
-        q: "How do English and Spanish recipe translations work?",
-        a: "Recipes can be authored in either English or Spanish. Translators and community editors review pending translations before they go live alongside the original dish.",
       },
       {
         id: "corrections",
@@ -216,11 +187,6 @@ const copy = {
     heroCaptionTitle: "Nació del Recetario Escalera",
     heroCaptionBody: "Provecho. — Reunido platillo a platillo desde nuestras cocinas.",
     heroFallbackLabel: "Mesa del recetario comunitario Escalera",
-    facts: [
-      { label: "Origen", value: "Recetario impreso Escalera" },
-      { label: "Idiomas", value: "Español e English" },
-      { label: "Cocinas regionales", value: (count: number) => `${count} tradiciones regionales` },
-    ],
     bookEyebrow: "El libro detrás del sitio",
     bookHeading: "Nació del Recetario Escalera",
     bookParagraphs: [
@@ -232,7 +198,6 @@ const copy = {
     chapters: [
       {
         id: "print-book",
-        marker: "01",
         era: "Edición impresa",
         dateTime: "2024",
         title: "Reunido página por página en papel",
@@ -244,7 +209,6 @@ const copy = {
       },
       {
         id: "bilingual-edition",
-        marker: "02",
         era: "Dos idiomas",
         dateTime: "2025",
         title: "Cuidado para cocinas en español e inglés",
@@ -256,7 +220,6 @@ const copy = {
       },
       {
         id: "living-table",
-        marker: "03",
         era: "Mesa abierta",
         dateTime: "2026",
         title: "Un recetario vivo que sigue creciendo",
@@ -300,20 +263,6 @@ const copy = {
         actionLabel: "Explorar Descubrir",
         actionHref: "/discover",
       },
-      {
-        id: "bilingual",
-        tabLabel: "En dos idiomas",
-        heading: "Lee y cocina en español o en inglés",
-        summary:
-          "Lee y comparte recetas en español o en inglés, como se cocinan en casa.",
-        highlights: [
-          "Cambia el idioma del sitio y el catálogo en cualquier momento.",
-          "Las traducciones aprobadas conservan el nombre cultural y las medidas claras.",
-          "Busca ingredientes o platillos en ambos idiomas sin perder resultados.",
-        ],
-        actionLabel: "Switch to English",
-        actionHref: "/about",
-      },
     ] as PillarTab[],
     thanksEyebrow: "Agradecimientos",
     thanksHeading: "Gracias a quienes lo hicieron posible",
@@ -326,11 +275,6 @@ const copy = {
         id: "credit",
         q: "¿Cómo se da crédito a quienes aportaron recetas y fotos?",
         a: "Las recetas del Recetario impreso Escalera conservan sus notas y atribuciones, y cada nueva publicación enlaza al perfil de su autor y créditos de fotografía.",
-      },
-      {
-        id: "translations",
-        q: "¿Cómo funcionan las traducciones entre español e inglés?",
-        a: "Cada persona puede escribir en español o en inglés. El equipo editorial revisa y aprueba las traducciones antes de mostrarlas junto a la receta original.",
       },
       {
         id: "corrections",
@@ -356,15 +300,16 @@ const initials = (name: string) =>
 export interface AboutStoryProps {
   language: "en" | "es";
   heroImageUrl: string;
-  originCount: number;
+  languageSwitchEnabled: boolean;
 }
 
 export default function AboutStory({
   language,
   heroImageUrl,
-  originCount,
+  languageSwitchEnabled,
 }: AboutStoryProps) {
   const t = copy[language];
+  const chapters = t.chapters.filter((chapter) => languageSwitchEnabled || chapter.id !== "bilingual-edition");
   const [heroBroken, setHeroBroken] = useState(false);
   const [activePillar, setActivePillar] = useState<PillarTab["id"]>("share");
 
@@ -375,13 +320,12 @@ export default function AboutStory({
 
   const pillarIcon = (id: PillarTab["id"]) => {
     if (id === "share") return <Pencil2Icon aria-hidden="true" className="size-4" />;
-    if (id === "save") return <BookmarkIcon aria-hidden="true" className="size-4" />;
-    return <GlobeIcon aria-hidden="true" className="size-4" />;
+    return <BookmarkIcon aria-hidden="true" className="size-4" />;
   };
 
   return (
     <div className="flex flex-col gap-16">
-      {/* 1. Editorial Split Hero + Heritage Index */}
+      {/* 1. Editorial Split Hero */}
       <section aria-labelledby="about-hero-heading" className="flex flex-col gap-8">
         <div className="grid items-stretch gap-8 lg:grid-cols-[1.08fr_0.92fr] lg:gap-12">
           <div className="flex flex-col justify-center gap-5 py-2">
@@ -446,27 +390,6 @@ export default function AboutStory({
             </PhotoCaption>
           </figure>
         </div>
-
-        <dl className="m-0 grid divide-y divide-border rounded-2xl border border-border bg-card shadow-xs sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-          {t.facts.map((fact) => {
-            const displayValue =
-              typeof fact.value === "function"
-                ? originCount > 0
-                  ? fact.value(originCount)
-                  : language === "es"
-                    ? "Cocinas de toda Latinoamérica"
-                    : "Across Latin America"
-                : fact.value;
-            return (
-              <div key={fact.label} className="flex flex-col gap-1 px-6 py-4">
-                <dt className="type-label-sm text-muted-foreground">{fact.label}</dt>
-                <dd className="m-0 font-serif text-lg font-semibold text-foreground tabular-nums">
-                  {displayValue}
-                </dd>
-              </div>
-            );
-          })}
-        </dl>
       </section>
 
       {/* 2. Origin Narrative + @ui-sdk Timeline & Collapsible Notes */}
@@ -488,18 +411,18 @@ export default function AboutStory({
 
         <div className="rounded-2xl border border-border bg-card p-6 shadow-xs md:p-8">
           <Timeline aria-label={t.timelineAriaLabel}>
-            {t.chapters.map((chapter) => (
+            {chapters.map((chapter, index) => (
               <TimelineItem key={chapter.id} value={chapter.id} status={chapter.status}>
                 <TimelineMarker>
                   {chapter.status === "complete" ? (
                     <CheckIcon aria-hidden="true" className="size-4" />
                   ) : (
-                    <span className="tabular-nums">{chapter.marker}</span>
+                    <span className="tabular-nums">{String(index + 1).padStart(2, "0")}</span>
                   )}
                 </TimelineMarker>
                 <TimelineConnector />
                 <TimelineTime dateTime={chapter.dateTime}>
-                  {chapter.marker}. {chapter.era}
+                  {String(index + 1).padStart(2, "0")}. {chapter.era}
                 </TimelineTime>
                 <TimelineTitle render={<h3 className="m-0" />}>{chapter.title}</TimelineTitle>
                 <TimelineDescription>{chapter.summary}</TimelineDescription>
@@ -573,7 +496,7 @@ export default function AboutStory({
                     {pillar.summary}
                   </p>
                   <a
-                    href={pillar.id === "bilingual" ? pillar.actionHref : withLang(pillar.actionHref)}
+                    href={withLang(pillar.actionHref)}
                     data-slot="button"
                     className={buttonVariants({ variant: "outline", className: "mt-2" })}
                   >

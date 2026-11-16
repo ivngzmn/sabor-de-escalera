@@ -1,25 +1,19 @@
 ---
 import aboutHeirloomImg from '../assets/images/about_heirloom_cookbook_1794804777512.jpg';
 import AboutStory from '../features/about/AboutStory';
-import { draftsService } from '../features/recipes/drafts';
+import { readServerConfig } from '../server/config';
 import AppLayout from '../layouts/AppLayout.astro';
 
 const spanish = Astro.url.searchParams.get('lang') === 'es';
 const language = spanish ? 'es' : 'en';
 
-let originCount: number;
-try {
-  const origins = await draftsService().origins();
-  originCount = origins.filter((o) => o.id !== 'not-sure').length;
-} catch {
-  originCount = 0;
-}
+const { languageSwitchEnabled } = readServerConfig();
 ---
 <AppLayout title={spanish ? 'Acerca de' : 'About'}>
   <AboutStory
     client:load
     language={language}
     heroImageUrl={aboutHeirloomImg.src}
-    originCount={originCount}
+    languageSwitchEnabled={languageSwitchEnabled}
   />
 </AppLayout>

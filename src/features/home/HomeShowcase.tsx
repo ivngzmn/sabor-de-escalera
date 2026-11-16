@@ -35,7 +35,7 @@ import type { Origin } from "@/features/recipes/validation";
 
 const copy = {
   en: {
-    eyebrow: "Community Cookbook · English & Español",
+    eyebrow: "Community Cookbook",
     heroTitle: "Family recipes shared warm, from our kitchen to yours.",
     heroLead:
       "Browse heritage dishes, scale servings cleanly for tonight’s table, cook step by step without losing your place, and pass your own favorites down.",
@@ -92,7 +92,7 @@ const copy = {
     inviteSecondary: "Browse all recipes",
   },
   es: {
-    eyebrow: "Recetario comunitario · Español & English",
+    eyebrow: "Recetario comunitario",
     heroTitle: "Recetas de casa compartidas con calidez, de nuestra mesa a la tuya.",
     heroLead:
       "Explora platillos de tradición familiar, ajusta las porciones al instante, cocina paso a paso sin perder tu lugar y suma tus recetas favoritas.",
