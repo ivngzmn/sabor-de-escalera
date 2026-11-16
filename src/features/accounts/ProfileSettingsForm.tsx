@@ -41,7 +41,7 @@ const copy = {
     avatar: "Avatar",
     avatarIntro: "Upload a photo or pick a symbol.",
     photoTile: "Your photo",
-    photoInUse: "Your photo is what people see. The symbol you pick is used if you remove it.",
+    photoInUse: "Your photo is what people see. Remove it to pick a symbol instead.",
     choices: { initials: "My initials", chile: "Chile pepper", corn: "Corn", lime: "Lime" },
     privacy: "Privacy",
     privacyIntro: "Your email address is never shown publicly.",
@@ -72,7 +72,7 @@ const copy = {
     avatar: "Avatar",
     avatarIntro: "Sube una foto o elige un símbolo.",
     photoTile: "Tu foto",
-    photoInUse: "Los demás ven tu foto. El símbolo que elijas se usa si la eliminas.",
+    photoInUse: "Los demás ven tu foto. Elimínala para elegir un símbolo.",
     choices: { initials: "Mis iniciales", chile: "Chile", corn: "Maíz", lime: "Lima" },
     privacy: "Privacidad",
     privacyIntro: "Tu correo electrónico nunca se muestra públicamente.",
@@ -224,41 +224,45 @@ export default function ProfileSettingsForm({
                 </div>
               </div>
             )}
-            <RadioGroup
-              value={avatar}
-              onValueChange={(value) => {
-                if (value !== null) setAvatar(value as AvatarChoice);
-              }}
-              aria-labelledby="avatar-heading"
-              aria-describedby="avatar-intro"
-              className="grid grid-cols-2 gap-3 sm:grid-cols-4"
-            >
-              {(["initials", "chile", "corn", "lime"] as const).map((choice) => (
-                <label
-                  key={choice}
-                  htmlFor={`avatar-${choice}`}
-                  className="relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-border bg-muted/60 px-3 py-4 text-center text-sm font-semibold transition-[background-color,box-shadow] hover:bg-muted has-[[data-checked]]:bg-card has-[[data-checked]]:shadow-md has-[[data-checked]]:ring-2 has-[[data-checked]]:ring-primary has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring"
+            {!photo && (
+              <>
+                <RadioGroup
+                  value={avatar}
+                  onValueChange={(value) => {
+                    if (value !== null) setAvatar(value as AvatarChoice);
+                  }}
+                  aria-labelledby="avatar-heading"
+                  aria-describedby="avatar-intro"
+                  className="grid grid-cols-2 gap-3 sm:grid-cols-4"
                 >
-                  <Radio
-                    id={`avatar-${choice}`}
-                    value={choice}
-                    className="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full border border-input bg-card outline-none data-checked:border-primary data-checked:bg-primary"
-                  >
-                    <RadioIndicator>
-                      <CheckIcon aria-hidden="true" className="size-4 text-primary-foreground" />
-                    </RadioIndicator>
-                  </Radio>
-                  <span
-                    aria-hidden="true"
-                    className="flex size-14 items-center justify-center rounded-full bg-accent font-serif text-2xl text-primary-ink"
-                  >
-                    {choice === "initials" ? initials(name) : symbols[choice]}
-                  </span>
-                  {t.choices[choice]}
-                </label>
-              ))}
-            </RadioGroup>
-            <FieldSeparator />
+                  {(["initials", "chile", "corn", "lime"] as const).map((choice) => (
+                    <label
+                      key={choice}
+                      htmlFor={`avatar-${choice}`}
+                      className="relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-border bg-muted/60 px-3 py-4 text-center text-sm font-semibold transition-[background-color,box-shadow] hover:bg-muted has-[[data-checked]]:bg-card has-[[data-checked]]:shadow-md has-[[data-checked]]:ring-2 has-[[data-checked]]:ring-primary has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring"
+                    >
+                      <Radio
+                        id={`avatar-${choice}`}
+                        value={choice}
+                        className="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full border border-input bg-card outline-none data-checked:border-primary data-checked:bg-primary"
+                      >
+                        <RadioIndicator>
+                          <CheckIcon aria-hidden="true" className="size-4 text-primary-foreground" />
+                        </RadioIndicator>
+                      </Radio>
+                      <span
+                        aria-hidden="true"
+                        className="flex size-14 items-center justify-center rounded-full bg-accent font-serif text-2xl text-primary-ink"
+                      >
+                        {choice === "initials" ? initials(name) : symbols[choice]}
+                      </span>
+                      {t.choices[choice]}
+                    </label>
+                  ))}
+                </RadioGroup>
+                <FieldSeparator />
+              </>
+            )}
             <ImageUploader
               purpose="avatar"
               available={mediaAvailable}
