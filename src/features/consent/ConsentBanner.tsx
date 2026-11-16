@@ -18,7 +18,7 @@ import {
   FieldContent,
   FieldDescription,
 } from "@/components/ui/field";
-import { CookieIcon, Cross2Icon } from "@radix-ui/react-icons";
+import { CheckIcon, CookieIcon, Cross2Icon, MixerHorizontalIcon, MinusCircledIcon } from "@radix-ui/react-icons";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -222,14 +222,16 @@ export default function ConsentBanner({
           role="region"
           aria-label={copy.title}
           className={cn(
-            "privacy-panel gap-4",
+            "privacy-panel gap-4 rounded-2xl border-t-4 border-t-primary shadow-md",
             !settings && ready && "privacy-panel-floating",
             !settings && decided && "privacy-panel-reopened",
           )}
         >
           <CardHeader>
             <CardTitle role="heading" aria-level={2} className="flex items-center gap-2">
-              <CookieIcon aria-hidden="true" className="size-5 shrink-0 text-primary-ink" />
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary-soft text-primary-ink">
+                <CookieIcon aria-hidden="true" className="size-5" />
+              </span>
               {copy.title}
             </CardTitle>
             <CardDescription>{copy.intro}</CardDescription>
@@ -252,17 +254,20 @@ export default function ConsentBanner({
               <div className="privacy-actions">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
+                  size="sm"
                   disabled={!ready}
                   onClick={() =>
                     save({ preferences: true, recovery: true, analytics: true })
                   }
                 >
+                  <CheckIcon data-icon="inline-start" aria-hidden="true" />
                   {copy.accept}
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
+                  size="sm"
                   disabled={!ready}
                   onClick={() =>
                     save({
@@ -272,16 +277,19 @@ export default function ConsentBanner({
                     })
                   }
                 >
+                  <MinusCircledIcon data-icon="inline-start" aria-hidden="true" />
                   {copy.reject}
                 </Button>
                 {!settings && (
                   <Button
                     type="button"
                     ref={customizeButton}
-                    variant="outline"
+                    variant="secondary"
+                    size="sm"
                     disabled={!ready}
                     onClick={() => setCustomize(true)}
                   >
+                    <MixerHorizontalIcon data-icon="inline-start" aria-hidden="true" />
                     {copy.customize}
                   </Button>
                 )}
@@ -346,7 +354,7 @@ export default function ConsentBanner({
               </form>
             )}
           </CardContent>
-          <CardFooter className="text-xs text-muted-foreground">
+          <CardFooter className="mx-6 rounded-lg bg-warm px-3 py-2 text-xs text-muted-foreground">
             <p className="m-0">{copy.essential}</p>
           </CardFooter>
         </Card>
