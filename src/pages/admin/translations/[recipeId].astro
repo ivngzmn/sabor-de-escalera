@@ -28,11 +28,12 @@ const approved = rows.find((t) => t.status === 'approved') ?? null;
   <a href="/admin/cookbook" class="mb-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary-ink no-underline hover:underline"><ArrowLeftIcon aria-hidden="true" />Cookbook review</a>
   {review.ok && source ? (
     <>
-      <div class="flex max-w-3xl flex-col gap-2">
+      <div class="flex max-w-3xl flex-col gap-1.5">
+        <p class="m-0 text-xs font-semibold tracking-wider text-primary-ink uppercase">Translation studio</p>
         <h1 class="m-0">{source.title || 'Untitled recipe'}</h1>
         <p class="intro m-0">{target === 'es' ? 'Spanish' : 'English'} translation, written by hand from the {source.language === 'es' ? 'Spanish' : 'English'} original. Readers see it only after it’s approved, and it goes out of date whenever the recipe changes.</p>
       </div>
-      <div class="mt-8 rounded-xl bg-card p-5 shadow-sm sm:p-8">
+      <div class="mt-8 rounded-2xl border border-border bg-card p-5 shadow-xs sm:p-8">
         <TranslationEditor client:load recipeId={Astro.params.recipeId!} source={source} version={review.value.version} target={target} proposed={proposed} approved={approved} />
       </div>
     </>

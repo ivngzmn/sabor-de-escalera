@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Actor } from "../accounts/service";
 import { recordContentAudit } from "../../server/content-audit";
 import { getPool, transaction } from "../../server/db";
+import { isPreviewMode, previewCookbookService } from "../../server/preview-store";
 import { disposeUnusedAsset } from "../media/service";
 import { refreshCatalogRow } from "../recipes/catalog";
 import { validateDraft, type RecipeInput } from "../recipes/validation";
@@ -173,4 +174,7 @@ export function createCookbookCorrections({ pool, dispose = async () => {} }: { 
   };
 }
 
-export const cookbookCorrections = () => createCookbookCorrections({ pool: getPool(), dispose: disposeUnusedAsset });
+export const cookbookCorrections = () =>
+  isPreviewMode()
+    ? (previewCookbookService as unknown as ReturnType<typeof createCookbookCorrections>)
+    : createCookbookCorrections({ pool: getPool(), dispose: disposeUnusedAsset });

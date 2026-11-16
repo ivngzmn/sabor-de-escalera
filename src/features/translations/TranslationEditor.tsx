@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -117,9 +116,14 @@ export default function TranslationEditor({
         void save();
       }}
     >
-      <div className="flex flex-wrap gap-2">
-        <Badge variant="eyebrow">Recipe version {version}</Badge>
-        {(approved || approvedNow) && <Badge variant="tag">Approved translation on file</Badge>}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold tracking-wider text-primary-ink uppercase tabular-nums">
+        <span>Recipe version {version}</span>
+        {(approved || approvedNow) && (
+          <>
+            <span aria-hidden="true" className="text-muted-foreground/50">·</span>
+            <span>Approved translation on file</span>
+          </>
+        )}
       </div>
       {stale && (
         <Alert>

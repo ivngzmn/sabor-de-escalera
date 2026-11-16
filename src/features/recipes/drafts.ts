@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import type { Actor } from "../accounts/service";
 import { getPool, transaction } from "../../server/db";
+import { isPreviewMode, previewDraftsService } from "../../server/preview-store";
 import { disposeUnusedAsset } from "../media/service";
 import { refreshCatalogRow } from "./catalog";
 import {
@@ -565,7 +566,9 @@ export function createDraftService(options: {
   return api;
 }
 export const draftsService = () =>
-  createDraftService({ pool: getPool(), disposeUnusedAsset });
+  isPreviewMode()
+    ? (previewDraftsService as unknown as ReturnType<typeof createDraftService>)
+    : createDraftService({ pool: getPool(), disposeUnusedAsset });
 export const saveDraft = (
   actor: Actor,
   id: string,

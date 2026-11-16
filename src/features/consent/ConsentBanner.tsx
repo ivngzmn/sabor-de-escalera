@@ -5,7 +5,6 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-  CardFooter,
   CardAction,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,7 +17,7 @@ import {
   FieldContent,
   FieldDescription,
 } from "@/components/ui/field";
-import { CookieIcon, Cross2Icon } from "@radix-ui/react-icons";
+import { CheckIcon, CookieIcon, Cross2Icon, MixerHorizontalIcon, MinusCircledIcon } from "@radix-ui/react-icons";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -36,13 +35,14 @@ const dictionaries = {
     launcher: "Privacy preferences",
     close: "Close privacy preferences",
     intro:
-      "Essential services keep sign-in, security and your saved account drafts working. Optional choices start off and can be changed at any time in Privacy settings.",
+      "Essential services keep sign-in secure and save drafts to your account. Optional settings start off. You can change them anytime in Privacy preferences.",
     accept: "Accept optional",
     reject: "Reject optional",
     customize: "Customize",
+    back: "Back to privacy choices",
+    optional: "Optional settings",
     save: "Save privacy choices",
     saved: "Privacy choices saved.",
-    essential: "Essential — always active",
     preferences: "Remember preferences",
     preferencesPurpose:
       "Remember your language and display choices on this device.",
@@ -58,13 +58,14 @@ const dictionaries = {
     launcher: "Preferencias de privacidad",
     close: "Cerrar preferencias de privacidad",
     intro:
-      "Los servicios esenciales permiten iniciar sesión, mantener la seguridad y guardar tus borradores en la cuenta. Las opciones empiezan desactivadas y se pueden cambiar en Configuración de privacidad.",
+      "Los servicios esenciales protegen el inicio de sesión y guardan tus borradores en la cuenta. Las opciones empiezan desactivadas. Puedes cambiarlas en Preferencias de privacidad.",
     accept: "Aceptar opcionales",
     reject: "Rechazar opcionales",
     customize: "Personalizar",
+    back: "Volver a las opciones de privacidad",
+    optional: "Configuración opcional",
     save: "Guardar opciones de privacidad",
     saved: "Opciones de privacidad guardadas.",
-    essential: "Esenciales — siempre activos",
     preferences: "Recordar preferencias",
     preferencesPurpose:
       "Recordar tu idioma y tus opciones de visualización en este dispositivo.",
@@ -95,6 +96,7 @@ export default function ConsentBanner({
   });
   const [message, setMessage] = useState("");
   const launcher = useRef<HTMLButtonElement>(null);
+  const customizeButton = useRef<HTMLButtonElement>(null);
   const fieldset = useRef<HTMLFieldSetElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const panelId = settings
@@ -131,6 +133,7 @@ export default function ConsentBanner({
     const refresh = () => {
       const consent = readConsent();
       setChoices(consent);
+      setCustomize(settings);
       setDecided(Boolean(consent.updatedAt));
       setVisible(settings || !consent.updatedAt);
     };
@@ -178,6 +181,11 @@ export default function ConsentBanner({
     setVisible(false);
     launcher.current?.focus();
   };
+  const back = () => {
+    setChoices(readConsent());
+    setCustomize(false);
+    requestAnimationFrame(() => customizeButton.current?.focus());
+  };
   return (
     <>
       <p role="status" className="sr-only">
@@ -211,13 +219,16 @@ export default function ConsentBanner({
           role="region"
           aria-label={copy.title}
           className={cn(
-            "privacy-panel",
+            "privacy-panel gap-4 rounded-2xl shadow-md",
             !settings && ready && "privacy-panel-floating",
             !settings && decided && "privacy-panel-reopened",
           )}
         >
           <CardHeader>
-            <CardTitle role="heading" aria-level={2}>
+            <CardTitle role="heading" aria-level={2} className="flex items-center gap-2">
+              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-secondary-soft text-primary-ink">
+                <CookieIcon aria-hidden="true" className="size-5" />
+              </span>
               {copy.title}
             </CardTitle>
             <CardDescription>{copy.intro}</CardDescription>
@@ -235,40 +246,53 @@ export default function ConsentBanner({
               </CardAction>
             )}
           </CardHeader>
-          <CardContent className="flex flex-col gap-6">
-            <div className="privacy-actions">
-              <Button
-                type="button"
-                disabled={!ready}
-                onClick={() =>
-                  save({ preferences: true, recovery: true, analytics: true })
-                }
-              >
-                {copy.accept}
-              </Button>
-              <Button
-                type="button"
-                disabled={!ready}
-                onClick={() =>
-                  save({
-                    preferences: false,
-                    recovery: false,
-                    analytics: false,
-                  })
-                }
-              >
-                {copy.reject}
-              </Button>
-              {!settings && (
+          <CardContent className="flex flex-col gap-4">
+            {(settings || !customize) && (
+              <div className="privacy-actions">
                 <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
                   disabled={!ready}
-                  onClick={() => setCustomize(true)}
+                  onClick={() =>
+                    save({ preferences: true, recovery: true, analytics: true })
+                  }
                 >
-                  {copy.customize}
+                  <CheckIcon data-icon="inline-start" aria-hidden="true" />
+                  {copy.accept}
                 </Button>
-              )}
-            </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={!ready}
+                  onClick={() =>
+                    save({
+                      preferences: false,
+                      recovery: false,
+                      analytics: false,
+                    })
+                  }
+                >
+                  <MinusCircledIcon data-icon="inline-start" aria-hidden="true" />
+                  {copy.reject}
+                </Button>
+                {!settings && (
+                  <Button
+                    type="button"
+                    ref={customizeButton}
+                    className="col-span-full"
+                    variant="secondary"
+                    size="sm"
+                    disabled={!ready}
+                    onClick={() => setCustomize(true)}
+                  >
+                    <MixerHorizontalIcon data-icon="inline-start" aria-hidden="true" />
+                    {copy.customize}
+                  </Button>
+                )}
+              </div>
+            )}
             {customize && (
               <form
                 onSubmit={(event) => {
@@ -276,19 +300,21 @@ export default function ConsentBanner({
                   save(choices);
                 }}
               >
-                <FieldGroup>
+                <FieldGroup className="gap-4">
                   <FieldSet disabled={!ready} ref={fieldset} tabIndex={-1}>
-                    <FieldLegend>{copy.title}</FieldLegend>
-                    <FieldGroup>
+                    <FieldLegend variant="label">{copy.optional}</FieldLegend>
+                    <FieldGroup className="gap-0 divide-y divide-border rounded-lg border border-border">
                       {(["preferences", "recovery", "analytics"] as const).map(
                         (category) => (
                           <Field
                             key={category}
                             orientation="horizontal"
+                            className="items-start gap-3 px-3 py-2.5"
                             data-disabled={!ready}
                           >
                             <Checkbox
                               id={`consent-${category}`}
+                              className="mt-1"
                               checked={choices[category]}
                               disabled={!ready}
                               onCheckedChange={(checked) =>
@@ -300,7 +326,7 @@ export default function ConsentBanner({
                               aria-describedby={`consent-${category}-purpose`}
                             />
                             <FieldContent>
-                              <FieldLabel htmlFor={`consent-${category}`}>
+                              <FieldLabel className="min-h-6 cursor-pointer" htmlFor={`consent-${category}`}>
                                 {copy[category]}
                               </FieldLabel>
                               <FieldDescription
@@ -314,16 +340,18 @@ export default function ConsentBanner({
                       )}
                     </FieldGroup>
                   </FieldSet>
-                  <Button type="submit" disabled={!ready}>
-                    {copy.save}
-                  </Button>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {!settings && (
+                      <Button type="button" variant="ghost" onClick={back}>
+                        {copy.back}
+                      </Button>
+                    )}
+                    <Button type="submit" disabled={!ready}>{copy.save}</Button>
+                  </div>
                 </FieldGroup>
               </form>
             )}
           </CardContent>
-          <CardFooter>
-            <p>{copy.essential}</p>
-          </CardFooter>
         </Card>
       )}
     </>

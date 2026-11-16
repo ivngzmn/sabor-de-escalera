@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from "pg";
 import type { Actor } from "../accounts/service";
 import { recordContentAudit } from "../../server/content-audit";
 import { getPool, transaction } from "../../server/db";
+import { isPreviewMode, previewCookbookService } from "../../server/preview-store";
 import { refreshCatalogRow } from "../recipes/catalog";
 import { nextSlug } from "../recipes/drafts";
 import { isId, validatePublication, type FieldError, type RecipeInput, type Result } from "../recipes/validation";
@@ -173,7 +174,12 @@ export function createCookbookQueue({ pool }: { pool: Pool }) {
           return { id: published.id, url: `/recipes/${published.id}/${published.slug}` };
         }),
       ),
+    readEntryRecipe: async (_actor: Actor | null, recipeId: string) =>
+      (await pool.query<{ input: RecipeInput; slug: string | null }>("SELECT input,slug FROM recipes WHERE id=$1", [recipeId])).rows[0],
   };
 }
 
-export const cookbookQueue = () => createCookbookQueue({ pool: getPool() });
+export const cookbookQueue = () =>
+  isPreviewMode()
+    ? (previewCookbookService as unknown as ReturnType<typeof createCookbookQueue>)
+    : createCookbookQueue({ pool: getPool() });

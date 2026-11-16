@@ -1,6 +1,5 @@
 ---
 import AppLayout from '../../layouts/AppLayout.astro';
-import { Badge } from '../../components/ui/badge';
 import { buttonVariants } from '../../components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '../../components/ui/empty';
 import { MemberAvatar } from '../../features/accounts/MemberAvatar';
@@ -28,29 +27,30 @@ const [recipes, saved] = member
     ])
   : [null, null];
 const t = spanish
-  ? { recipes: 'Recetas publicadas', saved: 'Recetas guardadas', noRecipes: 'Aún no hay recetas publicadas.', noSaved: 'Aún no hay recetas guardadas.', privateSaved: 'Esta persona mantiene privadas sus recetas guardadas.', missing: 'Este perfil no está disponible.', explore: 'Explorar recetas', since: 'Miembro desde', retry: 'No pudimos cargar este perfil. Inténtalo de nuevo.' }
-  : { recipes: 'Published recipes', saved: 'Saved recipes', noRecipes: 'No published recipes yet.', noSaved: 'No saved recipes yet.', privateSaved: 'This member keeps their saved recipes private.', missing: 'This profile isn’t available.', explore: 'Explore Recipes', since: 'Member since', retry: 'We couldn’t load this profile. Please try again.' };
+  ? { eyebrow: 'Miembro de la comunidad', recipes: 'Recetas publicadas', saved: 'Recetas guardadas', noRecipes: 'Aún no hay recetas publicadas.', noSaved: 'Aún no hay recetas guardadas.', privateSaved: 'Esta persona mantiene privadas sus recetas guardadas.', missing: 'Este perfil no está disponible.', explore: 'Explorar recetas', since: 'Miembro desde', retry: 'No pudimos cargar este perfil. Inténtalo de nuevo.' }
+  : { eyebrow: 'Community cook', recipes: 'Published recipes', saved: 'Saved recipes', noRecipes: 'No published recipes yet.', noSaved: 'No saved recipes yet.', privateSaved: 'This member keeps their saved recipes private.', missing: 'This profile isn’t available.', explore: 'Explore Recipes', since: 'Member since', retry: 'We couldn’t load this profile. Please try again.' };
 const since = member ? new Intl.DateTimeFormat(language, { month: 'long', year: 'numeric' }).format(new Date(member.memberSince)) : '';
 ---
 <AppLayout title={member?.displayName ?? t.missing}>
   {member ? (
     <>
-      <section aria-labelledby="member-name" class="flex flex-col items-start gap-4 rounded-xl bg-card p-6 shadow-md sm:flex-row sm:items-center sm:p-10">
-        <MemberAvatar memberId={member.id} displayName={member.displayName} avatarAssetId={member.avatarAssetId} avatarPreset={member.avatarPreset} className="size-24 rounded-lg" fallbackClassName="rounded-lg font-serif text-3xl" />
-        <div class="flex flex-col gap-2">
+      <section aria-labelledby="member-name" class="flex flex-col items-start gap-5 rounded-2xl border border-border bg-card p-6 shadow-xs sm:flex-row sm:items-center sm:p-8">
+        <MemberAvatar memberId={member.id} displayName={member.displayName} avatarAssetId={member.avatarAssetId} avatarPreset={member.avatarPreset} className="size-24 rounded-xl" fallbackClassName="rounded-xl font-serif text-3xl" />
+        <div class="flex flex-col gap-1.5">
+          <p class="m-0 text-xs font-semibold tracking-wider text-primary-ink uppercase">{t.eyebrow}</p>
           <h1 id="member-name" class="m-0">{member.displayName}</h1>
-          {member.bio && <p class="m-0 max-w-2xl">{member.bio}</p>}
+          {member.bio && <p class="m-0 max-w-2xl text-foreground">{member.bio}</p>}
           <p class="m-0 text-sm text-muted-foreground">{t.since} {since}</p>
         </div>
       </section>
       <section aria-labelledby="member-recipes" class="mt-10 flex flex-col gap-4">
-        <Badge variant="eyebrow"><h2 id="member-recipes" class="m-0 text-inherit">{t.recipes}</h2></Badge>
+        <h2 id="member-recipes" class="m-0 text-xs font-semibold tracking-wider text-primary-ink uppercase">{t.recipes}</h2>
         {recipes?.ok && recipes.value.items.length ? (
           <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{recipes.value.items.map((card) => <RecipeCard card={card} language={language} ratingsEnabled={ratingsEnabled} />)}</div>
         ) : <p class="text-muted-foreground">{recipes?.ok ? t.noRecipes : t.retry}</p>}
       </section>
       <section aria-labelledby="member-saved" class="mt-10 flex flex-col gap-4">
-        <Badge variant="eyebrow"><h2 id="member-saved" class="m-0 text-inherit">{t.saved}</h2></Badge>
+        <h2 id="member-saved" class="m-0 text-xs font-semibold tracking-wider text-primary-ink uppercase">{t.saved}</h2>
         {saved?.ok ? (
           saved.value.items.length
             ? <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{saved.value.items.map((card) => <RecipeCard card={card} language={language} ratingsEnabled={ratingsEnabled} />)}</div>
@@ -59,9 +59,9 @@ const since = member ? new Intl.DateTimeFormat(language, { month: 'long', year: 
       </section>
     </>
   ) : (
-    <Empty className="rounded-xl border border-dashed border-input/40 bg-card/60"><EmptyHeader>
+    <Empty className="rounded-2xl border border-dashed border-border bg-card/70"><EmptyHeader>
       <EmptyTitle><h1>{unavailable ? t.retry : t.missing}</h1></EmptyTitle>
-      <EmptyDescription><a href={spanish ? '/?lang=es' : '/'} data-slot="button" class={buttonVariants()}>{t.explore}</a></EmptyDescription>
+      <EmptyDescription><a href={spanish ? '/discover?lang=es' : '/discover'} data-slot="button" class={buttonVariants()}>{t.explore}</a></EmptyDescription>
     </EmptyHeader></Empty>
   )}
 </AppLayout>

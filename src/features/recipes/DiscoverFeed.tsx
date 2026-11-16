@@ -4,21 +4,22 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FilterChip, FilterSelectChip } from "@/components/ui/filter-chip";
+import { FilterChip } from "@/components/ui/filter-chip";
 import { SearchField } from "@/components/ui/search-field";
 import type { CatalogPage, RecipeCard as CardData } from "./catalog";
-import { activeFilterCount, clearFilters, defaultSort, toDiscoverSearch, type DiscoverParams } from "./discover-state";
-import FilterPanel, { sortOptions } from "./FilterPanel";
+import { activeFilterCount, clearFilters, toDiscoverSearch, type DiscoverParams } from "./discover-state";
+import FilterPanel from "./FilterPanel";
 import { favoriteIntentFrom } from "./draft-intent";
 import { toast } from "@/components/ui/toaster";
 import { originLabel as labelFor } from "./origin-label";
-import RecipeCard from "./RecipeCard";
+import RecipeCard, { RecipeCardSkeleton } from "./RecipeCard";
 import { categories, type Origin } from "./validation";
 
 const copy = {
   en: {
     search: "Search recipes",
-    searchHint: "Title or ingredient",
+    searchHint: "Try birria, pupusas, or cilantro…",
+    searchSavedHint: "Search your saved recipes by dish or ingredient…",
     submit: "Search",
     category: "Category",
     origin: "Origin",
@@ -41,16 +42,21 @@ const copy = {
     failed: "We couldn’t load recipes.",
     retry: "Try again",
     none: "No recipes match yet.",
-    noneHint: "Try a different word or clear a filter.",
+    noneHint: "Try a different word or clear a filter, or add the dish yourself.",
+    shareRecipe: "Share your recipe",
     noFavorites: "You haven’t saved any recipes yet.",
     count: (n: number) => `${n} ${n === 1 ? "recipe" : "recipes"} shown`,
     saveFailed: "We couldn’t update your favorites. Please try again.",
     saved: (t: string) => `Saved ${t}.`,
     unsaved: (t: string) => `Removed ${t} from favorites.`,
+    quickShelf: "Ready in an hour or less",
+    quickShelfAction: "Filter ≤ 60 min",
+    allRecipes: "All community recipes",
   },
   es: {
     search: "Buscar recetas",
-    searchHint: "Título o ingrediente",
+    searchHint: "Prueba birria, pupusas o cilantro…",
+    searchSavedHint: "Busca en tus recetas guardadas por platillo o ingrediente…",
     submit: "Buscar",
     category: "Categoría",
     origin: "Origen",
@@ -73,12 +79,16 @@ const copy = {
     failed: "No pudimos cargar las recetas.",
     retry: "Intentar de nuevo",
     none: "Todavía no hay recetas que coincidan.",
-    noneHint: "Prueba otra palabra o quita un filtro.",
+    noneHint: "Prueba otra palabra o quita un filtro, o añade el platillo tú.",
+    shareRecipe: "Comparte tu receta",
     noFavorites: "Todavía no guardaste recetas.",
     count: (n: number) => `${n} ${n === 1 ? "receta" : "recetas"} en pantalla`,
     saveFailed: "No pudimos actualizar tus favoritos. Inténtalo de nuevo.",
     saved: (t: string) => `Guardaste ${t}.`,
     unsaved: (t: string) => `Quitaste ${t} de favoritos.`,
+    quickShelf: "Listas en una hora o menos",
+    quickShelfAction: "Filtrar ≤ 60 min",
+    allRecipes: "Todas las recetas de la comunidad",
   },
 };
 
@@ -94,14 +104,57 @@ interface Props {
   signInBase: string;
 }
 type Status = "idle" | "loading" | "error";
+const grid = "m-0 grid list-none gap-6 p-0 sm:grid-cols-2 xl:grid-cols-3";
 interface Restore {
   pages: number;
   scrollY: number;
   search: string;
 }
 
-/** Discover/Favorites feed: URL-backed filters, debounced search with stale-request cancellation, accessible incremental loading. */
-export default function DiscoverFeed({ initial, params: initialParams, language, origins, scope, signInBase, ratingsEnabled = false }: Props) {
+const restoreKey = () => `discover-restore:${window.location.pathname}`;
+
+function readRestore(): Restore | null {
+  try {
+    const raw = sessionStorage.getItem(restoreKey());
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<Restore>;
+    if (typeof parsed.pages === "number" && typeof parsed.scrollY === "number" && typeof parsed.search === "string") {
+      return { pages: parsed.pages, scrollY: parsed.scrollY, search: parsed.search };
+    }
+  } catch {
+    /* Storage unavailable. */
+  }
+  return null;
+}
+
+function writeRestore(patch: Partial<Restore>) {
+  try {
+    const current = readRestore() ?? { pages: 1, scrollY: 0, search: "" };
+    sessionStorage.setItem(restoreKey(), JSON.stringify({ ...current, ...patch }));
+  } catch {
+    /* Storage unavailable. */
+  }
+}
+
+function replaceUrl(url: URL) {
+  if (url.href === window.location.href) return;
+  try {
+    history.replaceState(history.state, "", url);
+  } catch {
+    /* History updates throttled or restricted. */
+  }
+}
+
+/** Discover/Favorites feed: URL-backed filters in a slide-out panel, curated shelves, and scannable cards. */
+export default function DiscoverFeed({
+  initial,
+  params: initialParams,
+  language,
+  origins,
+  scope,
+  signInBase,
+  ratingsEnabled = false,
+}: Props) {
   const t = copy[language];
   const [params, setParams] = useState<DiscoverParams>(initialParams);
   const [text, setText] = useState(initialParams.q ?? "");
@@ -110,6 +163,8 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
   const [status, setStatus] = useState<Status>(initial ? "idle" : "error");
   const [announcement, setAnnouncement] = useState("");
   const [pending, setPending] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshRun = useRef(0);
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
   const pages = useRef(1);
@@ -129,11 +184,9 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
   );
 
   const remember = useCallback((patch: Partial<Restore>) => {
-    const current = (history.state?.discover ?? {}) as Partial<Restore>;
-    history.replaceState({ ...history.state, discover: { ...current, ...patch } }, "");
+    writeRestore(patch);
   }, []);
 
-  // One request at a time: a newer search aborts the older one and stale responses are ignored.
   const fetchPage = useCallback(
     async (p: DiscoverParams, after: string | null): Promise<CatalogPage | null> => {
       request.current?.abort();
@@ -167,15 +220,19 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
       const keep = new URLSearchParams(url.search);
       url.search = search;
       for (const key of ["lang", "tab"]) if (keep.has(key)) url.searchParams.set(key, keep.get(key)!);
-      history.replaceState({ ...history.state, discover: { pages: 1, scrollY: 0, search } }, "", url);
+      replaceUrl(url);
+      remember({ pages: 1, scrollY: 0, search });
+      const run = ++refreshRun.current;
+      setRefreshing(true);
       const page = await fetchPage(next, null);
+      if (run === refreshRun.current) setRefreshing(false);
       if (!page) return;
       pages.current = 1;
       setItems(page.items);
       setCursor(page.nextCursor);
       setAnnouncement(t.count(page.items.length));
     },
-    [fetchPage, t],
+    [fetchPage, remember, t],
   );
 
   const loadMore = useCallback(async () => {
@@ -189,7 +246,6 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
     remember({ pages: pages.current });
   }, [cursor, status, fetchPage, params, t, remember]);
 
-  // Debounced typing; the Search button and Enter submit immediately.
   useEffect(() => {
     const q = text.trim().slice(0, 100);
     if (q === (params.q ?? "")) return;
@@ -200,11 +256,12 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
     return () => window.clearTimeout(timer);
   }, [text, params, replace]);
 
-  // Back/forward restoration: reload as many pages as the reader had, then return to their scroll position.
   useEffect(() => {
-    const saved = history.state?.discover as Restore | undefined;
+    const nav = performance.getEntriesByType?.("navigation")?.[0] as PerformanceNavigationTiming | undefined;
+    const isBackForward = nav?.type === "back_forward";
+    const saved = readRestore();
     const search = toDiscoverSearch(initialParams);
-    if (!saved || saved.search !== search || saved.pages <= 1 || !initial?.nextCursor) {
+    if (!isBackForward || !saved || saved.search !== search || saved.pages <= 1 || !initial?.nextCursor) {
       remember({ pages: 1, scrollY: 0, search });
       return;
     }
@@ -223,17 +280,22 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
       setCursor(after);
       requestAnimationFrame(() => window.scrollTo(0, saved.scrollY));
     })();
-    // Runs once on mount with the server-rendered page.
   }, []);
 
   useEffect(() => {
-    let frame = 0;
+    let timer = 0;
+    const saveScroll = () => remember({ scrollY: Math.round(window.scrollY) });
     const onScroll = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => remember({ scrollY: Math.round(window.scrollY) }));
+      window.clearTimeout(timer);
+      timer = window.setTimeout(saveScroll, 150);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    window.addEventListener("pagehide", saveScroll);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("pagehide", saveScroll);
+    };
   }, [remember]);
 
   useEffect(() => {
@@ -251,7 +313,6 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
       const patch = (c: CardData) =>
         c.id === card.id ? { ...c, favorited, favoriteCount: Math.max(0, c.favoriteCount + (favorited ? 1 : -1)) } : c;
       if (scope && !favorited) {
-        // The focused heart leaves with its card; move focus to the neighbouring card's control, or the search box.
         const index = items.findIndex((c) => c.id === card.id);
         const neighbour = items[index + 1] ?? items[index - 1];
         requestAnimationFrame(() => {
@@ -285,18 +346,16 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
     [items, scope, signInBase, t],
   );
 
-  // A guest who pressed Save signs in and comes back with ?save=<id>; finish that action once.
   useEffect(() => {
     const url = new URL(window.location.href);
     const id = favoriteIntentFrom(url);
     if (!id) return;
     url.searchParams.delete("save");
-    history.replaceState(history.state, "", url);
+    replaceUrl(url);
     const card = items.find((c) => c.id === id);
     if (card && !card.favorited) void toggleFavorite(card);
     else if (!card)
       void fetch(`/api/recipes/${encodeURIComponent(id)}/favorite`, { method: "PUT", credentials: "same-origin", redirect: "error" });
-    // Once per page load.
   }, []);
 
   const submit = (e: FormEvent) => {
@@ -310,15 +369,30 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
     const o = origins.find((x) => x.id === id);
     return o ? labelFor(o, language) : undefined;
   };
-  // A real link, so clearing works before hydration and without JavaScript; "?" alone drops the query string.
   const clearHref = `?${new URLSearchParams([...new URLSearchParams(toDiscoverSearch(clearFilters(params))), ...(language === "es" ? [["lang", "es"]] : [])])}`;
-  const sortValue = params.sort ?? defaultSort(params);
-  // Plain browsing leads with the newest recipe as a wide card; searches and filters stay a uniform grid.
-  const featureFirst = !scope && toDiscoverSearch(params) === "" && items.length >= 4;
+  const filterCount = activeFilterCount(params);
+  const showShelves = !scope && toDiscoverSearch(params) === "" && items.length >= 4;
+  const featuredCard = showShelves ? items[0] : null;
+  const quickShelf = showShelves
+    ? items.filter((c) => c.id !== featuredCard?.id && c.totalMinutes !== null && c.totalMinutes <= 60).slice(0, 3)
+    : [];
+  const shelfIds = new Set([featuredCard?.id, ...quickShelf.map((c) => c.id)].filter(Boolean));
+  const remainingItems = showShelves ? items.filter((c) => !shelfIds.has(c.id)) : items;
+
+  const renderCard = (card: CardData, featured = false) => (
+    <RecipeCard
+      card={card}
+      language={language}
+      originLabel={originLabel(card.origin)}
+      onToggleFavorite={toggleFavorite}
+      pending={pending === card.id}
+      ratingsEnabled={ratingsEnabled}
+      featured={featured}
+    />
+  );
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Without JavaScript the form still submits ?q= as a plain GET search. */}
       <form role="search" method="get" onSubmit={submit} data-hydrated={hydrated || undefined} className="flex flex-col gap-3">
         <Label htmlFor="recipe-search" className="sr-only">
           {t.search}
@@ -330,7 +404,7 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
             type="search"
             value={text}
             maxLength={100}
-            placeholder={t.searchHint}
+            placeholder={scope ? t.searchSavedHint : t.searchHint}
             onChange={(e) => setText(e.target.value)}
             autoComplete="off"
             className="border-0 bg-transparent text-base shadow-none focus-visible:ring-0"
@@ -341,19 +415,20 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
           </Button>
         </SearchField>
         <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 py-1 md:flex-wrap md:overflow-visible">
-          <FilterPanel
-            params={params}
-            origins={origins}
-            language={language}
-            ratingsEnabled={ratingsEnabled}
-            onApply={(next) => {
-              // The draft was copied from `params`, which lags the typed text during the search debounce; the input is the source of truth.
-              const q = text.trim().slice(0, 100);
-              const { sort, ...rest } = next;
-              void replace({ ...rest, q: q || undefined, ...(sort && (q || sort !== "relevance") ? { sort } : {}) });
-            }}
-          />
-          {/* Chips are submit buttons, so without JavaScript they still filter with a plain GET. */}
+          <span className="shrink-0">
+            <FilterPanel
+              params={params}
+              origins={origins}
+              language={language}
+              ratingsEnabled={ratingsEnabled}
+              onApply={(next) => {
+                const q = text.trim().slice(0, 100);
+                const { sort, ...rest } = next;
+                void replace({ ...rest, q: q || undefined, ...(sort && (q || sort !== "relevance") ? { sort } : {}) });
+              }}
+            />
+          </span>
+
           <div role="group" aria-labelledby="filter-category-label" className="flex shrink-0 items-center gap-2">
             <span id="filter-category-label" className="sr-only">
               {t.category}
@@ -374,65 +449,7 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
               </FilterChip>
             ))}
           </div>
-          <span aria-hidden="true" className="mx-1 h-6 w-px shrink-0 bg-border" />
-          {origins.length > 0 && (
-            <FilterSelectChip
-              name="origin"
-              label={t.origin}
-              valueLabel={originLabel(params.origin ?? null)}
-              active={Boolean(params.origin)}
-              value={params.origin ?? ""}
-              onChange={(e) => set({ origin: e.target.value || undefined })}
-            >
-              <option value="">{t.anyOrigin}</option>
-              {origins.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {labelFor(o, language)}
-                </option>
-              ))}
-            </FilterSelectChip>
-          )}
-          <FilterSelectChip
-            name="time"
-            label={t.timeChip}
-            valueLabel={params.maxMinutes ? t.upTo(params.maxMinutes) : undefined}
-            active={Boolean(params.maxMinutes)}
-            value={params.maxMinutes ?? ""}
-            onChange={(e) => set({ maxMinutes: (Number(e.target.value) || undefined) as DiscoverParams["maxMinutes"] })}
-          >
-            <option value="">{t.anyTime}</option>
-            {([30, 60, 120] as const).map((m) => (
-              <option key={m} value={m}>
-                {t.upTo(m)}
-              </option>
-            ))}
-          </FilterSelectChip>
-          <FilterSelectChip
-            name="diet"
-            label={t.diet}
-            valueLabel={params.diet ? t[params.diet] : undefined}
-            active={Boolean(params.diet)}
-            value={params.diet ?? ""}
-            onChange={(e) => set({ diet: (e.target.value || undefined) as DiscoverParams["diet"] })}
-          >
-            <option value="">{t.anyDiet}</option>
-            <option value="vegan">{t.vegan}</option>
-            <option value="vegetarian">{t.vegetarian}</option>
-          </FilterSelectChip>
-          <FilterSelectChip
-            name="sort"
-            label={t.sort}
-            valueLabel={t.sorts[sortValue]}
-            value={sortValue}
-            onChange={(e) => set({ sort: e.target.value as DiscoverParams["sort"] })}
-          >
-            {sortOptions(params.q, ratingsEnabled).map((s) => (
-              <option key={s} value={s}>
-                {t.sorts[s]}
-              </option>
-            ))}
-          </FilterSelectChip>
-          {activeFilterCount(params) > 0 && (
+          {filterCount > 0 && (
             <a
               href={clearHref}
               className={buttonVariants({ variant: "link", className: "shrink-0" })}
@@ -451,50 +468,129 @@ export default function DiscoverFeed({ initial, params: initialParams, language,
         {announcement}
       </p>
 
-      {items.length > 0 ? (
-        <ul role="list" aria-busy={status === "loading"} className="m-0 grid list-none gap-6 p-0 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((card, index) => (
-            <li key={card.id} className={featureFirst && index === 0 ? "sm:col-span-2 lg:col-span-3" : undefined}>
-              <RecipeCard
-                card={card}
-                language={language}
-                originLabel={originLabel(card.origin)}
-                onToggleFavorite={toggleFavorite}
-                pending={pending === card.id}
-                ratingsEnabled={ratingsEnabled}
-                featured={featureFirst && index === 0}
-              />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        status === "idle" && (
-          <div className="rounded-xl border border-dashed border-input/40 bg-card/60 p-8 text-center">
-            <p className="m-0 font-semibold">{scope ? t.noFavorites : t.none}</p>
-            {!scope && <p className="m-0 mt-1 text-sm text-muted-foreground">{t.noneHint}</p>}
-          </div>
-        )
-      )}
+      <div>
 
-      {status === "error" && (
-        <Alert variant="destructive" role="alert">
-          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-            <span>{t.failed}</span>
-            <Button type="button" variant="outline" onClick={() => (items.length && cursor ? loadMore() : replace(params))}>
-              {t.retry}
+        <div className="flex min-w-0 flex-1 flex-col gap-10">
+          {refreshing ? (
+            <ul role="list" aria-busy="true" className={grid}>
+              {Array.from({ length: 6 }, (_, i) => (
+                <li key={i}>
+                  <RecipeCardSkeleton />
+                </li>
+              ))}
+            </ul>
+          ) : items.length > 0 ? (
+            showShelves ? (
+              <>
+                {featuredCard && renderCard(featuredCard, true)}
+
+                {quickShelf.length > 0 && (
+                  <section aria-labelledby="shelf-quick" className="flex flex-col gap-4">
+                    <div className="flex flex-wrap items-baseline justify-between gap-3">
+                      <h2 id="shelf-quick" className="m-0 type-headline-md">
+                        {t.quickShelf}
+                      </h2>
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        onClick={() => set({ maxMinutes: 60 })}
+                        className="px-0"
+                      >
+                        {t.quickShelfAction} →
+                      </Button>
+                    </div>
+                    <ul
+                      role="list"
+                      className={grid}
+                    >
+                      {quickShelf.map((card) => (
+                        <li key={card.id}>{renderCard(card)}</li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+
+                {remainingItems.length > 0 && (
+                  <section aria-labelledby="shelf-all" className="flex flex-col gap-4">
+                    <h2 id="shelf-all" className="m-0 type-headline-md">
+                      {t.allRecipes}
+                    </h2>
+                    <ul
+                      role="list"
+                      aria-busy={status === "loading"}
+                      className={grid}
+                    >
+                      {remainingItems.map((card) => (
+                        <li key={card.id}>{renderCard(card)}</li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+              </>
+            ) : (
+              <ul
+                role="list"
+                aria-busy={status === "loading"}
+                className={grid}
+              >
+                {items.map((card) => (
+                  <li key={card.id}>{renderCard(card)}</li>
+                ))}
+              </ul>
+            )
+          ) : (
+            status === "idle" && (
+              <div className="rounded-xl border border-dashed border-input/40 bg-card/60 p-8 text-center">
+                <p className="m-0 font-semibold">{scope ? t.noFavorites : t.none}</p>
+                {!scope && <p className="m-0 mt-1 text-sm text-muted-foreground">{t.noneHint}</p>}
+                {!scope && (
+                  <a
+                    href={language === "es" ? "/add-recipe?lang=es" : "/add-recipe"}
+                    data-slot="button"
+                    className={buttonVariants({ className: "mt-4" })}
+                  >
+                    {t.shareRecipe}
+                  </a>
+                )}
+              </div>
+            )
+          )}
+
+          {status === "error" && (
+            <Alert variant="destructive" role="alert">
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+                <span>{t.failed}</span>
+                <Button type="button" variant="outline" onClick={() => (items.length && cursor ? loadMore() : replace(params))}>
+                  {t.retry}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+          {status === "loading" && (
+            <>
+              <p className="sr-only">{t.loading}</p>
+              {!refreshing && (
+                <ul role="list" aria-hidden="true" className={grid}>
+                  {Array.from({ length: 3 }, (_, i) => (
+                    <li key={i}>
+                      <RecipeCardSkeleton />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+
+          <div ref={sentinel} aria-hidden="true" />
+          {cursor && status !== "error" && (
+            <Button type="button" variant="outline" className="self-center" disabled={status === "loading"} onClick={() => loadMore()}>
+              {t.loadMore}
             </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-      {status === "loading" && <p className="m-0 text-center text-sm text-muted-foreground">{t.loading}</p>}
-
-      <div ref={sentinel} aria-hidden="true" />
-      {cursor && status !== "error" && (
-        <Button type="button" variant="outline" className="self-center" disabled={status === "loading"} onClick={() => loadMore()}>
-          {t.loadMore}
-        </Button>
-      )}
-      {!cursor && items.length > 0 && status === "idle" && <p className="m-0 text-center text-sm text-muted-foreground">{t.end}</p>}
+          )}
+          {!cursor && items.length > 0 && status === "idle" && <p className="m-0 text-center text-sm text-muted-foreground">{t.end}</p>}
+        </div>
+      </div>
     </div>
   );
 }

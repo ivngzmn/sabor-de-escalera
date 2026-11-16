@@ -2,10 +2,10 @@
 import { ProfileFields, SavedListField } from '../features/accounts/ProfileFields';
 import { Button } from '../components/ui/button';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Badge } from '../components/ui/badge';
 import { Card, CardContent } from '../components/ui/card';
 import ImageUploader from '../features/media/ImageUploader';
 import { mediaReadiness } from '../features/media/service';
+import { isPreviewMode } from '../server/preview-store';
 import AppLayout from '../layouts/AppLayout.astro';
 import { accountConfiguration } from '../server/clerk';
 import { accounts, type Actor } from '../features/accounts/service';
@@ -36,17 +36,17 @@ catch (error) {
 }
 ---
 <AppLayout title={spanish ? 'Tu perfil' : 'Your profile'}>
-  <div class="flex max-w-3xl flex-col items-start gap-2">
-    <Badge variant="eyebrow">{spanish ? 'Bienvenida a la familia' : 'Welcome to the family'}</Badge>
-    <h1>{spanish ? 'Tu perfil' : 'Your profile'}</h1>
-    <p class="intro">{spanish ? 'Elige cómo aparecerás en la comunidad. Puedes cambiarlo después.' : 'Choose how you appear in the community. You can change this later.'}</p>
+  <div class="flex max-w-3xl flex-col items-start gap-1.5">
+    <p class="m-0 text-xs font-semibold tracking-wider text-primary-ink uppercase">{spanish ? 'Bienvenida a la familia' : 'Welcome to the family'}</p>
+    <h1 class="m-0">{spanish ? 'Tu perfil' : 'Your profile'}</h1>
+    <p class="intro m-0">{spanish ? 'Elige cómo aparecerás en la comunidad. Puedes cambiarlo después.' : 'Choose how you appear in the community. You can change this later.'}</p>
   </div>
   {errorMessage && <Alert variant="destructive" id="profile-error" className="mt-6 max-w-3xl"><AlertDescription><a href="#display-name">{errorMessage}</a></AlertDescription></Alert>}
-  <Card className="mt-8 max-w-3xl">
+  <Card className="mt-8 max-w-3xl border border-border shadow-xs">
     <CardContent>
       <form method="post" class="account-form" aria-describedby={errorMessage ? 'profile-error' : undefined}>
         <ProfileFields spanish={spanish} displayName={actor?.displayName} bio={actor?.bio} avatarPreset={actor?.avatarPreset} />
-        <ImageUploader client:load purpose="avatar" available={mediaReadiness().enabled} spanish={spanish} currentAssetId={actor?.avatarAssetId} />
+        <ImageUploader client:load purpose="avatar" available={mediaReadiness().enabled || isPreviewMode()} spanish={spanish} currentAssetId={actor?.avatarAssetId} />
         <SavedListField spanish={spanish} isPublic={actor?.savedListPublic} />
         <Button type="submit" className="justify-self-start">{spanish ? 'Guardar y continuar' : 'Save and continue'}</Button>
       </form>

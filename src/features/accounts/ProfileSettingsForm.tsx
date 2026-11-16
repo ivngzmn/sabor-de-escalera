@@ -41,7 +41,7 @@ const copy = {
     avatar: "Avatar",
     avatarIntro: "Upload a photo or pick a symbol.",
     photoTile: "Your photo",
-    photoInUse: "Your photo is what people see. The symbol you pick is used if you remove it.",
+    photoInUse: "Your photo is what people see. Remove it to pick a symbol instead.",
     choices: { initials: "My initials", chile: "Chile pepper", corn: "Corn", lime: "Lime" },
     privacy: "Privacy",
     privacyIntro: "Your email address is never shown publicly.",
@@ -72,7 +72,7 @@ const copy = {
     avatar: "Avatar",
     avatarIntro: "Sube una foto o elige un símbolo.",
     photoTile: "Tu foto",
-    photoInUse: "Los demás ven tu foto. El símbolo que elijas se usa si la eliminas.",
+    photoInUse: "Los demás ven tu foto. Elimínala para elegir un símbolo.",
     choices: { initials: "Mis iniciales", chile: "Chile", corn: "Maíz", lime: "Lima" },
     privacy: "Privacidad",
     privacyIntro: "Tu correo electrónico nunca se muestra públicamente.",
@@ -224,41 +224,45 @@ export default function ProfileSettingsForm({
                 </div>
               </div>
             )}
-            <RadioGroup
-              value={avatar}
-              onValueChange={(value) => {
-                if (value !== null) setAvatar(value as AvatarChoice);
-              }}
-              aria-labelledby="avatar-heading"
-              aria-describedby="avatar-intro"
-              className="grid grid-cols-2 gap-3 sm:grid-cols-4"
-            >
-              {(["initials", "chile", "corn", "lime"] as const).map((choice) => (
-                <label
-                  key={choice}
-                  htmlFor={`avatar-${choice}`}
-                  className="relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-border bg-muted/60 px-3 py-4 text-center text-sm font-semibold transition-[background-color,box-shadow] hover:bg-muted has-[[data-checked]]:bg-card has-[[data-checked]]:shadow-md has-[[data-checked]]:ring-2 has-[[data-checked]]:ring-primary has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring"
+            {!photo && (
+              <>
+                <RadioGroup
+                  value={avatar}
+                  onValueChange={(value) => {
+                    if (value !== null) setAvatar(value as AvatarChoice);
+                  }}
+                  aria-labelledby="avatar-heading"
+                  aria-describedby="avatar-intro"
+                  className="grid grid-cols-2 gap-3 sm:grid-cols-4"
                 >
-                  <Radio
-                    id={`avatar-${choice}`}
-                    value={choice}
-                    className="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full border border-input bg-card outline-none data-checked:border-primary data-checked:bg-primary"
-                  >
-                    <RadioIndicator>
-                      <CheckIcon aria-hidden="true" className="size-4 text-primary-foreground" />
-                    </RadioIndicator>
-                  </Radio>
-                  <span
-                    aria-hidden="true"
-                    className="flex size-14 items-center justify-center rounded-full bg-accent font-serif text-2xl text-primary-ink"
-                  >
-                    {choice === "initials" ? initials(name) : symbols[choice]}
-                  </span>
-                  {t.choices[choice]}
-                </label>
-              ))}
-            </RadioGroup>
-            <FieldSeparator />
+                  {(["initials", "chile", "corn", "lime"] as const).map((choice) => (
+                    <label
+                      key={choice}
+                      htmlFor={`avatar-${choice}`}
+                      className="relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-border bg-muted/60 px-3 py-4 text-center text-sm font-semibold transition-[background-color,box-shadow] hover:bg-muted has-[[data-checked]]:bg-card has-[[data-checked]]:shadow-md has-[[data-checked]]:ring-2 has-[[data-checked]]:ring-primary has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring"
+                    >
+                      <Radio
+                        id={`avatar-${choice}`}
+                        value={choice}
+                        className="absolute top-2 right-2 flex size-6 items-center justify-center rounded-full border border-input bg-card outline-none data-checked:border-primary data-checked:bg-primary"
+                      >
+                        <RadioIndicator>
+                          <CheckIcon aria-hidden="true" className="size-4 text-primary-foreground" />
+                        </RadioIndicator>
+                      </Radio>
+                      <span
+                        aria-hidden="true"
+                        className="flex size-14 items-center justify-center rounded-full bg-accent font-serif text-2xl text-primary-ink"
+                      >
+                        {choice === "initials" ? initials(name) : symbols[choice]}
+                      </span>
+                      {t.choices[choice]}
+                    </label>
+                  ))}
+                </RadioGroup>
+                <FieldSeparator />
+              </>
+            )}
             <ImageUploader
               purpose="avatar"
               available={mediaAvailable}
@@ -341,11 +345,10 @@ function ProfilePreview({
   );
   if (compact)
     return (
-      <div className="flex items-center gap-4 overflow-hidden rounded-xl bg-card p-3 shadow-sm" aria-live="polite">
-        <div aria-hidden="true" className="h-16 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-primary via-primary-ink to-masa" />
-        {avatar("size-14 rounded-lg", "rounded-lg font-serif text-2xl")}
+      <div className="flex items-center gap-4 overflow-hidden rounded-2xl border border-border bg-card p-3.5 shadow-xs" aria-live="polite">
+        {avatar("size-14 rounded-xl", "rounded-xl font-serif text-2xl")}
         <div className="flex min-w-0 flex-col">
-          <span className="text-xs text-muted-foreground">{t.preview}</span>
+          <span className="text-xs font-semibold tracking-wider text-primary-ink uppercase">{t.preview}</span>
           <span className="truncate font-serif text-xl">{shown}</span>
           <span className="truncate text-sm text-muted-foreground">{about.trim() || t.noBio}</span>
         </div>
@@ -353,20 +356,15 @@ function ProfilePreview({
     );
   return (
     <div className="flex flex-col gap-4" aria-live="polite">
-      <p className="m-0 text-sm font-semibold text-muted-foreground">{t.preview}</p>
-      <figure className="m-0 overflow-hidden rounded-xl bg-card shadow-md">
-        <div aria-hidden="true" className="relative h-20 bg-gradient-to-r from-primary via-primary-ink to-masa">
-          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-        </div>
-        <div className="flex flex-col gap-2 px-5 pb-5">
-          <div className="relative z-10 -mt-10 self-start rounded-xl bg-card p-1 shadow-lg">
-            {avatar("size-20 rounded-lg", "rounded-lg font-serif text-3xl")}
-          </div>
+      <p className="m-0 text-xs font-semibold tracking-wider text-primary-ink uppercase">{t.preview}</p>
+      <figure className="m-0 overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-xs">
+        <div className="flex flex-col gap-3">
+          {avatar("size-20 rounded-xl", "rounded-xl font-serif text-3xl")}
           <p className="type-headline-sm m-0 break-words">{shown}</p>
           <p className={cn("m-0 text-sm break-words", about.trim() ? "text-foreground" : "text-muted-foreground")}>
             {about.trim() || t.noBio}
           </p>
-          <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-muted px-3 py-1 text-sm">
+          <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
             {savedPublic ? (
               <EyeOpenIcon aria-hidden="true" className="size-4 text-primary-ink" />
             ) : (
@@ -377,7 +375,7 @@ function ProfilePreview({
         </div>
         <figcaption className="sr-only">{t.onProfile}</figcaption>
       </figure>
-      <figure className="m-0 flex flex-col gap-2 rounded-xl border border-border bg-card/70 p-4">
+      <figure className="m-0 flex flex-col gap-1.5 rounded-2xl border border-border bg-card p-4 shadow-xs">
         <figcaption className="text-xs font-semibold text-muted-foreground">{t.onRecipes}</figcaption>
         <p className="m-0 text-sm">
           {t.by} <span className="font-semibold text-primary-ink underline underline-offset-2">{shown}</span>

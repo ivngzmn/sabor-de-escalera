@@ -1,7 +1,6 @@
 ---
 import { CalendarIcon, FileTextIcon, HeartIcon, LockClosedIcon, Pencil1Icon, ReaderIcon } from '@radix-ui/react-icons';
 import AppLayout from '../../layouts/AppLayout.astro';
-import { Badge } from '../../components/ui/badge';
 import { buttonVariants } from '../../components/ui/button';
 import { Alert, AlertDescription } from '../../components/ui/alert';
 import { MemberAvatar } from '../../features/accounts/MemberAvatar';
@@ -43,54 +42,63 @@ const deleted = deletedResult.ok ? deletedResult.value.map((recipe) => card(reci
 const name = actor.displayName ?? (spanish ? 'Miembro' : 'Member');
 const memberSince = actor.memberSince ? new Intl.DateTimeFormat(language, { month: 'long', year: 'numeric' }).format(new Date(actor.memberSince)) : null;
 const t = spanish
-  ? { title: 'Mi perfil', edit: 'Editar perfil', since: 'Miembro desde', saved: 'Recetas guardadas', published: 'Recetas publicadas', drafts: 'Borradores', privateList: 'Favoritos privados', publicList: 'Favoritos públicos', suspended: 'Las contribuciones no están disponibles para esta cuenta. Puedes seguir explorando y guardando recetas.', unavailable: 'No pudimos cargar tus recetas. Inténtalo de nuevo en un momento.', admin: 'Administración', owner: 'Propietaria/o', noBio: 'Cuéntale a la comunidad sobre tu cocina en Editar perfil.' }
-  : { title: 'My profile', edit: 'Edit profile', since: 'Member since', saved: 'Saved recipes', published: 'Published recipes', drafts: 'Drafts', privateList: 'Private favorites', publicList: 'Public favorites', suspended: 'Contributions are currently unavailable for this account. You can keep browsing and saving recipes.', unavailable: 'We couldn’t load your recipes. Please try again in a moment.', admin: 'Admin', owner: 'Owner', noBio: 'Tell the community about your cooking in Edit profile.' };
+  ? { title: 'Mi perfil', eyebrow: 'Tu cocina', edit: 'Editar perfil', since: 'Miembro desde', saved: 'Recetas guardadas', published: 'Recetas publicadas', drafts: 'Borradores', privateList: 'Favoritos privados', publicList: 'Favoritos públicos', suspended: 'Las contribuciones no están disponibles para esta cuenta. Puedes seguir explorando y guardando recetas.', unavailable: 'No pudimos cargar tus recetas. Inténtalo de nuevo en un momento.', admin: 'Administración', owner: 'Propietaria/o', noBio: 'Cuéntale a la comunidad sobre tu cocina en Editar perfil.' }
+  : { title: 'My profile', eyebrow: 'Your kitchen', edit: 'Edit profile', since: 'Member since', saved: 'Saved recipes', published: 'Published recipes', drafts: 'Drafts', privateList: 'Private favorites', publicList: 'Public favorites', suspended: 'Contributions are currently unavailable for this account. You can keep browsing and saving recipes.', unavailable: 'We couldn’t load your recipes. Please try again in a moment.', admin: 'Admin', owner: 'Owner', noBio: 'Tell the community about your cooking in Edit profile.' };
 const stats = [
-  { key: 'saved', label: t.saved, value: favoriteCount, icon: HeartIcon, tone: 'bg-primary/10 text-primary-ink' },
+  { key: 'saved', label: t.saved, value: favoriteCount, icon: HeartIcon, tone: 'bg-accent text-primary-ink' },
   { key: 'published', label: t.published, value: published.length, icon: ReaderIcon, tone: 'bg-secondary-soft text-secondary' },
   { key: 'drafts', label: t.drafts, value: drafts.length, icon: FileTextIcon, tone: 'bg-masa-soft text-masa-foreground' },
 ];
 ---
 <AppLayout title={t.title}>
-  <section aria-labelledby="profile-name" class="overflow-hidden rounded-xl bg-card shadow-md">
-    <div aria-hidden="true" class="relative h-36 bg-gradient-to-r from-primary via-primary-ink to-masa sm:h-44">
-      <div class="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"></div>
-    </div>
-    <div class="px-4 pb-6 sm:px-10">
-      <div class="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
-        <div class="flex flex-col items-start gap-4 sm:flex-row sm:gap-6">
-          <div class="relative z-10 -mt-14 shrink-0 rounded-xl bg-card p-1 shadow-lg sm:-mt-16">
-            <MemberAvatar memberId={actor.id} displayName={actor.displayName} avatarAssetId={actor.avatarAssetId} avatarPreset={actor.avatarPreset} className="size-28 rounded-lg sm:size-32" fallbackClassName="rounded-lg font-serif text-4xl" />
-          </div>
-          <div class="flex min-w-0 flex-col gap-2 sm:pt-5">
-            <div class="flex flex-wrap items-center gap-3">
-              <h1 id="profile-name" class="m-0">{name}</h1>
-              {actor.role !== 'member' && <Badge variant="eyebrow">{actor.role === 'owner' ? t.owner : t.admin}</Badge>}
-            </div>
-            <p class:list={['m-0 max-w-2xl', actor.bio ? 'text-foreground' : 'text-muted-foreground']}>{actor.bio || t.noBio}</p>
-            <div class="flex flex-wrap gap-2">
-              {memberSince && <span class="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-sm"><CalendarIcon aria-hidden="true" className="size-4 text-masa-foreground" />{t.since} {memberSince}</span>}
-              <span class="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-sm">{actor.savedListPublic ? <HeartIcon aria-hidden="true" className="size-4 text-primary-ink" /> : <LockClosedIcon aria-hidden="true" className="size-4 text-muted-foreground" />}{actor.savedListPublic ? t.publicList : t.privateList}</span>
-            </div>
-          </div>
+  <section aria-labelledby="profile-name" class="rounded-2xl border border-border bg-card p-6 shadow-xs sm:p-8">
+    <div class="flex flex-col justify-between gap-6 lg:flex-row lg:items-start">
+      <div class="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-6">
+        <div class="shrink-0 rounded-2xl border border-border bg-background p-1 shadow-xs">
+          <MemberAvatar memberId={actor.id} displayName={actor.displayName} avatarAssetId={actor.avatarAssetId} avatarPreset={actor.avatarPreset} className="size-24 rounded-xl sm:size-28" fallbackClassName="rounded-xl font-serif text-4xl" />
         </div>
-        <div class="flex flex-wrap gap-3">
-          <a href={href('/profile/settings')} data-slot="button" class={buttonVariants()}><Pencil1Icon aria-hidden="true" />{t.edit}</a>
+        <div class="flex min-w-0 flex-col gap-1.5">
+          <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs font-semibold tracking-wider text-primary-ink uppercase">
+            <span>{t.eyebrow}</span>
+            {actor.role !== 'member' && (
+              <>
+                <span aria-hidden="true" class="text-muted-foreground/50">·</span>
+                <span>{actor.role === 'owner' ? t.owner : t.admin}</span>
+              </>
+            )}
+          </div>
+          <h1 id="profile-name" class="m-0">{name}</h1>
+          <p class:list={['m-0 max-w-2xl text-base', actor.bio ? 'text-foreground' : 'text-muted-foreground']}>{actor.bio || t.noBio}</p>
+          <div class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+            {memberSince && (
+              <span class="inline-flex items-center gap-1.5">
+                <CalendarIcon aria-hidden="true" className="size-4 text-masa-foreground" />
+                {t.since} {memberSince}
+              </span>
+            )}
+            <span class="inline-flex items-center gap-1.5">
+              {actor.savedListPublic ? <HeartIcon aria-hidden="true" className="size-4 text-primary-ink" /> : <LockClosedIcon aria-hidden="true" className="size-4 text-muted-foreground" />}
+              {actor.savedListPublic ? t.publicList : t.privateList}
+            </span>
+          </div>
         </div>
       </div>
-      <dl class="m-0 mt-8 grid gap-4 rounded-xl bg-muted p-4 sm:grid-cols-3">
-        {stats.map(({ key, label, value, icon: Icon, tone }) => (
-          <div class="flex items-center gap-4 px-2">
-            <span aria-hidden="true" class:list={['flex size-12 shrink-0 items-center justify-center rounded-lg', tone]}><Icon className="size-6" /></span>
-            <div class="flex flex-col-reverse">
-              <dt class="text-sm text-muted-foreground">{label}</dt>
-              {/* ProfileTabs updates the drafts count after a delete. */}
-              <dd data-profile-stat={key} class="m-0 type-headline-md leading-none tabular-nums">{value}</dd>
-            </div>
-          </div>
-        ))}
-      </dl>
+      <div class="flex flex-wrap gap-3">
+        <a href={href('/profile/settings')} data-slot="button" class={buttonVariants({ variant: 'outline' })}><Pencil1Icon aria-hidden="true" />{t.edit}</a>
+      </div>
     </div>
+    <dl class="m-0 mt-7 grid gap-4 rounded-xl border border-border bg-muted/60 p-4 sm:grid-cols-3">
+      {stats.map(({ key, label, value, icon: Icon, tone }) => (
+        <div class="flex items-center gap-3.5 px-2">
+          <span aria-hidden="true" class:list={['flex size-11 shrink-0 items-center justify-center rounded-xl', tone]}><Icon className="size-5" /></span>
+          <div class="flex flex-col-reverse">
+            <dt class="text-xs font-medium text-muted-foreground">{label}</dt>
+            {/* ProfileTabs updates the drafts count after a delete. */}
+            <dd data-profile-stat={key} class="m-0 type-headline-md leading-none tabular-nums">{value}</dd>
+          </div>
+        </div>
+      ))}
+    </dl>
   </section>
   {actor.suspended && <Alert className="mt-6"><AlertDescription>{t.suspended}</AlertDescription></Alert>}
   {listUnavailable && <Alert variant="destructive" className="mt-6"><AlertDescription>{t.unavailable}</AlertDescription></Alert>}

@@ -233,7 +233,7 @@ export default function CookbookCorrectionForm({ entryId, version, input: initia
             return (
               <li key={p.assetId} className="flex flex-col gap-3 rounded-lg border border-input/60 p-4">
                 <div className="flex flex-wrap items-start gap-4">
-                  <img src={`/api/media/${p.assetId}?variant=thumb`} alt="" width={160} height={120} className="rounded-md bg-muted object-cover" />
+                  <img src={`/api/media/${p.assetId}?variant=thumb`} alt="" width={160} height={120} referrerPolicy="no-referrer" className="rounded-md bg-muted object-cover" />
                   <div className="flex flex-1 flex-col gap-3">
                     <Field data-invalid={invalid(`photos.${i}.caption`)}>
                       <FieldLabel htmlFor={`fix-photo-${i}-caption`}>{`Photo ${i + 1} caption`}</FieldLabel>

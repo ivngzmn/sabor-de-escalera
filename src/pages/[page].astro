@@ -1,6 +1,5 @@
 ---
 import RecipePlaceholder from '../components/RecipePlaceholder';
-import { Badge } from '../components/ui/badge';
 import AppLayout from '../layouts/AppLayout.astro';
 import { accountConfiguration } from '../server/clerk';
 import { requireActor } from '../features/accounts/service';
@@ -29,8 +28,8 @@ if (!page) Astro.response.status = 404;
 const [title, description] = page?.[spanish ? 'es' : 'en'] ?? (spanish ? ['Página no encontrada', 'Esta página no está disponible.'] : ['Page not found', 'This page is unavailable.']);
 ---
 <AppLayout title={title}>
-  <section class="flex flex-col items-start gap-2 rounded-xl border border-border bg-muted p-6 md:p-10">
-    {page && <Badge variant="eyebrow">Sabor de Escalera</Badge>}
+  <section class="flex flex-col items-start gap-1.5 rounded-2xl border border-border bg-card p-6 shadow-xs md:p-10">
+    {page && <p class="m-0 text-xs font-semibold tracking-wider text-primary-ink uppercase">Sabor de Escalera</p>}
     <h1>{title}</h1>
     <p class="intro">{description}</p>
   </section>

@@ -1,0 +1,46 @@
+---
+import { buttonVariants } from '../components/ui/button';
+import AppLayout from '../layouts/AppLayout.astro';
+import DiscoverFeed from '../features/recipes/DiscoverFeed';
+import { catalogService, type CatalogPage } from '../features/recipes/catalog';
+import { optionalActor } from '../features/recipes/catalog-routes';
+import { parseDiscoverParams } from '../features/recipes/discover-state';
+import { draftsService } from '../features/recipes/drafts';
+import type { Origin } from '../features/recipes/validation';
+import { signInHref } from '../features/accounts/permissions';
+import { accountConfiguration } from '../server/clerk';
+import { readServerConfig } from '../server/config';
+const spanish = Astro.url.searchParams.get('lang') === 'es';
+const language = spanish ? 'es' : 'en';
+const href = (path: string) => spanish ? `${path}?lang=es` : path;
+// Favorite state is per viewer, so the page itself is never shared-cached.
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+const ratingsEnabled = readServerConfig().ratingsEnabled;
+const params = parseDiscoverParams(Astro.url.searchParams, { ratings: ratingsEnabled });
+let initial: CatalogPage | null = null;
+let origins: Origin[] = [];
+try {
+  const viewer = await optionalActor(Astro.request);
+  const [page, available] = await Promise.all([
+    catalogService().list({ ...params, language }, viewer?.id ?? null),
+    draftsService().origins(),
+  ]);
+  if (page.ok) initial = page.value;
+  origins = available;
+} catch { /* The feed shows a retry instead of failing the page. */ }
+const signInBase = signInHref(`${Astro.url.pathname}${Astro.url.search}`, accountConfiguration()?.origin ?? Astro.url.origin);
+---
+<AppLayout title={spanish ? 'Descubrir' : 'Discover'}>
+  <section aria-labelledby="recipes-heading" class="flex flex-col gap-6">
+    <header class="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-6">
+      <div class="flex flex-col items-start gap-1.5">
+        <span class="type-label-sm text-masa-foreground">{spanish ? 'Nuestra mesa compartida' : 'Our shared table'}</span>
+        <h1 id="recipes-heading" class="m-0">{spanish ? 'Descubre recetas' : 'Discover recipes'}</h1>
+        <p class="m-0 text-muted-foreground">{spanish ? 'Recetas e historias de nuestra comunidad, listas para cocinar juntos.' : 'Recipes and stories from our community, ready to cook together.'}</p>
+      </div>
+      <a href={href('/add-recipe')} data-slot="button" class={buttonVariants({ variant: 'default' })}>{spanish ? 'Compartir tu receta' : 'Share your recipe'}</a>
+    </header>
+    <noscript><style>[data-js-only]{display:none}</style></noscript>
+    <DiscoverFeed client:load initial={initial} params={params} language={language} origins={origins} signInBase={signInBase} ratingsEnabled={ratingsEnabled} />
+  </section>
+</AppLayout>

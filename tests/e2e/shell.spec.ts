@@ -33,13 +33,13 @@ for (const [name, width, height] of [
     await expect(navigation.getByRole('link', { name: 'Add Recipe' })).toBeVisible();
     await expect(navigation.getByRole('link', { name: 'Favorites' })).toBeVisible();
     await expect(page.getByRole('contentinfo').getByRole('link', { name: 'About' })).toBeVisible();
-    await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Privacy settings' })).toBeVisible();
+    await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Discover', exact: true })).toBeVisible();
     const language = page.getByRole('navigation', { name: 'Language' });
     await expect(language.getByRole('link', { name: 'English', exact: true })).toBeVisible();
     await language.getByRole('link', { name: 'Español', exact: true }).click();
     await expect(page.locator('html')).toHaveAttribute('lang', 'es');
     if (collapsed) await page.getByRole('button', { name: 'Menú' }).click();
-    await expect(page.getByRole('link', { name: 'Descubrir', exact: true })).toBeVisible();
+    await expect(page.getByRole('banner').getByRole('link', { name: 'Descubrir', exact: true })).toBeVisible();
     await page.getByRole('link', { name: 'English', exact: true }).click();
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     if (collapsed) {
@@ -51,14 +51,14 @@ for (const [name, width, height] of [
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']).analyze()).violations).toEqual([]);
-    await page.getByRole('link', { name: 'Add Recipe', exact: true }).click();
+    await page.getByRole('banner').getByRole('link', { name: 'Add Recipe', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
     expect(new URL(page.url()).searchParams.get('returnTo')).toBe('/add-recipe');
     if (collapsed) await menu.click();
-    await page.getByRole('link', { name: 'Favorites', exact: true }).click();
+    await page.getByRole('banner').getByRole('link', { name: 'Favorites', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
     expect(new URL(page.url()).searchParams.get('returnTo')).toBe('/favorites');
-    await page.getByRole('contentinfo').getByRole('link', { name: 'Privacy settings' }).click();
+    await page.goto('/privacy');
     await expect(page.getByRole('heading', { name: 'Privacy settings' })).toBeVisible();
   });
 }
@@ -94,11 +94,11 @@ test('server secret canaries do not enter HTML or browser-loaded assets', async 
 test('discover shows a localized retry instead of an empty grid when recipes cannot load', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
+  await page.goto('/discover');
   await expect(page.getByRole('heading', { name: 'Discover recipes' })).toBeVisible();
   await expect(page.getByRole('alert')).toContainText('We couldn’t load recipes.');
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.goto('/?lang=es');
+  await page.goto('/discover?lang=es');
   await expect(page.getByRole('alert')).toContainText('No pudimos cargar las recetas.');
 });

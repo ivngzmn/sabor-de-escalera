@@ -1,5 +1,5 @@
-// OpenUI theme mapped onto the Stitch "Warm Editorial Heritage" tokens, so
-// generated UI reads as part of the app. Use it as the single theme owner:
+// OpenUI theme mapped onto the Warm Sunlit Pantry tokens, so generated UI
+// reads as part of the app. Use it as the single theme owner:
 //   <ThemeProvider mode="light" lightTheme={openuiTheme}>…</ThemeProvider>
 // and import "@openuidev/react-ui/layered/styles/index.css" once (Tailwind v4).
 // The app is light-only, so there is no dark theme yet.

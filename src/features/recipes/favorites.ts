@@ -1,6 +1,7 @@
 import type { Pool } from "pg";
 import type { Actor } from "../accounts/service";
 import { getPool } from "../../server/db";
+import { isPreviewMode, previewFavoritesService } from "../../server/preview-store";
 import { isId, type Result } from "./validation";
 
 const fail = (status: number, message: string): Result<never> => ({ ok: false, error: { status, message } });
@@ -56,4 +57,7 @@ export function createFavoriteService({ pool }: { pool: Pool }) {
   };
 }
 
-export const favoriteService = () => createFavoriteService({ pool: getPool() });
+export const favoriteService = () =>
+  isPreviewMode()
+    ? (previewFavoritesService as unknown as ReturnType<typeof createFavoriteService>)
+    : createFavoriteService({ pool: getPool() });

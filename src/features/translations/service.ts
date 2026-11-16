@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Actor } from "../accounts/service";
 import { recordContentAudit } from "../../server/content-audit";
 import { getPool, transaction } from "../../server/db";
+import { isPreviewMode, previewTranslationService } from "../../server/preview-store";
 import { createCatalogService, refreshCatalogRow } from "../recipes/catalog";
 import type { TranslatableText } from "../recipes/translation-text";
 import { isId, type RecipeInput, type Result } from "../recipes/validation";
@@ -149,4 +150,7 @@ export function createTranslationService({ pool }: { pool: Pool }) {
   };
 }
 
-export const translationService = () => createTranslationService({ pool: getPool() });
+export const translationService = () =>
+  isPreviewMode()
+    ? (previewTranslationService as unknown as ReturnType<typeof createTranslationService>)
+    : createTranslationService({ pool: getPool() });

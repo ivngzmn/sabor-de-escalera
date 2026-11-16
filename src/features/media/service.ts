@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import type { Actor } from '../accounts/service';
 import { getPool, transaction } from '../../server/db';
+import { isPreviewMode, previewMediaService } from '../../server/preview-store';
 import { inspectStoredImage, uploadFields, variants } from '../../server/media-policy';
 import { imageKitProvider, type MediaProvider } from '../../server/imagekit';
 import { createLocalMediaProvider, localMediaRoot } from '../../server/local-media';
@@ -224,7 +225,10 @@ export function createMediaService({ pool, provider, ready }: Options) {
   };
   return api;
 }
-export function mediaService() { return createMediaService({ pool: getPool(), provider: mediaProvider(), ready: mediaReadiness().enabled }); }
+export function mediaService() {
+  if (isPreviewMode()) return previewMediaService as unknown as ReturnType<typeof createMediaService>;
+  return createMediaService({ pool: getPool(), provider: mediaProvider(), ready: mediaReadiness().enabled });
+}
 export const createUploadIntent = (actor: Actor, input: Record<string, unknown>) => mediaService().createUploadIntent(actor, input);
 export const completeUpload = (actor: Actor, intentId: string) => mediaService().completeUpload(actor, intentId);
 export const disposeUnusedAsset = (assetId: string) => mediaService().disposeUnusedAsset(assetId);

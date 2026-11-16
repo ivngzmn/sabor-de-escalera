@@ -27,6 +27,7 @@ export default defineConfig({
       EMAIL_NOTIFICATIONS_ENABLED: 'false',
       AUTO_TRANSLATION_ENABLED: 'false',
       ANALYTICS_ENABLED: 'false',
+      LANGUAGE_SWITCH_ENABLED: 'true',
       IMAGEKIT_UPLOADS_ENABLED: 'false',
       DATABASE_URL: 'postgresql://server-secret-canary.invalid/example',
       CLERK_SECRET_KEY: 'server-secret-canary-clerk',

@@ -14,6 +14,8 @@ test('missing secrets leave all optional providers disabled', () => {
 test('ratings turn on only with the exact flag value', () => {
   expect(readServerConfig({ RATINGS_ENABLED: 'true' }).ratingsEnabled).toBe(true);
   expect(readServerConfig({ RATINGS_ENABLED: 'yes' }).ratingsEnabled).toBe(false);
+  expect(readServerConfig({}).languageSwitchEnabled).toBe(false);
+  expect(readServerConfig({ LANGUAGE_SWITCH_ENABLED: 'true' }).languageSwitchEnabled).toBe(true);
 });
 
 test('truthy flag typos cannot activate paid or consent-dependent providers', () => {

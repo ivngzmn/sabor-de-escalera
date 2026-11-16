@@ -1,8 +1,9 @@
+import { useEffect, useRef, useState } from "react";
 import { ClockIcon, StarFilledIcon } from "@radix-ui/react-icons";
-import { Badge } from "@/components/ui/badge";
 import { FavoriteHeart } from "@/components/ui/favorite-heart";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { RecipeCard as CardData } from "./catalog";
 
@@ -14,7 +15,8 @@ const copy = {
     save: (t: string) => `Save ${t} to favorites`,
     unsave: (t: string) => `Remove ${t} from favorites`,
     translated: "Translated",
-    featured: "Newest recipe",
+    featured: "Featured recipe",
+    viewRecipe: "Read recipe",
   },
   es: {
     notRated: "Sin calificaciones",
@@ -23,7 +25,8 @@ const copy = {
     save: (t: string) => `Guardar ${t} en favoritos`,
     unsave: (t: string) => `Quitar ${t} de favoritos`,
     translated: "Traducida",
-    featured: "Receta más reciente",
+    featured: "Receta destacada",
+    viewRecipe: "Ver receta",
   },
 };
 
@@ -34,110 +37,195 @@ export interface RecipeCardProps {
   /** Omit to hide the control, e.g. on server-rendered lists without an island. */
   onToggleFavorite?: (card: CardData) => void;
   pending?: boolean;
-  /** Wide lead card: photo beside the details from md up, larger photo and title. */
+  /** Wide spotlight card: larger photo beside the editorial details from md up. */
   featured?: boolean;
   /** Shows the rating; off until members can rate recipes. */
   ratingsEnabled?: boolean;
+  /** Hold the Home shelf photo behind its skeleton until it loads. */
+  shelf?: boolean;
 }
 
-/** Discover/Favorites/profile card: 16:10 cover with reserved space, stretched title link, favorite control above it. */
-export default function RecipeCard({ card, language, originLabel, onToggleFavorite, pending, featured, ratingsEnabled = false }: RecipeCardProps) {
+/** Scannable recipe card: 16:10 photo, floating quick-save button, unboxed typographic metadata, zero pill clutter. */
+export default function RecipeCard({
+  card,
+  language,
+  originLabel,
+  onToggleFavorite,
+  pending,
+  featured,
+  ratingsEnabled = false,
+  shelf = false,
+}: RecipeCardProps) {
   const t = copy[language];
+  const photo = useRef<HTMLImageElement>(null);
+  const coverUrl = card.cover
+    ? `/api/recipes/${card.id}/photos/${card.cover.assetId}?variant=${featured ? "gallery" : "card"}`
+    : null;
+  const [settledPhoto, setSettledPhoto] = useState<string | null>(null);
+  const photoReady = settledPhoto === coverUrl;
+
+  useEffect(() => {
+    if (photo.current?.complete) setSettledPhoto(coverUrl);
+  }, [coverUrl]);
   const href = language === "es" ? `${card.url}?lang=es` : card.url;
+  const originHref = card.origin
+    ? `/discover?${new URLSearchParams({ origin: card.origin, ...(language === "es" ? { lang: "es" } : {}) })}`
+    : null;
+
   return (
     <Card
       className={cn(
-        "group relative h-full gap-0 overflow-hidden py-0 shadow-md transition-shadow hover:shadow-lg",
-        featured && "md:grid md:grid-cols-[3fr_2fr]",
+        "group relative h-full gap-0 overflow-hidden border-border bg-card py-0 shadow-xs transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-md",
+        featured && "md:grid md:grid-cols-[1.35fr_1fr]",
       )}
       data-recipe-card={card.id}
     >
-      <div className={cn("relative aspect-[16/10] overflow-hidden bg-muted", featured && "md:aspect-auto md:min-h-80")}>
+      <div
+        className={cn(
+          "relative aspect-[16/10] overflow-hidden bg-muted",
+          featured && "md:aspect-auto md:min-h-[21rem]",
+        )}
+      >
+        {card.cover && !photoReady && <Skeleton aria-hidden="true" className="absolute inset-0 rounded-none" />}
         {card.cover ? (
           <img
-            src={`/api/recipes/${card.id}/photos/${card.cover.assetId}?variant=${featured ? "gallery" : "card"}`}
+            ref={photo}
+            onLoad={() => setSettledPhoto(coverUrl)}
+            onError={() => setSettledPhoto(coverUrl)}
+            src={coverUrl ?? undefined}
             alt={card.cover.alt}
             width={card.cover.width}
             height={card.cover.height}
             loading={featured ? "eager" : "lazy"}
-            decoding="async"
-            className="absolute inset-0 size-full object-cover transition-transform duration-500 motion-safe:group-hover:scale-105"
+            decoding={shelf ? "sync" : "async"}
+            referrerPolicy="no-referrer"
+            className={cn("absolute inset-0 size-full object-cover transition-transform duration-500 motion-safe:group-hover:scale-105", shelf && !photoReady && "[@media(scripting:enabled)]:opacity-0")}
           />
         ) : (
-          <div aria-hidden="true" className={cn("absolute inset-0 flex items-center justify-center font-serif text-primary-ink/30", featured ? "text-8xl" : "text-5xl")}>
+          <div
+            aria-hidden="true"
+            className={cn(
+              "absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted to-accent font-serif text-primary-ink/25",
+              featured ? "text-8xl" : "text-5xl",
+            )}
+          >
             {card.title.trim()[0]?.toUpperCase() ?? "·"}
           </div>
         )}
-        {originLabel && card.origin && (
-          // Sits above the stretched title link so it opens Discover filtered to this origin.
-          <Badge
-            variant="region"
-            className="absolute top-3 left-3 z-10"
-            render={<a href={`/?${new URLSearchParams({ origin: card.origin, ...(language === "es" ? { lang: "es" } : {}) })}`} />}
+        {onToggleFavorite && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-pressed={card.favorited}
+            aria-label={card.favorited ? t.unsave(card.title) : t.save(card.title)}
+            disabled={pending}
+            onClick={() => onToggleFavorite(card)}
+            className="absolute top-3 right-3 z-20 min-h-10 rounded-full border border-border/70 bg-card/95 px-3 text-foreground shadow-sm backdrop-blur-xs hover:bg-card"
           >
-            {originLabel}
-          </Badge>
+            <FavoriteHeart active={card.favorited} />
+            {card.favoriteCount > 0 && (
+              <span className="text-xs font-semibold tabular-nums">{card.favoriteCount}</span>
+            )}
+          </Button>
         )}
       </div>
-      <div className={cn("flex flex-1 flex-col", featured && "md:justify-center md:p-6")}>
-        <CardHeader className="pt-5">
-          {featured && (
-            <Badge variant="eyebrow" className="mb-1">
-              {t.featured}
-            </Badge>
+
+      <div className={cn("flex flex-1 flex-col", featured && "md:justify-center md:p-4")}>
+        <CardHeader className="gap-2 pt-5 pb-3">
+          {(featured || originLabel || card.totalMinutes !== null) && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold tracking-wide text-muted-foreground">
+              {featured && (
+                <span className="type-label-sm text-masa-foreground">{t.featured}</span>
+              )}
+              {featured && (originLabel || card.totalMinutes !== null) && (
+                <span aria-hidden="true">·</span>
+              )}
+              {originLabel && originHref && (
+                <a
+                  href={originHref}
+                  className="relative z-10 text-primary-ink no-underline hover:underline"
+                >
+                  {originLabel}
+                </a>
+              )}
+              {originLabel && card.totalMinutes !== null && (
+                <span aria-hidden="true">·</span>
+              )}
+              {card.totalMinutes !== null && (
+                <span className="inline-flex items-center gap-1 tabular-nums">
+                  <ClockIcon aria-hidden="true" className="size-3.5 text-masa-foreground" />
+                  {card.totalMinutes} {t.minutes}
+                </span>
+              )}
+              {card.translated && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span>{t.translated}</span>
+                </>
+              )}
+            </div>
           )}
-          <CardTitle lang={card.language} className={cn(featured && "md:type-headline-lg")}>
-            <a href={href} className="text-foreground no-underline after:absolute after:inset-0 hover:text-primary-ink focus-visible:outline-none">
+
+          <CardTitle lang={card.language} className={cn("leading-snug", featured && "md:type-headline-lg")}>
+            <a
+              href={href}
+              className="text-foreground no-underline after:absolute after:inset-0 hover:text-primary-ink focus-visible:outline-none"
+            >
               {card.title}
             </a>
           </CardTitle>
-          <CardDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            {card.authorName && card.authorId && (
-              <span>
-                {t.by}{" "}
-                <a href={`/members/${card.authorId}${language === "es" ? "?lang=es" : ""}`} className="relative z-10">
-                  {card.authorName}
-                </a>
-              </span>
-            )}
-            {card.totalMinutes !== null && (
-              <span className="inline-flex items-center gap-1">
-                <ClockIcon aria-hidden="true" />
-                {card.totalMinutes} {t.minutes}
-              </span>
-            )}
-            {card.translated && <span>{t.translated}</span>}
-          </CardDescription>
+
+          {card.authorName && card.authorId && (
+            <CardDescription className="pt-0.5 text-sm">
+              {t.by}{" "}
+              <a
+                href={`/members/${card.authorId}${language === "es" ? "?lang=es" : ""}`}
+                className="relative z-10 font-semibold text-foreground/85 no-underline hover:text-primary-ink hover:underline"
+              >
+                {card.authorName}
+              </a>
+            </CardDescription>
+          )}
         </CardHeader>
-        <CardFooter className={cn("justify-between gap-3 pt-4 pb-5 text-sm", !featured && "mt-auto")}>
-          {onToggleFavorite && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-pressed={card.favorited}
-              aria-label={card.favorited ? t.unsave(card.title) : t.save(card.title)}
-              disabled={pending}
-              onClick={() => onToggleFavorite(card)}
-              className="relative z-10 -ms-3"
-            >
-              <FavoriteHeart active={card.favorited} />
-              {card.favoriteCount > 0 && <span>{card.favoriteCount}</span>}
-            </Button>
-          )}
-          {ratingsEnabled && (
-            <span className="ml-auto inline-flex items-center gap-1 font-semibold text-primary-ink">
-              {card.ratingCount ? (
-                <>
-                  <StarFilledIcon aria-hidden="true" />
-                  {card.ratingAverage} ({card.ratingCount})
-                </>
-              ) : (
-                t.notRated
-              )}
-            </span>
-          )}
-        </CardFooter>
+
+        {(featured || ratingsEnabled) && (
+          <CardFooter className={cn("justify-between gap-3 pt-2 pb-5 text-sm", !featured && "mt-auto")}>
+            {featured && (
+              <span className="text-sm font-semibold text-primary-ink group-hover:underline">
+                {t.viewRecipe} →
+              </span>
+            )}
+            {ratingsEnabled && (
+              <span className="ml-auto inline-flex items-center gap-1 font-semibold text-primary-ink tabular-nums">
+                {card.ratingCount ? (
+                  <>
+                    <StarFilledIcon aria-hidden="true" />
+                    {card.ratingAverage} ({card.ratingCount})
+                  </>
+                ) : (
+                  t.notRated
+                )}
+              </span>
+            )}
+          </CardFooter>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+/** Placeholder with a recipe card's shape, shown while a page of results loads. */
+export function RecipeCardSkeleton({ featured }: { featured?: boolean }) {
+  return (
+    <Card
+      aria-hidden="true"
+      className={cn("h-full gap-0 overflow-hidden border-border bg-card py-0 shadow-xs", featured && "md:grid md:grid-cols-[1.35fr_1fr]")}
+    >
+      <Skeleton className={cn("aspect-[16/10] rounded-none", featured && "md:aspect-auto md:min-h-[21rem]")} />
+      <div className={cn("flex flex-col gap-3 px-6 pt-5 pb-6", featured && "md:justify-center md:p-10")}>
+        <Skeleton className="h-3 w-2/5" />
+        <Skeleton className={cn("h-5 w-4/5", featured && "md:h-8")} />
       </div>
     </Card>
   );
