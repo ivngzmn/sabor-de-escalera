@@ -3,10 +3,8 @@
 import { useCallback, useMemo, useState } from "react";
 import {
   ArrowRightIcon,
-  BookmarkIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  ClockIcon,
   PlusIcon,
 } from "@radix-ui/react-icons";
 import {
@@ -27,13 +25,12 @@ import {
   CarouselViewport,
   createCarouselController,
 } from "@/components/ui/carousel";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toaster";
 import type { RecipeCard as CardData } from "@/features/recipes/catalog";
 import { originLabel as labelFor } from "@/features/recipes/origin-label";
 import RecipeCard from "@/features/recipes/RecipeCard";
-import { categories, type Origin } from "@/features/recipes/validation";
+import type { Origin } from "@/features/recipes/validation";
 
 const copy = {
   en: {
@@ -65,18 +62,6 @@ const copy = {
     saveFailed: "We couldn’t update your favorites. Please try again.",
     saved: (t: string) => `Saved ${t}.`,
     unsaved: (t: string) => `Removed ${t} from favorites.`,
-    browseEyebrow: "Find your craving",
-    browseTitle: "Jump straight into Discover by course or region",
-    browseLead: "Every chip opens the full Discover catalog pre-filtered and ready to refine.",
-    coursesHeading: "Courses",
-    regionsHeading: "Regional kitchens",
-    presetsHeading: "Quick shortcuts",
-    presets: [
-      { label: "Ready in ≤ 30 min", href: "/discover?time=30" },
-      { label: "Vegetarian dishes", href: "/discover?diet=vegetarian" },
-      { label: "Vegan dishes", href: "/discover?diet=vegan" },
-      { label: "Most saved first", href: "/discover?sort=saved" },
-    ],
     guideEyebrow: "Made for real cooking",
     guideTitle: "Designed like a kitchen notebook, not a blog full of popups",
     guideLead:
@@ -134,18 +119,6 @@ const copy = {
     saveFailed: "No pudimos actualizar tus favoritos. Inténtalo de nuevo.",
     saved: (t: string) => `Guardaste ${t}.`,
     unsaved: (t: string) => `Quitaste ${t} de favoritos.`,
-    browseEyebrow: "Encuentra tu antojo",
-    browseTitle: "Entra a Descubrir por categoría o cocina regional",
-    browseLead: "Cada acceso abre el catálogo de Descubrir ya filtrado y listo para explorar.",
-    coursesHeading: "Categorías",
-    regionsHeading: "Cocinas regionales",
-    presetsHeading: "Atajos rápidos",
-    presets: [
-      { label: "Listas en ≤ 30 min", href: "/discover?time=30" },
-      { label: "Platillos vegetarianos", href: "/discover?diet=vegetarian" },
-      { label: "Platillos veganos", href: "/discover?diet=vegan" },
-      { label: "Más guardadas", href: "/discover?sort=saved" },
-    ],
     guideEyebrow: "Hecho para cocinar de verdad",
     guideTitle: "Pensado como un cuaderno de cocina, sin distracciones",
     guideLead:
@@ -273,7 +246,6 @@ export default function HomeShowcase({
     return found ? labelFor(found, language) : undefined;
   };
 
-  const featuredOrigins = origins.filter((o) => o.id !== "not-sure");
   const currentCards = shelves[activeTab];
 
   return (
@@ -437,84 +409,6 @@ export default function HomeShowcase({
             })}
           </Tabs>
         )}
-      </section>
-
-      {/* 3. Browse by Course & Regional Kitchen */}
-      <section
-        aria-labelledby="browse-heading"
-        className="rounded-2xl border border-border bg-card p-6 shadow-xs md:p-10"
-      >
-        <div className="flex flex-col gap-1.5">
-          <span className="type-label-sm text-masa-foreground">{t.browseEyebrow}</span>
-          <h2 id="browse-heading" className="m-0 type-headline-lg">
-            {t.browseTitle}
-          </h2>
-          <p className="m-0 text-sm text-muted-foreground">{t.browseLead}</p>
-        </div>
-
-        <Separator className="my-6" />
-
-        <div className="grid gap-8 lg:grid-cols-3">
-          <div className="flex flex-col gap-3">
-            <h3 className="m-0 type-label-sm text-muted-foreground">{t.coursesHeading}</h3>
-            <ul className="m-0 flex list-none flex-col divide-y divide-border p-0">
-              {categories.map((cat) => (
-                <li key={cat.id}>
-                  <a
-                    href={withLang(`/discover?category=${encodeURIComponent(cat.id)}`)}
-                    className="group flex min-h-11 items-center justify-between gap-3 py-2 text-sm font-semibold text-foreground no-underline transition-colors hover:text-primary-ink"
-                  >
-                    <span>{language === "es" ? cat.es : cat.en}</span>
-                    <ArrowRightIcon
-                      aria-hidden="true"
-                      className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary-ink"
-                    />
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <h3 className="m-0 type-label-sm text-muted-foreground">{t.regionsHeading}</h3>
-            <ul className="m-0 grid list-none grid-cols-2 gap-2 p-0">
-              {featuredOrigins.map((origin) => (
-                <li key={origin.id}>
-                  <a
-                    href={withLang(`/discover?origin=${encodeURIComponent(origin.id)}`)}
-                    className="flex min-h-11 items-center justify-between gap-2 rounded-lg border border-border bg-background/60 px-3 py-2 text-sm font-semibold text-foreground no-underline transition-colors hover:border-primary/40 hover:bg-muted"
-                  >
-                    <span className="truncate">{labelFor(origin, language)}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <h3 className="m-0 type-label-sm text-muted-foreground">{t.presetsHeading}</h3>
-            <ul className="m-0 flex list-none flex-col gap-2 p-0">
-              {t.presets.map((preset, idx) => (
-                <li key={preset.href}>
-                  <a
-                    href={withLang(preset.href)}
-                    className="group flex min-h-11 items-center justify-between gap-3 rounded-lg border border-border bg-muted/60 px-4 py-2 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-accent"
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      {idx === 0 && <ClockIcon aria-hidden="true" className="size-4 text-masa-foreground" />}
-                      {idx === 3 && <BookmarkIcon aria-hidden="true" className="size-4 text-primary-ink" />}
-                      {preset.label}
-                    </span>
-                    <ArrowRightIcon
-                      aria-hidden="true"
-                      className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
-                    />
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
       </section>
 
       {/* 4. Practical Guide Accordion (@ui-sdk Accordion) + Community CTA */}
