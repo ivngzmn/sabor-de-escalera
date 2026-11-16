@@ -5,7 +5,6 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-  CardFooter,
   CardAction,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -44,7 +43,6 @@ const dictionaries = {
     optional: "Optional settings",
     save: "Save privacy choices",
     saved: "Privacy choices saved.",
-    essential: "Essential — always active",
     preferences: "Remember preferences",
     preferencesPurpose:
       "Remember your language and display choices on this device.",
@@ -68,7 +66,6 @@ const dictionaries = {
     optional: "Configuración opcional",
     save: "Guardar opciones de privacidad",
     saved: "Opciones de privacidad guardadas.",
-    essential: "Esenciales — siempre activos",
     preferences: "Recordar preferencias",
     preferencesPurpose:
       "Recordar tu idioma y tus opciones de visualización en este dispositivo.",
@@ -284,6 +281,7 @@ export default function ConsentBanner({
                   <Button
                     type="button"
                     ref={customizeButton}
+                    className="col-span-full"
                     variant="secondary"
                     size="sm"
                     disabled={!ready}
@@ -354,9 +352,6 @@ export default function ConsentBanner({
               </form>
             )}
           </CardContent>
-          <CardFooter className="mx-6 rounded-lg bg-warm px-3 py-2 text-xs text-muted-foreground">
-            <p className="m-0">{copy.essential}</p>
-          </CardFooter>
         </Card>
       )}
     </>
