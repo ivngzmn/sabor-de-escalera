@@ -18,7 +18,8 @@ import { categories, type Origin } from "./validation";
 const copy = {
   en: {
     search: "Search recipes",
-    searchHint: "Title or ingredient",
+    searchHint: "Try birria, pupusas, or cilantro…",
+    searchSavedHint: "Search your saved recipes by dish or ingredient…",
     submit: "Search",
     category: "Category",
     origin: "Origin",
@@ -54,7 +55,8 @@ const copy = {
   },
   es: {
     search: "Buscar recetas",
-    searchHint: "Título o ingrediente",
+    searchHint: "Prueba birria, pupusas o cilantro…",
+    searchSavedHint: "Busca en tus recetas guardadas por platillo o ingrediente…",
     submit: "Buscar",
     category: "Categoría",
     origin: "Origen",
@@ -402,7 +404,7 @@ export default function DiscoverFeed({
             type="search"
             value={text}
             maxLength={100}
-            placeholder={t.searchHint}
+            placeholder={scope ? t.searchSavedHint : t.searchHint}
             onChange={(e) => setText(e.target.value)}
             autoComplete="off"
             className="border-0 bg-transparent text-base shadow-none focus-visible:ring-0"
