@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 import { getPool, transaction } from '../../server/db';
 import { accountConfiguration, verifyClerkIdentity } from '../../server/clerk';
+import { isPreviewMode, previewAccountService } from '../../server/preview-store';
 import { AccountError, assertAdmin, assertOwner, assertSameOriginWrite, canContribute, type Actor } from './permissions';
 export type { Actor } from './permissions';
 export { canContribute } from './permissions';
@@ -135,7 +136,10 @@ export function createAccountService(options: Options) {
 }
 export function accounts() {
   const config = accountConfiguration();
-  if (!config) throw new AccountError(503, 'Sign-in is temporarily unavailable');
+  if (!config) {
+    if (isPreviewMode()) return previewAccountService as unknown as ReturnType<typeof createAccountService>;
+    throw new AccountError(503, 'Sign-in is temporarily unavailable');
+  }
   return createAccountService({ pool: getPool(), origin: config.origin, ownerBootstrapEmail: config.ownerBootstrapEmail, verifyIdentity: verifyClerkIdentity });
 }
 export const requireActor = (request: Request): Promise<Actor> => accounts().requireActor(request);

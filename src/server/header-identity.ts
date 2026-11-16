@@ -1,6 +1,7 @@
 import type { Actor } from '../features/accounts/permissions';
 import { accountConfiguration, getClerkAdapter } from './clerk';
 import { getPool } from './db';
+import { isPreviewMode, previewHeaderIdentity } from './preview-store';
 export type HeaderIdentity = Pick<Actor, 'id' | 'role' | 'onboarded' | 'displayName' | 'avatarPreset'> & { avatarAssetId: string | null };
 // Clerk's non-secret __client_uat cookie is a timestamp when a session exists and 0 when signed out.
 export function hasSessionHint(request: Request) {
@@ -15,7 +16,8 @@ export function hasSessionHint(request: Request) {
  * any failure returns null and the client island fetches /api/accounts/me.
  */
 export async function readHeaderIdentity(request: Request): Promise<HeaderIdentity | null> {
-  if (!accountConfiguration() || !hasSessionHint(request)) return null;
+  if (!accountConfiguration()) return isPreviewMode() ? previewHeaderIdentity(request) : null;
+  if (!hasSessionHint(request)) return null;
   try {
     const subject = await getClerkAdapter().sessionSubject(request);
     if (!subject) return null;

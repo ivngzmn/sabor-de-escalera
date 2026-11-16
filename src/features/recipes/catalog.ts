@@ -2,6 +2,7 @@ import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
 // .ts specifiers let scripts/migrate.ts run the backfill under Node type stripping, like server/db.ts.
 import { getPool, transaction } from "../../server/db.ts";
+import { isPreviewMode, previewCatalogService } from "../../server/preview-store.ts";
 import { searchKey } from "./search-key.ts";
 import type { TranslatableText } from "./translation-text";
 import {
@@ -330,4 +331,7 @@ function card(r: Row, requested: "en" | "es"): RecipeCard {
   };
 }
 
-export const catalogService = () => createCatalogService({ pool: getPool() });
+export const catalogService = () =>
+  isPreviewMode()
+    ? (previewCatalogService as unknown as ReturnType<typeof createCatalogService>)
+    : createCatalogService({ pool: getPool() });

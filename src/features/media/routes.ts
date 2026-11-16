@@ -4,6 +4,7 @@ import { ClerkResponseError, accountConfiguration } from '../../server/clerk';
 import { mediaReadiness, mediaService, MediaError, type createMediaService } from './service';
 import { MAX_INPUT_BYTES } from './contracts';
 import { createLocalMediaProvider, LocalUploadError, localMediaRoot } from '../../server/local-media';
+import { isPreviewMode, previewMediaService } from '../../server/preview-store';
 const headers = { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' };
 interface Dependencies { accounts: ReturnType<typeof createAccountService>; media: ReturnType<typeof createMediaService>; origin: string; }
 function failure(error: unknown) {
@@ -59,7 +60,8 @@ interface LocalUploadDependencies { enabled: boolean; provider: ReturnType<typeo
 /** Receives development uploads that would otherwise go straight to ImageKit. Absent unless MEDIA_PROVIDER=local. */
 export async function handleLocalUpload(request: Request, dependencies?: LocalUploadDependencies) {
   const readiness = mediaReadiness();
-  const enabled = dependencies?.enabled ?? (readiness.provider === 'local' && readiness.enabled);
+  const preview = !dependencies && isPreviewMode();
+  const enabled = dependencies?.enabled ?? (preview || (readiness.provider === 'local' && readiness.enabled));
   if (!enabled) return new Response(null, { status: 404, headers });
   try {
     assertSameOriginWrite(request, dependencies?.origin ?? accountConfiguration()?.origin ?? new URL(request.url).origin);
@@ -68,8 +70,13 @@ export async function handleLocalUpload(request: Request, dependencies?: LocalUp
     const file = form?.get('file');
     const token = form?.get('token');
     if (!(file instanceof File) || typeof token !== 'string') throw new LocalUploadError(400, 'Invalid request');
+    const bytes = Buffer.from(await file.arrayBuffer());
+    if (preview) {
+      await previewMediaService.acceptPreviewUpload(token, bytes);
+      return Response.json({ ok: true }, { headers });
+    }
     const provider = dependencies?.provider ?? createLocalMediaProvider({ root: localMediaRoot() });
-    await provider.acceptUpload(token, { type: file.type, bytes: Buffer.from(await file.arrayBuffer()) });
+    await provider.acceptUpload(token, { type: file.type, bytes });
     return Response.json({ ok: true }, { headers });
   } catch (error) {
     const status = error instanceof LocalUploadError || error instanceof AccountError ? error.status : 503;
