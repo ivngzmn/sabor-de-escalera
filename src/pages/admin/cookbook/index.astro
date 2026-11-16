@@ -13,7 +13,10 @@ if (actor instanceof Response) return actor;
 const requested = Astro.url.searchParams.get('filter');
 const filter: QueueFilter = requested === 'eligible' || requested === 'blocked' ? requested : 'all';
 // One query for every view, so the tab counts and the book summary always agree.
-const queue = await cookbookQueue().listQueue(actor, 'all');
+const [queue, proposals] = await Promise.all([
+  cookbookQueue().listQueue(actor, 'all'),
+  translationService().listProposals(actor),
+]);
 if (!queue.ok) Astro.response.status = queue.error.status;
 const all = queue.ok ? queue.value : [];
 const summary = summarize(all);
@@ -22,8 +25,6 @@ const views: Record<QueueFilter, typeof all> = {
   eligible: all.filter((r) => r.state !== 'published' && r.eligible),
   blocked: all.filter((r) => r.state !== 'published' && !r.eligible),
 };
-const rows = views[filter];
-const proposals = await translationService().listProposals(actor);
 const waiting = proposals.ok ? proposals.value.length : 0;
 const tabs: [QueueFilter, string][] = [['all', 'All recipes'], ['blocked', 'Needs work'], ['eligible', 'Ready to publish']];
 const share = (n: number) => (summary.total ? `${(n / summary.total) * 100}%` : '0%');
@@ -61,41 +62,88 @@ const share = (n: number) => (summary.total ? `${(n / summary.total) * 100}%` : 
     </section>
   ) : !proposals.ok ? <p role="alert" class="mt-6">{proposals.error.message}</p> : null}
 
-  <section aria-labelledby="staged-recipes" class="mt-10 flex flex-col gap-4">
+  <section data-cookbook-queue aria-labelledby="staged-recipes" class="mt-10 flex flex-col gap-4">
     <div class="flex flex-wrap items-end justify-between gap-4">
       <h2 id="staged-recipes" class="m-0">Recipes</h2>
       <nav aria-label="Filter recipes" class="flex flex-wrap gap-1 rounded-xl border border-border bg-muted p-1">
         {tabs.map(([value, label]) => (
           <a
             href={value === 'all' ? '/admin/cookbook' : `/admin/cookbook?filter=${value}`}
+            data-queue-filter={value}
             aria-current={value === filter ? 'page' : undefined}
-            class:list={['inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold no-underline', value === filter ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground']}
+            class="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-muted-foreground no-underline hover:text-foreground aria-[current=page]:bg-card aria-[current=page]:text-foreground aria-[current=page]:shadow-xs"
           >{label}<span class="rounded-full bg-muted px-2 text-xs tabular-nums">{views[value].length}</span></a>
         ))}
       </nav>
     </div>
 
-    {!queue.ok ? <p role="alert">{queue.error.message}</p> : rows.length === 0 ? (
-      <p class="rounded-2xl border border-dashed border-border p-6 text-muted-foreground">{filter === 'eligible' ? 'Nothing is ready to publish yet. Open a recipe to fill in what it needs.' : 'No recipes in this view.'}</p>
-    ) : (
-      <ul class="m-0 flex list-none flex-col gap-2.5 p-0">
-        {rows.map((r) => {
-          const needs = r.state === 'published' ? '' : stillNeeds(r.missing);
-          return (
-            <li class="relative grid items-center gap-x-6 gap-y-3 rounded-2xl border border-border bg-card p-4 shadow-xs transition-[box-shadow,border-color] focus-within:ring-[3px] focus-within:ring-ring hover:border-primary/40 hover:shadow-sm sm:p-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto]">
-              <div class="flex min-w-0 flex-col gap-0.5">
-                <a href={`/admin/cookbook/${r.entryId}`} class="font-serif text-lg leading-snug text-foreground no-underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none">{r.title}</a>
-                <span class="text-sm text-muted-foreground tabular-nums">Book page {r.pages.join('–')}{r.contributor ? `, from ${r.contributor}` : ''}</span>
-              </div>
-              <div class="flex min-w-0 flex-col gap-0.5 text-sm">
-                <span class:list={['font-semibold', (r.eligible || r.state === 'published') && 'text-primary-ink']}>{stepSummary(r)}</span>
-                {needs && <span class="text-muted-foreground">{needs}</span>}
-              </div>
-              <span aria-hidden="true" class={buttonVariants({ variant: 'outline', size: 'sm' })}>{r.state === 'published' ? 'View' : 'Review'}</span>
-            </li>
-          );
-        })}
-      </ul>
+    {!queue.ok ? <p role="alert">{queue.error.message}</p> : (
+      <div data-queue-results>
+        {tabs.map(([value]) => (
+          <p hidden={views[value].length > 0 || value !== filter} data-queue-empty={value} data-has-rows={views[value].length > 0 ? '' : undefined} class="rounded-2xl border border-dashed border-border p-6 text-muted-foreground">
+            {value === 'eligible' ? 'Nothing is ready to publish yet. Open a recipe to fill in what it needs.' : 'No recipes in this view.'}
+          </p>
+        ))}
+        <ul class="m-0 flex list-none flex-col gap-2.5 p-0">
+          {all.map((r) => {
+            const group = r.state === 'published' ? 'published' : r.eligible ? 'eligible' : 'blocked';
+            const needs = r.state === 'published' ? '' : stillNeeds(r.missing);
+            return (
+              <li data-queue-row={group} hidden={filter !== 'all' && filter !== group} class="relative grid items-center gap-x-6 gap-y-3 rounded-2xl border border-border bg-card p-4 shadow-xs transition-[box-shadow,border-color] focus-within:ring-[3px] focus-within:ring-ring hover:border-primary/40 hover:shadow-sm sm:p-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto]">
+                <div class="flex min-w-0 flex-col gap-0.5">
+                  <a href={`/admin/cookbook/${r.entryId}`} class="font-serif text-lg leading-snug text-foreground no-underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none">{r.title}</a>
+                  <span class="text-sm text-muted-foreground tabular-nums">Book page {r.pages.join('–')}{r.contributor ? `, from ${r.contributor}` : ''}</span>
+                </div>
+                <div class="flex min-w-0 flex-col gap-0.5 text-sm">
+                  <span class:list={['font-semibold', (r.eligible || r.state === 'published') && 'text-primary-ink']}>{stepSummary(r)}</span>
+                  {needs && <span class="text-muted-foreground">{needs}</span>}
+                </div>
+                <span aria-hidden="true" class={buttonVariants({ variant: 'outline', size: 'sm' })}>{r.state === 'published' ? 'View' : 'Review'}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     )}
   </section>
 </AppLayout>
+
+<script>
+  const queue = document.querySelector('[data-cookbook-queue]');
+  const results = queue?.querySelector('[data-queue-results]');
+  if (queue && results) {
+    const filters = [...queue.querySelectorAll<HTMLAnchorElement>('[data-queue-filter]')];
+    const rows = results.querySelectorAll<HTMLElement>('[data-queue-row]');
+    const emptyStates = results.querySelectorAll<HTMLElement>('[data-queue-empty]');
+
+    function selectFilter(value: string) {
+      for (const link of filters) {
+        if (link.dataset.queueFilter === value) link.setAttribute('aria-current', 'page');
+        else link.removeAttribute('aria-current');
+      }
+      for (const row of rows) row.hidden = value !== 'all' && row.dataset.queueRow !== value;
+      for (const empty of emptyStates) empty.hidden = empty.dataset.queueEmpty !== value || empty.hasAttribute('data-has-rows');
+    }
+
+    for (const link of filters) {
+      link.addEventListener('click', (event) => {
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        if (link.getAttribute('aria-current') === 'page') return;
+        history.pushState(null, '', link.href);
+        selectFilter(link.dataset.queueFilter ?? 'all');
+      });
+    }
+
+    window.addEventListener('popstate', () => {
+      const value = new URLSearchParams(location.search).get('filter');
+      selectFilter(value === 'eligible' || value === 'blocked' ? value : 'all');
+    });
+  }
+</script>
+
+<style>
+  [data-queue-row][hidden] {
+    display: none;
+  }
+</style>
