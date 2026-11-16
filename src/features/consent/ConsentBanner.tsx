@@ -222,7 +222,7 @@ export default function ConsentBanner({
           role="region"
           aria-label={copy.title}
           className={cn(
-            "privacy-panel gap-4 rounded-2xl border-t-4 border-t-primary shadow-md",
+            "privacy-panel gap-4 rounded-2xl shadow-md",
             !settings && ready && "privacy-panel-floating",
             !settings && decided && "privacy-panel-reopened",
           )}
