@@ -12,7 +12,14 @@ test('equal choices, scrolling and dismissal never opt in; settings persist expl
   expect(styles[1]).toEqual(styles[0]); expect(styles[2]).toEqual(styles[0]);
   await page.mouse.wheel(0, 900); await page.keyboard.press('Escape');
   expect(await page.evaluate(() => localStorage.length)).toBe(0);
-  await banner.getByRole('button', { name: 'Customize', exact: true }).click();
+  await expect(banner.getByRole('checkbox')).toHaveCount(0);
+  const customize = banner.getByRole('button', { name: 'Customize', exact: true });
+  await customize.click();
+  await banner.getByRole('checkbox', { name: 'Remember preferences', exact: true }).check();
+  await banner.getByRole('button', { name: 'Back to privacy choices' }).click();
+  await expect(customize).toBeFocused();
+  expect(await page.evaluate(() => localStorage.getItem('escalera:consent'))).toBeNull();
+  await customize.click();
   for (const name of ['Remember preferences', 'Local draft recovery', 'Usage analytics']) await expect(page.getByRole('checkbox', { name, exact: true })).not.toBeChecked();
   await page.getByRole('button', { name: 'Save privacy choices' }).click();
   await expect(banner).not.toBeVisible();
