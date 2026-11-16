@@ -92,7 +92,7 @@ const flagStrings = row ? row.flags.map((f) => flagLabel(f)) : [];
           <section aria-labelledby="preview-heading" class="flex flex-col gap-3">
             <h2 id="preview-heading" class="m-0 text-xs font-semibold tracking-wider text-primary-ink uppercase">How readers will see it</h2>
             <div class="rounded-2xl border border-border bg-card p-5 shadow-xs sm:p-8">
-              <RecipePreview input={input} id={row.recipeId} origins={origins} spanish={input.language === 'es'} titleAs="h2" />
+              <RecipePreview client:load input={input} id={row.recipeId} origins={origins} spanish={input.language === 'es'} titleAs="h2" />
             </div>
           </section>
           {row.state === 'draft' && (

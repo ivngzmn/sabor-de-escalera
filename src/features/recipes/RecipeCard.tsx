@@ -41,6 +41,8 @@ export interface RecipeCardProps {
   featured?: boolean;
   /** Shows the rating; off until members can rate recipes. */
   ratingsEnabled?: boolean;
+  /** Hold the Home shelf photo behind its skeleton until it loads. */
+  shelf?: boolean;
 }
 
 /** Scannable recipe card: 16:10 photo, floating quick-save button, unboxed typographic metadata, zero pill clutter. */
@@ -52,14 +54,19 @@ export default function RecipeCard({
   pending,
   featured,
   ratingsEnabled = false,
+  shelf = false,
 }: RecipeCardProps) {
   const t = copy[language];
   const photo = useRef<HTMLImageElement>(null);
-  const [photoReady, setPhotoReady] = useState(false);
-  // A cached photo can finish before hydration, when no load event will reach React.
+  const coverUrl = card.cover
+    ? `/api/recipes/${card.id}/photos/${card.cover.assetId}?variant=${featured ? "gallery" : "card"}`
+    : null;
+  const [settledPhoto, setSettledPhoto] = useState<string | null>(null);
+  const photoReady = settledPhoto === coverUrl;
+
   useEffect(() => {
-    if (photo.current?.complete) setPhotoReady(true);
-  }, [card.cover?.assetId]);
+    if (photo.current?.complete) setSettledPhoto(coverUrl);
+  }, [coverUrl]);
   const href = language === "es" ? `${card.url}?lang=es` : card.url;
   const originHref = card.origin
     ? `/discover?${new URLSearchParams({ origin: card.origin, ...(language === "es" ? { lang: "es" } : {}) })}`
@@ -83,16 +90,16 @@ export default function RecipeCard({
         {card.cover ? (
           <img
             ref={photo}
-            onLoad={() => setPhotoReady(true)}
-            onError={() => setPhotoReady(true)}
-            src={`/api/recipes/${card.id}/photos/${card.cover.assetId}?variant=${featured ? "gallery" : "card"}`}
+            onLoad={() => setSettledPhoto(coverUrl)}
+            onError={() => setSettledPhoto(coverUrl)}
+            src={coverUrl ?? undefined}
             alt={card.cover.alt}
             width={card.cover.width}
             height={card.cover.height}
             loading={featured ? "eager" : "lazy"}
-            decoding="async"
+            decoding={shelf ? "sync" : "async"}
             referrerPolicy="no-referrer"
-            className="absolute inset-0 size-full object-cover transition-transform duration-500 motion-safe:group-hover:scale-105"
+            className={cn("absolute inset-0 size-full object-cover transition-transform duration-500 motion-safe:group-hover:scale-105", shelf && !photoReady && "[@media(scripting:enabled)]:opacity-0")}
           />
         ) : (
           <div

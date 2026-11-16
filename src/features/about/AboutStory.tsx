@@ -1,5 +1,6 @@
 "use client";
 
+import { PhotoCaption } from "@/components/ui/photo-caption";
 import { useState } from "react";
 import {
   ArrowRightIcon,
@@ -439,14 +440,10 @@ export default function AboutStory({
                 <span className="mt-2 text-sm text-muted-foreground">{t.heroFallbackLabel}</span>
               </div>
             )}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/80 via-black/40 to-transparent"
-            />
-            <figcaption className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 p-5 text-white">
+            <PhotoCaption>
               <span className="font-serif text-lg leading-snug">{t.heroCaptionTitle}</span>
               <span className="text-xs text-white/90">{t.heroCaptionBody}</span>
-            </figcaption>
+            </PhotoCaption>
           </figure>
         </div>
 

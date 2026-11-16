@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeftIcon, ChevronRightIcon, EnterFullScreenIcon } from "@radix-ui/react-icons";
 import {
   Carousel,
@@ -10,10 +10,41 @@ import {
   CarouselPrevious,
   CarouselViewport,
 } from "@ui-sdk/react/carousel";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Photo } from "./validation";
 
 const glass =
   "flex size-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition-colors outline-none hover:bg-black/60 focus-visible:ring-2 focus-visible:ring-white [&_svg]:size-5";
+
+function SlidePhoto({ photo, url, eager }: { photo: Photo; url: string; eager: boolean }) {
+  const image = useRef<HTMLImageElement>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    if (image.current?.complete) setReady(true);
+  }, []);
+
+  return (
+    <>
+      {!ready && <Skeleton aria-hidden="true" className="absolute inset-0 rounded-none" />}
+      <img
+        ref={image}
+        onLoad={() => setReady(true)}
+        onError={() => setReady(true)}
+        src={url}
+        width={photo.width ?? 1200}
+        height={photo.height ?? 900}
+        alt={photo.alt || photo.caption}
+        loading={eager ? "eager" : "lazy"}
+        decoding="sync"
+        referrerPolicy="no-referrer"
+        draggable={false}
+        className={`size-full object-cover ${!ready ? "[@media(scripting:enabled)]:opacity-0" : ""}`}
+        style={{ objectPosition: `${photo.crop.x}% ${photo.crop.y}%`, scale: photo.crop.zoom }}
+      />
+    </>
+  );
+}
 
 /** Large inline photo carousel for the recipe page. Pressing the photo opens the full-screen viewer when `onOpen` is given. */
 export default function PhotoCarousel({
@@ -34,23 +65,12 @@ export default function PhotoCarousel({
   const many = photos.length > 1;
   const current = photos[page - 1] ?? photos[0];
   return (
-    <Carousel aria-label={t("Recipe photos", "Fotos de la receta")} page={page} onPageChange={setPage} loop className="photo-carousel relative overflow-hidden rounded-xl bg-neutral-900 shadow-md">
+    <Carousel aria-label={t("Recipe photos", "Fotos de la receta")} page={page} onPageChange={setPage} loop className="photo-carousel relative self-start overflow-hidden rounded-xl bg-neutral-900 shadow-md">
       <CarouselViewport className="aspect-[4/3] w-full [scrollbar-width:none]">
         <CarouselContent className="h-full">
           {photos.map((photo, i) => {
-            const image = (
-              <img
-                src={src(photo)}
-                width={photo.width ?? 1200}
-                height={photo.height ?? 900}
-                alt={photo.alt || photo.caption}
-                loading={i === 0 ? "eager" : "lazy"}
-                referrerPolicy="no-referrer"
-                draggable={false}
-                className="size-full object-cover"
-                style={{ objectPosition: `${photo.crop.x}% ${photo.crop.y}%`, scale: photo.crop.zoom }}
-              />
-            );
+            const url = src(photo);
+            const image = <SlidePhoto key={url} photo={photo} url={url} eager={i === 0} />;
             return (
               <CarouselItem key={photo.assetId} className="relative size-full basis-full overflow-hidden">
                 {onOpen ? (
@@ -64,7 +84,7 @@ export default function PhotoCarousel({
                     {image}
                   </button>
                 ) : (
-                  <a href={src(photo)} target="_blank" rel="noopener" data-slot="photo-open" className="block size-full" aria-label={`${t("View full photo", "Ver foto completa")}: ${photo.caption}`}>
+                  <a href={url} target="_blank" rel="noopener" data-slot="photo-open" className="block size-full" aria-label={`${t("View full photo", "Ver foto completa")}: ${photo.caption}`}>
                     {image}
                   </a>
                 )}

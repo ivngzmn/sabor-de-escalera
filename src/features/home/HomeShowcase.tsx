@@ -1,5 +1,6 @@
 "use client";
 
+import { PhotoCaption } from "@/components/ui/photo-caption";
 import { useCallback, useMemo, useState } from "react";
 import {
   ArrowRightIcon,
@@ -38,7 +39,7 @@ const copy = {
     heroTitle: "Family recipes shared warm, from our kitchen to yours.",
     heroLead:
       "Browse heritage dishes, scale servings cleanly for tonight’s table, cook step by step without losing your place, and pass your own favorites down.",
-    exploreCta: "Browse Discover",
+    exploreCta: "Explore recipes",
     shareCta: "Share a recipe",
     heroCaptionTitle: "Born from the printed Escalera Recipe Book",
     heroCaptionBody: "Real family measurements, bilingual notes, and kitchens across Latin America.",
@@ -95,7 +96,7 @@ const copy = {
     heroTitle: "Recetas de casa compartidas con calidez, de nuestra mesa a la tuya.",
     heroLead:
       "Explora platillos de tradición familiar, ajusta las porciones al instante, cocina paso a paso sin perder tu lugar y suma tus recetas favoritas.",
-    exploreCta: "Ir a Descubrir",
+    exploreCta: "Explorar recetas",
     shareCta: "Compartir receta",
     heroCaptionTitle: "Nacido del Recetario impreso Escalera",
     heroCaptionBody: "Medidas reales de familia, notas en dos idiomas y cocinas de toda Latinoamérica.",
@@ -299,14 +300,10 @@ export default function HomeShowcase({
               <span className="mt-2 text-sm text-muted-foreground">{t.heroFallbackLabel}</span>
             </div>
           )}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/75 via-black/35 to-transparent"
-          />
-          <figcaption className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 p-5 text-white">
+          <PhotoCaption>
             <span className="font-serif text-lg leading-snug">{t.heroCaptionTitle}</span>
             <span className="text-xs text-white/90">{t.heroCaptionBody}</span>
-          </figcaption>
+          </PhotoCaption>
         </figure>
       </section>
 
@@ -376,7 +373,7 @@ export default function HomeShowcase({
             {(["popular", "quick", "newest", "sweet"] as const).map((key) => {
               const shelfItems = shelves[key];
               return (
-                <TabsContent key={key} value={key}>
+                <TabsContent key={key} value={key} keepMounted>
                   {shelfItems.length > 0 ? (
                     <Carousel aria-label={t.curatedCarouselLabel} controller={key === activeTab ? carousel : undefined} slidesPerPage="auto">
                       <CarouselViewport>
@@ -387,6 +384,7 @@ export default function HomeShowcase({
                               className="basis-[88%] sm:basis-[calc((100%-1.5rem)/2)] lg:basis-[calc((100%-3rem)/3)]"
                             >
                               <RecipeCard
+                                shelf
                                 card={card}
                                 language={language}
                                 originLabel={originLabel(card.origin)}
