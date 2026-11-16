@@ -17,7 +17,7 @@ test('equal choices, scrolling and dismissal never opt in; settings persist expl
   await page.getByRole('button', { name: 'Save privacy choices' }).click();
   await expect(banner).not.toBeVisible();
   await page.reload(); await expect(banner).not.toBeVisible();
-  await page.getByRole('link', { name: 'Privacy settings', exact: true }).click();
+  await page.goto('/privacy');
   await page.getByRole('checkbox', { name: 'Remember preferences', exact: true }).check();
   await page.getByRole('button', { name: 'Save privacy choices' }).click();
   const consent = await page.evaluate(() => JSON.parse(localStorage.getItem('escalera:consent')!));
@@ -183,7 +183,9 @@ test('floating privacy surfaces leave mobile footer links reachable without maki
   await page.getByRole('button', { name: 'Close privacy preferences', exact: true }).click();
   // Scroll past the floating launcher, as a person revealing the footer would.
   await page.keyboard.press('End');
-  await page.getByRole('contentinfo').getByRole('link', { name: 'Privacy settings', exact: true }).click();
+  await page.getByRole('contentinfo').getByRole('link', { name: 'Discover', exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Discover recipes' })).toBeVisible();
+  await page.goto('/privacy');
   await expect(page.getByRole('heading', { name: 'Privacy settings', exact: true })).toBeVisible();
   await expect(page.locator('body')).toHaveCSS('padding-bottom', '0px');
 });

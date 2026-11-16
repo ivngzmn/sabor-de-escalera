@@ -7,7 +7,6 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ClockIcon,
-  MagnifyingGlassIcon,
   PlusIcon,
 } from "@radix-ui/react-icons";
 import {
@@ -18,7 +17,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Carousel,
   CarouselContent,
@@ -28,9 +27,6 @@ import {
   CarouselViewport,
   createCarouselController,
 } from "@/components/ui/carousel";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { SearchField } from "@/components/ui/search-field";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toaster";
@@ -45,9 +41,6 @@ const copy = {
     heroTitle: "Family recipes shared warm, from our kitchen to yours.",
     heroLead:
       "Browse heritage dishes, scale servings cleanly for tonight’s table, cook step by step without losing your place, and pass your own favorites down.",
-    searchLabel: "Search dishes or ingredients",
-    searchPlaceholder: "Try birria, pupusas, cilantro, or sweet plantains…",
-    searchButton: "Search",
     exploreCta: "Browse Discover",
     shareCta: "Share a recipe",
     heroCaptionTitle: "Born from the printed Escalera Recipe Book",
@@ -109,7 +102,7 @@ const copy = {
     ],
     inviteTitle: "Have a dish everyone asks for at family gatherings?",
     inviteBody: "Add the measurements, story, and photos so the next cook can get it right on the first try.",
-    invitePrimary: "Start a recipe draft",
+    invitePrimary: "Share your recipe",
     inviteSecondary: "Browse all recipes",
   },
   es: {
@@ -117,9 +110,6 @@ const copy = {
     heroTitle: "Recetas de casa compartidas con calidez, de nuestra mesa a la tuya.",
     heroLead:
       "Explora platillos de tradición familiar, ajusta las porciones al instante, cocina paso a paso sin perder tu lugar y suma tus recetas favoritas.",
-    searchLabel: "Buscar platillos o ingredientes",
-    searchPlaceholder: "Prueba birria, pupusas, cilantro o alfajores…",
-    searchButton: "Buscar",
     exploreCta: "Ir a Descubrir",
     shareCta: "Compartir receta",
     heroCaptionTitle: "Nacido del Recetario impreso Escalera",
@@ -181,7 +171,7 @@ const copy = {
     ],
     inviteTitle: "¿Tienes una receta que siempre piden en las reuniones?",
     inviteBody: "Guarda sus pasos, historia y fotos para que cualquiera pueda prepararla en casa.",
-    invitePrimary: "Crear un borrador",
+    invitePrimary: "Comparte tu receta",
     inviteSecondary: "Ver todas las recetas",
   },
 };
@@ -217,7 +207,6 @@ export default function HomeShowcase({
   const [heroBroken, setHeroBroken] = useState(false);
   const [activeTab, setActiveTab] = useState<ShelfKey>("popular");
   const [carousel] = useState(createCarouselController);
-  const [query, setQuery] = useState("");
   const [pending, setPending] = useState<string | null>(null);
 
   // Keep a unified favorite state map across all shelves so heart toggles stay in sync everywhere on Home.
@@ -299,30 +288,6 @@ export default function HomeShowcase({
           <p className="m-0 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
             {t.heroLead}
           </p>
-
-          <form action="/discover" method="get" role="search" className="mt-1 max-w-xl">
-            {language === "es" && <input type="hidden" name="lang" value="es" />}
-            <Label htmlFor="home-quick-search" className="sr-only">
-              {t.searchLabel}
-            </Label>
-            <SearchField className="border border-border shadow-sm">
-              <Input
-                id="home-quick-search"
-                name="q"
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                maxLength={100}
-                placeholder={t.searchPlaceholder}
-                autoComplete="off"
-                className="border-0 bg-transparent text-base shadow-none focus-visible:ring-0"
-              />
-              <Button type="submit" className="min-h-11 self-center whitespace-nowrap">
-                <MagnifyingGlassIcon aria-hidden="true" />
-                <span className="max-[420px]:sr-only">{t.searchButton}</span>
-              </Button>
-            </SearchField>
-          </form>
 
           <div className="flex flex-wrap items-center gap-4 pt-1">
             <a

@@ -221,7 +221,9 @@ a.brand:not([data-slot]) { color: var(--color-sage-hover); }
   box-shadow: var(--shadow-level-1);
 }
 
-main { min-height: 62vh; padding-block: clamp(1.75rem, 4vw, 3.25rem); }
+/* Short pages still push the footer to the bottom of the window. */
+body { display: flex; flex-direction: column; min-height: 100dvh; }
+main { flex: 1 0 auto; padding-block: clamp(1.75rem, 4vw, 3.25rem); }
 .intro { max-width: 44rem; color: var(--color-text-muted); font-size: 1.075rem; line-height: 1.58; }
 
 .site-footer {

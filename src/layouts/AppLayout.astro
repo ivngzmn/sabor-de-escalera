@@ -16,11 +16,11 @@ import { signInHref } from '../features/accounts/permissions';
 
 interface Props { title: string; privacySettings?: boolean; }
 const { title } = Astro.props;
-readServerConfig();
+const { languageSwitchEnabled } = readServerConfig();
 const language = Astro.url.searchParams.get('lang') === 'es' ? 'es' : 'en';
 const copy = language === 'es'
-  ? { skip: 'Saltar al contenido', menu: 'Menú', home: 'Inicio', discover: 'Descubrir', add: 'Añadir receta', favorites: 'Favoritos', about: 'Acerca de', privacy: 'Configuración de privacidad', footer: 'Recetas, historias y sabores para compartir.' }
-  : { skip: 'Skip to content', menu: 'Menu', home: 'Home', discover: 'Discover', add: 'Add Recipe', favorites: 'Favorites', about: 'About', privacy: 'Privacy settings', footer: 'Recipes, stories, and flavors to share.' };
+  ? { skip: 'Saltar al contenido', menu: 'Menú', home: 'Inicio', discover: 'Descubrir', add: 'Añadir receta', favorites: 'Favoritos', about: 'Acerca de', footer: 'Recetas, historias y sabores para compartir.' }
+  : { skip: 'Skip to content', menu: 'Menu', home: 'Home', discover: 'Discover', add: 'Add Recipe', favorites: 'Favorites', about: 'About', footer: 'Recipes, stories, and flavors to share.' };
 const href = (path: string) => language === 'es' ? `${path}?lang=es` : path;
 const languageHref = (value: string) => {
   const params = new URLSearchParams(Astro.url.searchParams);
@@ -60,10 +60,12 @@ const initialMe = showAccount && (sessionHint || previewMode) ? await readHeader
             <a href={href('/about')} aria-current={Astro.url.pathname === '/about' ? 'page' : undefined} data-en="About" data-es="Acerca de">{copy.about}</a>
             <a href={href('/add-recipe')} data-slot="button" class={`${buttonVariants({ size: 'sm' })} whitespace-nowrap`} aria-current={Astro.url.pathname === '/add-recipe' ? 'page' : undefined} data-en="Add Recipe" data-es="Añadir receta">{copy.add}</a>
           </nav>
-          <nav class="language-switch" aria-label={language === 'es' ? 'Idioma' : 'Language'}>
-            <a href={languageHref('en')} lang="en" hreflang="en" aria-current={language === 'en' ? 'true' : undefined}>English</a>
-            <a href={languageHref('es')} lang="es" hreflang="es" aria-current={language === 'es' ? 'true' : undefined}>Español</a>
-          </nav>
+          {languageSwitchEnabled && (
+            <nav class="language-switch" aria-label={language === 'es' ? 'Idioma' : 'Language'}>
+              <a href={languageHref('en')} lang="en" hreflang="en" aria-current={language === 'en' ? 'true' : undefined}>English</a>
+              <a href={languageHref('es')} lang="es" hreflang="es" aria-current={language === 'es' ? 'true' : undefined}>Español</a>
+            </nav>
+          )}
         </div>
         <div class="header-actions">
           {showAccount && ((authEnabled || previewMode) ? <AccountMenu client:load authEnabled={authEnabled} previewMode={previewMode} sessionHint={sessionHint} initialMe={initialMe} language={language} signInHref={accountHref} /> : <a href={accountHref} data-slot="button" class={buttonVariants({ variant: 'outline' })}>{language === 'es' ? 'Iniciar sesión' : 'Sign in'}</a>)}
@@ -96,9 +98,12 @@ const initialMe = showAccount && (sessionHint || previewMode) ? await readHeader
             <p class="brand">Sabor de Escalera</p>
             <p class="footer-copy">{copy.footer}</p>
           </div>
-          <nav class="footer-nav" aria-label={language === 'es' ? 'Información' : 'Information'}>
+          <nav class="footer-nav" aria-label={language === 'es' ? 'Navegación del pie de página' : 'Footer navigation'}>
+            <a href={href('/')} data-en="Home" data-es="Inicio">{copy.home}</a>
+            <a href={href('/discover')} data-en="Discover" data-es="Descubrir">{copy.discover}</a>
+            <a href={href('/favorites')} data-en="Favorites" data-es="Favoritos">{copy.favorites}</a>
             <a href={href('/about')} data-en="About" data-es="Acerca de">{copy.about}</a>
-            <a href={href('/privacy')} data-en="Privacy settings" data-es="Configuración de privacidad">{copy.privacy}</a>
+            <a href={href('/add-recipe')} data-en="Add Recipe" data-es="Añadir receta">{copy.add}</a>
           </nav>
         </div>
         <p class="footer-legal">© {new Date().getFullYear()} Sabor de Escalera</p>

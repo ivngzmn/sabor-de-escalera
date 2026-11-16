@@ -156,6 +156,6 @@ test('a stalled font becomes readable after the native block budget', async ({ p
     await painted(page);
     expect(await textInk(page, 'h1')).toBeGreaterThan(1);
     expect(await textInk(page, 'h1 + p')).toBeGreaterThan(1);
-    await expect(page.getByRole('link', { name: 'Descubrir', exact: true })).toBeVisible();
+    await expect(page.getByRole('banner').getByRole('link', { name: 'Descubrir', exact: true })).toBeVisible();
   } finally { release(); }
 });
