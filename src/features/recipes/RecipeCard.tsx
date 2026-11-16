@@ -1,7 +1,9 @@
+import { useEffect, useRef, useState } from "react";
 import { ClockIcon, StarFilledIcon } from "@radix-ui/react-icons";
 import { FavoriteHeart } from "@/components/ui/favorite-heart";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { RecipeCard as CardData } from "./catalog";
 
@@ -52,6 +54,12 @@ export default function RecipeCard({
   ratingsEnabled = false,
 }: RecipeCardProps) {
   const t = copy[language];
+  const photo = useRef<HTMLImageElement>(null);
+  const [photoReady, setPhotoReady] = useState(false);
+  // A cached photo can finish before hydration, when no load event will reach React.
+  useEffect(() => {
+    if (photo.current?.complete) setPhotoReady(true);
+  }, [card.cover?.assetId]);
   const href = language === "es" ? `${card.url}?lang=es` : card.url;
   const originHref = card.origin
     ? `/discover?${new URLSearchParams({ origin: card.origin, ...(language === "es" ? { lang: "es" } : {}) })}`
@@ -71,8 +79,12 @@ export default function RecipeCard({
           featured && "md:aspect-auto md:min-h-[21rem]",
         )}
       >
+        {card.cover && !photoReady && <Skeleton aria-hidden="true" className="absolute inset-0 rounded-none" />}
         {card.cover ? (
           <img
+            ref={photo}
+            onLoad={() => setPhotoReady(true)}
+            onError={() => setPhotoReady(true)}
             src={`/api/recipes/${card.id}/photos/${card.cover.assetId}?variant=${featured ? "gallery" : "card"}`}
             alt={card.cover.alt}
             width={card.cover.width}
@@ -191,6 +203,22 @@ export default function RecipeCard({
             )}
           </CardFooter>
         )}
+      </div>
+    </Card>
+  );
+}
+
+/** Placeholder with a recipe card's shape, shown while a page of results loads. */
+export function RecipeCardSkeleton({ featured }: { featured?: boolean }) {
+  return (
+    <Card
+      aria-hidden="true"
+      className={cn("h-full gap-0 overflow-hidden border-border bg-card py-0 shadow-xs", featured && "md:grid md:grid-cols-[1.35fr_1fr]")}
+    >
+      <Skeleton className={cn("aspect-[16/10] rounded-none", featured && "md:aspect-auto md:min-h-[21rem]")} />
+      <div className={cn("flex flex-col gap-3 px-6 pt-5 pb-6", featured && "md:justify-center md:p-10")}>
+        <Skeleton className="h-3 w-2/5" />
+        <Skeleton className={cn("h-5 w-4/5", featured && "md:h-8")} />
       </div>
     </Card>
   );

@@ -12,7 +12,7 @@ import FilterPanel from "./FilterPanel";
 import { favoriteIntentFrom } from "./draft-intent";
 import { toast } from "@/components/ui/toaster";
 import { originLabel as labelFor } from "./origin-label";
-import RecipeCard from "./RecipeCard";
+import RecipeCard, { RecipeCardSkeleton } from "./RecipeCard";
 import { categories, type Origin } from "./validation";
 
 const copy = {
@@ -41,7 +41,8 @@ const copy = {
     failed: "We couldn’t load recipes.",
     retry: "Try again",
     none: "No recipes match yet.",
-    noneHint: "Try a different word or clear a filter.",
+    noneHint: "Try a different word or clear a filter, or add the dish yourself.",
+    shareRecipe: "Share your recipe",
     noFavorites: "You haven’t saved any recipes yet.",
     count: (n: number) => `${n} ${n === 1 ? "recipe" : "recipes"} shown`,
     saveFailed: "We couldn’t update your favorites. Please try again.",
@@ -76,7 +77,8 @@ const copy = {
     failed: "No pudimos cargar las recetas.",
     retry: "Intentar de nuevo",
     none: "Todavía no hay recetas que coincidan.",
-    noneHint: "Prueba otra palabra o quita un filtro.",
+    noneHint: "Prueba otra palabra o quita un filtro, o añade el platillo tú.",
+    shareRecipe: "Comparte tu receta",
     noFavorites: "Todavía no guardaste recetas.",
     count: (n: number) => `${n} ${n === 1 ? "receta" : "recetas"} en pantalla`,
     saveFailed: "No pudimos actualizar tus favoritos. Inténtalo de nuevo.",
@@ -100,6 +102,7 @@ interface Props {
   signInBase: string;
 }
 type Status = "idle" | "loading" | "error";
+const grid = "m-0 grid list-none gap-6 p-0 sm:grid-cols-2 xl:grid-cols-3";
 interface Restore {
   pages: number;
   scrollY: number;
@@ -158,6 +161,8 @@ export default function DiscoverFeed({
   const [status, setStatus] = useState<Status>(initial ? "idle" : "error");
   const [announcement, setAnnouncement] = useState("");
   const [pending, setPending] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshRun = useRef(0);
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
   const pages = useRef(1);
@@ -215,7 +220,10 @@ export default function DiscoverFeed({
       for (const key of ["lang", "tab"]) if (keep.has(key)) url.searchParams.set(key, keep.get(key)!);
       replaceUrl(url);
       remember({ pages: 1, scrollY: 0, search });
+      const run = ++refreshRun.current;
+      setRefreshing(true);
       const page = await fetchPage(next, null);
+      if (run === refreshRun.current) setRefreshing(false);
       if (!page) return;
       pages.current = 1;
       setItems(page.items);
@@ -461,7 +469,15 @@ export default function DiscoverFeed({
       <div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-10">
-          {items.length > 0 ? (
+          {refreshing ? (
+            <ul role="list" aria-busy="true" className={grid}>
+              {Array.from({ length: 6 }, (_, i) => (
+                <li key={i}>
+                  <RecipeCardSkeleton />
+                </li>
+              ))}
+            </ul>
+          ) : items.length > 0 ? (
             showShelves ? (
               <>
                 {featuredCard && renderCard(featuredCard, true)}
@@ -484,7 +500,7 @@ export default function DiscoverFeed({
                     </div>
                     <ul
                       role="list"
-                      className="m-0 grid list-none gap-6 p-0 sm:grid-cols-2 xl:grid-cols-3"
+                      className={grid}
                     >
                       {quickShelf.map((card) => (
                         <li key={card.id}>{renderCard(card)}</li>
@@ -501,7 +517,7 @@ export default function DiscoverFeed({
                     <ul
                       role="list"
                       aria-busy={status === "loading"}
-                      className="m-0 grid list-none gap-6 p-0 sm:grid-cols-2 xl:grid-cols-3"
+                      className={grid}
                     >
                       {remainingItems.map((card) => (
                         <li key={card.id}>{renderCard(card)}</li>
@@ -514,7 +530,7 @@ export default function DiscoverFeed({
               <ul
                 role="list"
                 aria-busy={status === "loading"}
-                className="m-0 grid list-none gap-6 p-0 sm:grid-cols-2 xl:grid-cols-3"
+                className={grid}
               >
                 {items.map((card) => (
                   <li key={card.id}>{renderCard(card)}</li>
@@ -526,6 +542,15 @@ export default function DiscoverFeed({
               <div className="rounded-xl border border-dashed border-input/40 bg-card/60 p-8 text-center">
                 <p className="m-0 font-semibold">{scope ? t.noFavorites : t.none}</p>
                 {!scope && <p className="m-0 mt-1 text-sm text-muted-foreground">{t.noneHint}</p>}
+                {!scope && (
+                  <a
+                    href={language === "es" ? "/add-recipe?lang=es" : "/add-recipe"}
+                    data-slot="button"
+                    className={buttonVariants({ className: "mt-4" })}
+                  >
+                    {t.shareRecipe}
+                  </a>
+                )}
               </div>
             )
           )}
@@ -540,7 +565,20 @@ export default function DiscoverFeed({
               </AlertDescription>
             </Alert>
           )}
-          {status === "loading" && <p className="m-0 text-center text-sm text-muted-foreground">{t.loading}</p>}
+          {status === "loading" && (
+            <>
+              <p className="sr-only">{t.loading}</p>
+              {!refreshing && (
+                <ul role="list" aria-hidden="true" className={grid}>
+                  {Array.from({ length: 3 }, (_, i) => (
+                    <li key={i}>
+                      <RecipeCardSkeleton />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
 
           <div ref={sentinel} aria-hidden="true" />
           {cursor && status !== "error" && (
