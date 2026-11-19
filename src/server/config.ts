@@ -14,10 +14,12 @@ export function readServerConfig(environment: ServerEnvironment = process.env) {
   if (autoTranslationEnabled) {
     throw new Error('Automatic translation requires an approved provider and budget');
   }
-  if (analyticsEnabled && !environment.POSTHOG_PROJECT_KEY) {
+  // Google Tag Manager still loads only after per-device consent (see features/consent/tag-manager).
+  const gtmContainerId = environment.GTM_CONTAINER_ID?.trim() ?? '';
+  if (analyticsEnabled && !/^GTM-[A-Z0-9]+$/.test(gtmContainerId)) {
     throw new Error('Analytics require verified server configuration and per-device consent');
   }
-  return Object.freeze({ emailNotificationsEnabled, autoTranslationEnabled, analyticsEnabled, ratingsEnabled, languageSwitchEnabled });
+  return Object.freeze({ emailNotificationsEnabled, autoTranslationEnabled, analyticsEnabled, ratingsEnabled, languageSwitchEnabled, gtmContainerId: analyticsEnabled ? gtmContainerId : null });
 }
 
 // Invoke providers lazily: disabled features must never import or call an SDK.

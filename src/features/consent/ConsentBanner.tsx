@@ -51,7 +51,7 @@ const dictionaries = {
       "Keep a text recovery copy on this device. Account autosave works without this choice.",
     analytics: "Usage analytics",
     analyticsPurpose:
-      "Help us understand aggregate use without recipe text or personal profiles. Analytics remain unavailable until privacy controls are verified.",
+      "Help us understand aggregate use without recipe text or personal profiles.",
   },
   es: {
     title: "Tus opciones de privacidad",
@@ -74,7 +74,7 @@ const dictionaries = {
       "Guardar una copia de recuperación de texto en este dispositivo. El guardado en la cuenta funciona sin esta opción.",
     analytics: "Analíticas de uso",
     analyticsPurpose:
-      "Ayudarnos a entender el uso agregado sin texto de recetas ni perfiles personales. Las analíticas seguirán desactivadas hasta verificar los controles de privacidad.",
+      "Ayudarnos a entender el uso agregado sin texto de recetas ni perfiles personales.",
   },
 };
 export default function ConsentBanner({
