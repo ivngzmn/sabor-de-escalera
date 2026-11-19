@@ -27,10 +27,11 @@ export function startTagManager(containerId: string, consent: ConsentApi, win: D
     script.src = `https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(containerId)}`;
     doc.head.append(script);
   };
+  // Runs at once on every page without consent too: Google can rewrite its cookies
+  // while a withdrawing page unloads, so the next page clears them again.
   consent.registerCleanup('analytics', () => {
-    if (!loaded) return;
     clearGoogleCookies(doc);
-    win.location.reload();
+    if (loaded) win.location.reload();
   });
   consent.subscribe(load);
   load();

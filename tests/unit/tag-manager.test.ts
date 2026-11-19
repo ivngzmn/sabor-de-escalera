@@ -47,3 +47,10 @@ test('an invalid container id never loads anything', () => {
   startTagManager('GTM-5FW"><script>', api(service), win);
   expect(scripts).toHaveLength(0);
 });
+
+test('a page without analytics consent clears leftover Google cookies without reloading', () => {
+  const service = createConsentService(device()); const { win, written, reload } = fakeWindow();
+  startTagManager('GTM-5FWTF5RT', api(service), win);
+  expect(written.some((c) => c.startsWith('_ga=;'))).toBe(true);
+  expect(reload).not.toHaveBeenCalled();
+});
