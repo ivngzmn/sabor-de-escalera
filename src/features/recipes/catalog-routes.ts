@@ -6,6 +6,7 @@ import { parseDiscoverParams } from "./discover-state";
 import { readServerConfig } from "../../server/config";
 import { favoriteService, type createFavoriteService } from "./favorites";
 import { isId } from "./validation";
+import { logRecipeOperation } from "../../server/posthog-logs";
 
 // Public lists stay uncached until moderation can invalidate shared caches.
 const headers = { "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" };
@@ -69,6 +70,11 @@ export async function handleFavoriteRequest(request: Request, id: string, depend
     const output = request.method === "PUT" ? await svc.add(actor, id) : await svc.remove(actor, id);
     if (!output.ok && output.error.status === 401)
       return failure(401, output.error.message, { signIn: signInHref(`/?save=${isId(id) ? id : ""}`, origin) });
+    if (output.ok)
+      logRecipeOperation(
+        "recipe_favorite_updated",
+        request.method === "PUT" ? "added" : "removed",
+      );
     return Response.json(output, { status: output.ok ? 200 : output.error.status, headers });
   } catch (e) {
     if (e instanceof AccountError) return failure(e.status, "Access denied.");

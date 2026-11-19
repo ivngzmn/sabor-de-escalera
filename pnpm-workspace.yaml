@@ -8,5 +8,7 @@ overrides:
 # OpenUI lang-core's postinstall only sends install telemetry, so it stays off.
 allowBuilds:
   '@openuidev/lang-core': false
+  # core-js's postinstall only prints a funding message.
+  core-js: false
   esbuild@0.28.2: true
 strictDepBuilds: true

@@ -32,6 +32,7 @@ import type { RecipeCard as CardData } from "@/features/recipes/catalog";
 import { originLabel as labelFor } from "@/features/recipes/origin-label";
 import RecipeCard from "@/features/recipes/RecipeCard";
 import type { Origin } from "@/features/recipes/validation";
+import { capturePostHog } from "@/lib/posthog-client";
 
 const copy = {
   en: {
@@ -226,6 +227,10 @@ export default function HomeShowcase({
           return;
         }
         if (!res.ok) throw new Error();
+        capturePostHog(
+          nextFavorited ? "recipe_favorited" : "recipe_unfavorited",
+          { surface: "home" },
+        );
         toast.success(nextFavorited ? t.saved(card.title) : t.unsaved(card.title));
       } catch {
         setFavMap((curr) => ({ ...curr, [card.id]: { favorited: card.favorited, favoriteCount: card.favoriteCount } }));

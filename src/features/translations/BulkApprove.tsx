@@ -3,6 +3,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { capturePostHog } from "@/lib/posthog-client";
 
 interface Proposal {
   id: string;
@@ -40,6 +41,10 @@ export default function BulkApprove({ proposals }: { proposals: Proposal[] }) {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) throw new Error(data?.error?.message);
+      capturePostHog("translations_bulk_approved", {
+        approved_count: data.value.approved,
+        conflict_count: data.value.conflicts.length,
+      });
       setMessage(
         `${data.value.approved} approved.${data.value.conflicts.length ? ` ${data.value.conflicts.length} changed since review and were skipped; reload to see them.` : ""}`,
       );

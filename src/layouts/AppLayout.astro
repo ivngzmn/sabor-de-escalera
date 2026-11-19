@@ -16,7 +16,7 @@ import { signInHref } from '../features/accounts/permissions';
 
 interface Props { title: string; privacySettings?: boolean; }
 const { title } = Astro.props;
-const { languageSwitchEnabled, gtmContainerId } = readServerConfig();
+const { languageSwitchEnabled, gtmContainerId, posthog } = readServerConfig();
 const language = Astro.url.searchParams.get('lang') === 'es' ? 'es' : 'en';
 const copy = language === 'es'
   ? { skip: 'Saltar al contenido', menu: 'Menú', home: 'Inicio', discover: 'Descubrir', add: 'Añadir receta', favorites: 'Favoritos', about: 'Acerca de', footer: 'Recetas, historias y sabores para compartir.' }
@@ -47,6 +47,7 @@ const initialMe = showAccount && (sessionHint || previewMode) ? await readHeader
     ))}
     <title>{title} · Sabor de Escalera</title>
     {gtmContainerId && <meta name="escalera:gtm" content={gtmContainerId} />}
+    {posthog && <meta name="escalera:posthog" content={JSON.stringify({ ...posthog, person: initialMe ? { id: initialMe.id, role: initialMe.role, onboarded: initialMe.onboarded } : null })} />}
   </head>
   <body>
     <a href="#main-content" class="skip-link" data-en="Skip to content" data-es="Saltar al contenido">{copy.skip}</a>
@@ -93,8 +94,12 @@ const initialMe = showAccount && (sessionHint || previewMode) ? await readHeader
     <script>
       import { registerConsentCleanup, readConsent, subscribeConsent } from '../features/consent/service';
       import { startTagManager } from '../features/consent/tag-manager';
+      import { startPostHog } from '../features/consent/posthog';
+      const consent = { readConsent, subscribe: subscribeConsent, registerCleanup: registerConsentCleanup };
       const containerId = document.querySelector<HTMLMetaElement>('meta[name="escalera:gtm"]')?.content;
-      if (containerId) startTagManager(containerId, { readConsent, subscribe: subscribeConsent, registerCleanup: registerConsentCleanup });
+      if (containerId) startTagManager(containerId, consent);
+      const posthog = document.querySelector<HTMLMetaElement>('meta[name="escalera:posthog"]')?.content;
+      if (posthog) startPostHog(JSON.parse(posthog), consent);
     </script>
     <main id="main-content" tabindex="-1" class="container"><slot /></main>
     {!Astro.props.privacySettings && <ConsentBanner client:load language={language} />}

@@ -20,6 +20,7 @@ export async function performSignOut(
   } catch {
     /* Optional storage. */
   }
+  (window as Window & { posthog?: { reset: () => void } }).posthog?.reset();
   window.dispatchEvent(new Event(LOGOUT));
   const clerk = (
     window as Window & {

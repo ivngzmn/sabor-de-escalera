@@ -2,6 +2,7 @@ import { accounts, type createAccountService } from "../accounts/service";
 import { AccountError, assertSameOriginWrite } from "../accounts/permissions";
 import { ClerkResponseError, accountConfiguration } from "../../server/clerk";
 import { DraftError, draftsService, type createDraftService } from "./drafts";
+import { logRecipeOperation } from "../../server/posthog-logs";
 const headers = {
   "Cache-Control": "private, no-store",
   "X-Content-Type-Options": "nosniff",
@@ -118,6 +119,8 @@ export async function handleDraftRequest(
                       ? await svc.restoreRecipe(actor, id!)
                       : null;
     if (!output) throw new DraftError(400, "Invalid action.");
+    if (output.ok)
+      logRecipeOperation("recipe_draft_mutation_completed", action as string);
     return Response.json(output, {
       status: output.ok ? 200 : output.error.status,
       headers: {

@@ -10,6 +10,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { capturePostHog } from "@/lib/posthog-client";
 
 type Action = "unpublish" | "delete-recipe" | "restore";
 const copy = {
@@ -69,6 +70,10 @@ export default function RecipeLifecycleActions({
         body: JSON.stringify(action === "restore" ? { action } : { action, version }),
       });
       if (res.ok) {
+        capturePostHog("recipe_lifecycle_updated", {
+          action,
+          previous_state: state,
+        });
         // The server owns list membership and counts, so reload rather than patch three lists.
         window.location.reload();
         return;

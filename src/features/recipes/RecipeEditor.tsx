@@ -1,5 +1,6 @@
 import RecipePlaceholder from "@/components/RecipePlaceholder";
 import { cn } from "@/lib/utils";
+import { capturePostHog } from "@/lib/posthog-client";
 import { ChevronDownIcon, EyeOpenIcon } from "@radix-ui/react-icons";
 import { Button } from "@/components/ui/button";
 import {
@@ -243,6 +244,12 @@ export default function RecipeEditor({
     const pending = (async () => {
       try {
         const next = await request<Draft>("/api/drafts", { input: snapshot });
+        capturePostHog("recipe_draft_created", {
+          language: lang,
+          ingredient_count: snapshot.ingredients.length,
+          instruction_count: snapshot.instructions.length,
+          photo_count: snapshot.photos.length,
+        });
         createdHere.current = true;
         remember(next);
         // Stopped meanwhile (logout, discard): don't rewrite a recovery copy.
@@ -313,6 +320,12 @@ export default function RecipeEditor({
           input: snapshot,
         });
         remember(next);
+        capturePostHog("recipe_draft_saved", {
+          language: lang,
+          ingredient_count: snapshot.ingredients.length,
+          instruction_count: snapshot.instructions.length,
+          photo_count: snapshot.photos.length,
+        });
         lastWrite.current = Date.now();
         if (sameRecipe(current.current, snapshot)) {
           current.current = next.input;
@@ -767,6 +780,12 @@ export default function RecipeEditor({
       });
       forget(record.current.id);
       remember(next);
+      capturePostHog("recipe_draft_copied", {
+        language: lang,
+        ingredient_count: snapshot.ingredients.length,
+        instruction_count: snapshot.instructions.length,
+        photo_count: snapshot.photos.length,
+      });
       if (sameRecipe(current.current, snapshot)) {
         current.current = next.input;
         setInput(next.input);
@@ -824,6 +843,12 @@ export default function RecipeEditor({
       stopped.current = true;
       setPublished(recipe);
       forget(next.id);
+      capturePostHog("recipe_published", {
+        language: lang,
+        ingredient_count: recipe.input.ingredients.length,
+        instruction_count: recipe.input.instructions.length,
+        photo_count: recipe.input.photos.length,
+      });
     } catch (e) {
       if (record.current && (await confirmPublished(record.current.id))) return;
       failOperation(
@@ -871,6 +896,7 @@ export default function RecipeEditor({
       };
     }
     forget(draft.id);
+    capturePostHog("recipe_draft_deleted", { language: lang });
     stopped.current = true;
     setBlocked(true);
     setFailure({
