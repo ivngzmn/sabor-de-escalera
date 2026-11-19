@@ -28,6 +28,9 @@ export function startPostHog(settings: PostHogSettings, consent: ConsentApi, win
         person_profiles: 'identified_only',
         tracing_headers: [win.location.hostname],
         capture_exceptions: { capture_unhandled_errors: true, capture_unhandled_rejections: true, capture_console_errors: false },
+        // The consent copy promises replays hide what people type; keep that true
+        // even if project settings change.
+        session_recording: { maskAllInputs: true },
       });
       if (settings.person) posthog.identify(settings.person.id, { role: settings.person.role, onboarded: settings.person.onboarded });
       client = posthog;
