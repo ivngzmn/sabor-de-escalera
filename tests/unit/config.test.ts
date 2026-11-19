@@ -32,3 +32,18 @@ test('disabled adapter returns disabled without executing provider work', async 
 test('enabled but unconfigured providers fail closed without revealing credentials', () => {
   expect(() => readServerConfig({ EMAIL_NOTIFICATIONS_ENABLED: 'true' })).toThrow('Email notifications require verified server configuration');
 });
+
+test('analytics need a valid Tag Manager container id and expose it only when enabled', () => {
+  expect(() => readServerConfig({ ANALYTICS_ENABLED: 'true' })).toThrow('Analytics require verified server configuration');
+  expect(() => readServerConfig({ ANALYTICS_ENABLED: 'true', GTM_CONTAINER_ID: 'UA-123' })).toThrow();
+  expect(readServerConfig({ ANALYTICS_ENABLED: 'true', GTM_CONTAINER_ID: 'GTM-5FWTF5RT' }).gtmContainerId).toBe('GTM-5FWTF5RT');
+  expect(readServerConfig({ GTM_CONTAINER_ID: 'GTM-5FWTF5RT' }).gtmContainerId).toBeNull();
+});
+
+test('PostHog alone can enable analytics, but only with a project token and an https host', () => {
+  const posthog = { PUBLIC_POSTHOG_PROJECT_TOKEN: 'phc_abc123', PUBLIC_POSTHOG_HOST: 'https://us.i.posthog.com/' };
+  expect(readServerConfig({ ANALYTICS_ENABLED: 'true', ...posthog })).toMatchObject({ gtmContainerId: null, posthog: { token: 'phc_abc123', host: 'https://us.i.posthog.com' } });
+  expect(readServerConfig(posthog).posthog).toBeNull();
+  expect(() => readServerConfig({ ANALYTICS_ENABLED: 'true', ...posthog, PUBLIC_POSTHOG_HOST: 'http://us.i.posthog.com' })).toThrow();
+  expect(() => readServerConfig({ ANALYTICS_ENABLED: 'true', ...posthog, PUBLIC_POSTHOG_PROJECT_TOKEN: 'your_posthog_project_token' })).toThrow();
+});

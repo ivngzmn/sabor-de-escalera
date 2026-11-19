@@ -14,6 +14,7 @@ import { toast } from "@/components/ui/toaster";
 import { originLabel as labelFor } from "./origin-label";
 import RecipeCard, { RecipeCardSkeleton } from "./RecipeCard";
 import { categories, type Origin } from "./validation";
+import { capturePostHog } from "@/lib/posthog-client";
 
 const copy = {
   en: {
@@ -335,6 +336,9 @@ export default function DiscoverFeed({
           return;
         }
         if (!res.ok) throw new Error();
+        capturePostHog(favorited ? "recipe_favorited" : "recipe_unfavorited", {
+          surface: scope === "favorites" ? "favorites" : "discover",
+        });
         toast.success(favorited ? t.saved(card.title) : t.unsaved(card.title));
       } catch {
         setItems((current) => (current.some((c) => c.id === card.id) ? current.map((c) => (c.id === card.id ? card : c)) : [card, ...current]));

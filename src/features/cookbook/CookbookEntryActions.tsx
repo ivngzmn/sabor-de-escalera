@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { missingLabel } from "./labels";
+import { capturePostHog } from "@/lib/posthog-client";
 
 /** Fired by the correction form so this separate island can pause while edits are unsaved. */
 export const UNSAVED_EVENT = "cookbook:unsaved";
@@ -41,7 +42,10 @@ export default function CookbookEntryActions({ entryId, version, textReviewed, d
         body: JSON.stringify(action === "publish" ? { action } : action === "source" ? { action, version, note } : { action, version }),
       });
       const data = await res.json().catch(() => null);
-      if (res.ok && data?.ok) return window.location.reload();
+      if (res.ok && data?.ok) {
+        capturePostHog("cookbook_entry_updated", { action });
+        return window.location.reload();
+      }
       const reasons = data?.error?.fields?.map((f: { field: string }) => missingLabel(f.field)).join(", ");
       setError(`${data?.error?.message ?? "That didn’t work. Please retry."}${reasons ? ` Still needed: ${reasons}.` : ""}`);
     } catch {

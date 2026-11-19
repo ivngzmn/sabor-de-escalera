@@ -14,10 +14,24 @@ export function readServerConfig(environment: ServerEnvironment = process.env) {
   if (autoTranslationEnabled) {
     throw new Error('Automatic translation requires an approved provider and budget');
   }
-  if (analyticsEnabled && !environment.POSTHOG_PROJECT_KEY) {
+  // Tag Manager and PostHog still load only after per-device consent (see features/consent).
+  const gtmContainerId = environment.GTM_CONTAINER_ID?.trim() ?? '';
+  const gtmConfigured = /^GTM-[A-Z0-9]+$/.test(gtmContainerId);
+  const posthogToken = environment.PUBLIC_POSTHOG_PROJECT_TOKEN?.trim() ?? '';
+  const posthogHost = httpsOrigin(environment.PUBLIC_POSTHOG_HOST);
+  const posthogConfigured = /^ph[a-z]_[A-Za-z0-9]+$/.test(posthogToken) && posthogHost !== null;
+  if (analyticsEnabled && !gtmConfigured && !posthogConfigured) {
     throw new Error('Analytics require verified server configuration and per-device consent');
   }
-  return Object.freeze({ emailNotificationsEnabled, autoTranslationEnabled, analyticsEnabled, ratingsEnabled, languageSwitchEnabled });
+  return Object.freeze({
+    emailNotificationsEnabled, autoTranslationEnabled, analyticsEnabled, ratingsEnabled, languageSwitchEnabled,
+    gtmContainerId: analyticsEnabled && gtmConfigured ? gtmContainerId : null,
+    posthog: analyticsEnabled && posthogConfigured ? Object.freeze({ token: posthogToken, host: posthogHost! }) : null,
+  });
+}
+
+function httpsOrigin(value: string | undefined) {
+  try { const url = new URL(value ?? ''); return url.protocol === 'https:' ? url.origin : null; } catch { return null; }
 }
 
 // Invoke providers lazily: disabled features must never import or call an SDK.

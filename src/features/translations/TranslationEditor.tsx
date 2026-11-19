@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { fitToSource, sourceText, type TranslatableText } from "@/features/recipes/translation-text";
 import type { RecipeInput } from "@/features/recipes/validation";
+import { capturePostHog } from "@/lib/posthog-client";
 
 interface Existing {
   id: string;
@@ -69,6 +70,7 @@ export default function TranslationEditor({
     const value = await send({ action: "save", language: target, sourceVersion: version, input: text });
     if (value) {
       setProposal(value.id);
+      capturePostHog("translation_proposal_saved", { language: target });
       setApprovedNow(false);
       setStatus({ tone: "ok", message: "Saved as a proposal. Readers still see the approved text until you approve this one." });
     }
@@ -81,6 +83,7 @@ export default function TranslationEditor({
       setStatus({ tone: "error", message: "The recipe changed after this proposal. Reload the page and review it again." });
     else {
       setProposal(null);
+      capturePostHog("translation_approved", { language: target });
       setApprovedNow(true);
       setStatus({ tone: "ok", message: "Approved. Readers now see this translation." });
     }
