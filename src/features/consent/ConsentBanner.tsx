@@ -51,7 +51,7 @@ const dictionaries = {
       "Keep a text recovery copy on this device. Account autosave works without this choice.",
     analytics: "Usage analytics",
     analyticsPurpose:
-      "Let Google Analytics and PostHog measure how the site is used. They get a device ID and, when you're signed in, your account ID and role. Recipe text is never sent.",
+      "Let Google Analytics and PostHog measure how the site is used. PostHog may also record visits as replays of the pages you see, with what you type in forms hidden. They get a device ID and, when you're signed in, your account ID and role.",
   },
   es: {
     title: "Tus opciones de privacidad",
@@ -74,7 +74,7 @@ const dictionaries = {
       "Guardar una copia de recuperación de texto en este dispositivo. El guardado en la cuenta funciona sin esta opción.",
     analytics: "Analíticas de uso",
     analyticsPurpose:
-      "Permitir que Google Analytics y PostHog midan cómo se usa el sitio. Reciben un identificador del dispositivo y, si iniciaste sesión, el identificador y el rol de tu cuenta. Nunca se envía el texto de las recetas.",
+      "Permitir que Google Analytics y PostHog midan cómo se usa el sitio. PostHog también puede grabar las visitas como repeticiones de las páginas que ves, ocultando lo que escribes en los formularios. Reciben un identificador del dispositivo y, si iniciaste sesión, el identificador y el rol de tu cuenta.",
   },
 };
 export default function ConsentBanner({

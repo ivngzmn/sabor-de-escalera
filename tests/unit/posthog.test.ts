@@ -30,6 +30,7 @@ test('PostHog is not downloaded or initialised until analytics consent', async (
   await flush();
   expect(sdk.init).toHaveBeenCalledOnce();
   expect(sdk.init.mock.calls[0]![0]).toBe('phc_abc');
+  expect(sdk.init.mock.calls[0]![1]).toMatchObject({ session_recording: { maskAllInputs: true } });
   expect(sdk.identify).toHaveBeenCalledWith('member-1', { role: 'member', onboarded: true });
   expect(win.posthog).toBe(sdk);
 });
