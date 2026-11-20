@@ -14,7 +14,7 @@ const hash = (entry: CookbookEntry) => createHash("sha256").update(JSON.stringif
 
 /**
  * Stages manifest entries as ownerless, unpublished recipes. Unchanged entries are no-ops and
- * text an admin already approved is never overwritten by a re-run.
+ * text an admin already approved, and recipes that are no longer drafts, are never overwritten by a re-run.
  */
 export async function importCookbook(pool: Pool, entries: CookbookEntry[]): Promise<ImportSummary> {
   const summary: ImportSummary = { created: 0, updated: 0, skippedReviewed: 0 };
@@ -23,8 +23,8 @@ export async function importCookbook(pool: Pool, entries: CookbookEntry[]): Prom
     const input = JSON.stringify(stagedInput(entry));
     await transaction(pool, async (client) => {
       const existing = (
-        await client.query<{ recipe_id: string; manifest_hash: string; text_review: string }>(
-          "SELECT recipe_id,manifest_hash,text_review FROM cookbook_entries WHERE import_key=$1 FOR UPDATE",
+        await client.query<{ recipe_id: string; manifest_hash: string; text_review: string; state: string }>(
+          "SELECT e.recipe_id,e.manifest_hash,e.text_review,r.state FROM cookbook_entries e JOIN recipes r ON r.id=e.recipe_id WHERE e.import_key=$1 FOR UPDATE OF e",
           [entry.key],
         )
       ).rows[0];
@@ -44,7 +44,8 @@ export async function importCookbook(pool: Pool, entries: CookbookEntry[]): Prom
         return;
       }
       if (existing.manifest_hash === digest) return;
-      if (existing.text_review === "approved") {
+      // Published (or hidden) recipes are admin-owned now; a re-run never touches them.
+      if (existing.state !== "draft" || existing.text_review === "approved") {
         summary.skippedReviewed++;
         return;
       }

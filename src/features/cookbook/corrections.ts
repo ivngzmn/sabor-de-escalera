@@ -6,7 +6,7 @@ import { getPool, transaction } from "../../server/db";
 import { isPreviewMode, previewCookbookService } from "../../server/preview-store";
 import { disposeUnusedAsset } from "../media/service";
 import { refreshCatalogRow } from "../recipes/catalog";
-import { validateDraft, type RecipeInput } from "../recipes/validation";
+import { validateDraft, validatePublication, type RecipeInput } from "../recipes/validation";
 import { lockEntry, needsSourceClearance, QueueError, requireAdmin, result, type EntryRow } from "./queue";
 
 type ImageReview = EntryRow["image_review"];
@@ -40,20 +40,24 @@ const changedFields = (before: RecipeInput, after: RecipeInput) =>
   (Object.keys(after) as (keyof RecipeInput)[]).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k])).sort();
 
 export function createCookbookCorrections({ pool, dispose = async () => {} }: { pool: Pool; dispose?: (assetId: string) => Promise<void> }) {
-  /** Locks the entry and its recipe, then checks it is still an unpublished draft at the version the admin saw. */
-  async function editable(client: PoolClient, actor: Actor | null, entryId: string, version: number) {
+  /** Locks the entry and its recipe, then checks it is still a draft (or published, when allowed) at the version the admin saw. */
+  async function editable(client: PoolClient, actor: Actor | null, entryId: string, version: number, { allowPublished = false } = {}) {
     await requireAdmin(client, actor);
     const row = await lockEntry(client, entryId);
     await client.query("SELECT 1 FROM recipes WHERE id=$1 FOR UPDATE", [row.recipe_id]);
     const current = (await client.query<{ version: number; state: string }>("SELECT version,state FROM recipes WHERE id=$1", [row.recipe_id])).rows[0];
-    if (current.state !== "draft") throw new QueueError(409, "Only unpublished cookbook entries can be changed here.");
+    if (current.state !== "draft" && !(allowPublished && current.state === "published"))
+      throw new QueueError(409, allowPublished ? "Only draft or published cookbook entries can be changed here." : "Only unpublished cookbook entries can be changed here.");
     if (!Number.isSafeInteger(version) || current.version !== version)
       throw new QueueError(409, "This recipe changed since you opened it. Reload and try again.");
-    return row;
+    return { ...row, recipeState: current.state };
   }
-  /** Keeps photos the entry already had; new ones must be this admin's own ready recipe uploads. */
-  async function attachPhotos(client: PoolClient, actor: Actor, row: EntryRow, input: RecipeInput) {
+  /** Keeps photos the entry already had; new ones must be this admin's own ready recipe uploads, and never on a published recipe. */
+  async function attachPhotos(client: PoolClient, actor: Actor, row: EntryRow, input: RecipeInput, published: boolean) {
     const before = new Set(row.input.photos.map((p) => p.assetId));
+    // A photo can only be credited once it is attached, so a new one would go live uncredited.
+    if (published && input.photos.some((p) => !before.has(p.assetId)))
+      throw new QueueError(403, "A published recipe can't gain new photos. Unpublish it first, or keep the photos it has.");
     for (const assetId of [...new Set(input.photos.map((p) => p.assetId))].sort()) {
       const a = (await client.query("SELECT owner_id,purpose,state,width,height FROM media_assets WHERE id=$1 FOR UPDATE", [assetId])).rows[0];
       if (!a || a.purpose !== "recipe" || a.state !== "ready" || (!before.has(assetId) && a.owner_id !== actor.id))
@@ -71,18 +75,19 @@ export function createCookbookCorrections({ pool, dispose = async () => {} }: { 
     correctEntry: (actor: Actor | null, entryId: string, change: { version: number; input: unknown; reason: unknown }) =>
       result(async () => {
         const outcome = await transaction(pool, async (client) => {
-          const row = await editable(client, actor, entryId, change.version);
+          const row = await editable(client, actor, entryId, change.version, { allowPublished: true });
           const reason = typeof change.reason === "string" ? change.reason.trim() : "";
           if (!reason || reason.length > 400)
             throw new QueueError(422, "Say why you made this correction (up to 400 characters).", [{ field: "reason", step: 0, message: "Add a reason." }]);
-          const fields = validateDraft(change.input);
+          // A published recipe is live as soon as it saves, so it must stay publishable.
+          const fields = (row.recipeState === "published" ? validatePublication : validateDraft)(change.input);
           if (fields.length) throw new QueueError(422, "Check the highlighted fields.", fields);
           const input = structuredClone(change.input) as RecipeInput;
           if (input.origin && !(await client.query("SELECT 1 FROM recipe_origins WHERE id=$1 AND active", [input.origin])).rowCount)
             throw new QueueError(422, "Choose an available origin.", [{ field: "origin", step: 0, message: "Choose an available origin." }]);
           if (!sameRows(row.input, input))
             throw new QueueError(422, "Corrections can fix wording but can't add, remove or change the kind of ingredient or step rows.");
-          const removed = await attachPhotos(client, actor!, row, input);
+          const removed = await attachPhotos(client, actor!, row, input, row.recipeState === "published");
           const changed = changedFields(row.input, input);
           if (!changed.length) throw new QueueError(422, "There are no changes to save.");
           const textReview: TextReview = changed.some((k) => k !== "photos") ? "pending" : row.text_review;
@@ -92,8 +97,9 @@ export function createCookbookCorrections({ pool, dispose = async () => {} }: { 
           ).rows[0].version;
           await client.query("UPDATE cookbook_entries SET text_review=$2,image_review=$3 WHERE id=$1", [entryId, textReview, imageReview]);
           // Approved translations (captions included) describe the old text; readers fall back to the original.
-          const outdated = await client.query("UPDATE recipe_translations SET status='outdated',updated_at=now() WHERE recipe_id=$1 AND status='approved'", [row.recipe_id]);
-          if (outdated.rowCount) await refreshCatalogRow(client, row.recipe_id);
+          await client.query("UPDATE recipe_translations SET status='outdated',updated_at=now() WHERE recipe_id=$1 AND status='approved'", [row.recipe_id]);
+          // The catalog row holds the title and searchable text, which a published recipe shows right away.
+          await refreshCatalogRow(client, row.recipe_id);
           await recordContentAudit(client, actor!.id, "cookbook_corrected", entryId, { version, reason, fields: changed.join(",") });
           return { value: { version, textReview, imageReview }, removed };
         });
@@ -104,7 +110,7 @@ export function createCookbookCorrections({ pool, dispose = async () => {} }: { 
     recordPhotoCredit: (actor: Actor | null, entryId: string, change: { version: number; assetId: string; credit: unknown }) =>
       result(() =>
         transaction(pool, async (client) => {
-          const row = await editable(client, actor, entryId, change.version);
+          const row = await editable(client, actor, entryId, change.version, { allowPublished: true });
           if (!row.input.photos.some((p) => p.assetId === change.assetId)) throw new QueueError(404, "That photo isn't on this recipe.");
           const parsed = creditSchema.safeParse(change.credit);
           if (!parsed.success)

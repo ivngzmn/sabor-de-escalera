@@ -59,6 +59,21 @@ test("reimport never overwrites reviewed entries", async () => {
   expect(title).toBe("Sample Lime Water");
 });
 
+test("reimport leaves entries whose recipe is no longer a draft untouched", async () => {
+  await load(sample());
+  const key = "p03-sample-lime-water";
+  // A corrected published recipe keeps text_review='pending'.
+  await pool.query("UPDATE recipes SET state='published',slug='sample-lime-water' WHERE id=(SELECT recipe_id FROM cookbook_entries WHERE import_key=$1)", [key]);
+  const snapshot = async () =>
+    (await pool.query("SELECT r.version,r.input,r.state,e.manifest_hash,e.book_pages,e.contributor FROM cookbook_entries e JOIN recipes r ON r.id=e.recipe_id WHERE e.import_key=$1", [key])).rows[0];
+  const before = await snapshot();
+  const changed = sample();
+  changed[0].recipe.title = "Should not land on a live recipe";
+  changed[0].contributor = "Someone Else";
+  expect(await load(changed)).toEqual({ created: 0, updated: 0, skippedReviewed: 1 });
+  expect(await snapshot()).toEqual(before);
+});
+
 test("ambiguous values stay flagged", async () => {
   await load(sample());
   const row = (await pool.query("SELECT e.flags,r.input FROM cookbook_entries e JOIN recipes r ON r.id=e.recipe_id WHERE e.import_key='p05-sample-bean-stew'")).rows[0];

@@ -173,7 +173,8 @@ test("images are approved only when every photo is credited, after which the ent
   expect((await queue.markTextReviewed(admin, lime.id, version)).ok).toBe(true);
   const published = await queue.publishImported(admin, lime.id);
   expect(published.ok).toBe(true);
-  expect(await fix.correctEntry(admin, lime.id, { version: version + 1, input: complete(lime.input), reason: "Late fix" })).toMatchObject({ ok: false, error: { status: 409 } });
+  // Review steps only make sense before publishing.
+  expect(await fix.markImagesReviewed(admin, lime.id, version + 1)).toMatchObject({ ok: false, error: { status: 409 } });
   const actions = (await pool.query("SELECT action FROM content_audit ORDER BY created_at")).rows.map((r) => r.action);
   expect(actions).toEqual(expect.arrayContaining(["photo_credit_recorded", "cookbook_images_reviewed"]));
 });
@@ -241,4 +242,91 @@ test("recipes without an outside source need no clearance and can't record one",
   const page = await queue.listQueue(admin, "all");
   expect(page.ok && page.value.find((r) => r.entryId === lime.id)).toMatchObject({ sourceClearance: "not-needed" });
   expect(await fix.clearSource(admin, lime.id, { version: lime.version, note: "Asked" })).toMatchObject({ ok: false, error: { status: 409 } });
+});
+
+/** Completes, reviews and publishes the sample lime water entry; returns what a later correction needs. */
+async function published() {
+  const { admin } = await people();
+  const { fix, queue } = await services();
+  const lime = await entry("p03-sample-lime-water");
+  const shot = await asset(admin.id);
+  await fix.correctEntry(admin, lime.id, { version: lime.version, input: { ...complete(lime.input), photos: [photo(shot)] }, reason: "Complete entry" });
+  const { version } = await entry("p03-sample-lime-water");
+  await fix.recordPhotoCredit(admin, lime.id, { version, assetId: shot, credit: unsplash });
+  await fix.markImagesReviewed(admin, lime.id, version);
+  await queue.markTextReviewed(admin, lime.id, version);
+  expect((await queue.publishImported(admin, lime.id)).ok).toBe(true);
+  const live = await entry("p03-sample-lime-water");
+  const recipeId = (await pool.query("SELECT recipe_id FROM cookbook_entries WHERE id=$1", [lime.id])).rows[0].recipe_id as string;
+  return { admin, fix, queue, lime, shot, live, recipeId };
+}
+
+test("corrects a published cookbook recipe and keeps it published", async () => {
+  const { admin, fix, lime, live, recipeId } = await published();
+  const slug = (await pool.query("SELECT slug FROM recipes WHERE id=$1", [recipeId])).rows[0].slug;
+  const fixed = await fix.correctEntry(admin, lime.id, { version: live.version, input: { ...live.input, title: "Sample Limewater Refresher" }, reason: "Fix the title" });
+  expect(fixed).toMatchObject({ ok: true, value: { textReview: "pending" } });
+  const row = (await pool.query("SELECT state,slug,input->>'title' AS title,search_text FROM recipes WHERE id=$1", [recipeId])).rows[0];
+  expect(row).toMatchObject({ state: "published", slug, title: "Sample Limewater Refresher" });
+  expect(row.search_text.toLowerCase()).toContain("refresher");
+  // Photo credits can be corrected while published too.
+  const { version } = await entry("p03-sample-lime-water");
+  const shot = live.input.photos[0].assetId;
+  expect((await fix.recordPhotoCredit(admin, lime.id, { version, assetId: shot, credit: { ...unsplash, cropping: "Square" } })).ok).toBe(true);
+});
+
+test("still refuses a hidden cookbook recipe", async () => {
+  const { admin, fix, lime, live, recipeId } = await published();
+  await pool.query("UPDATE recipes SET state='hidden' WHERE id=$1", [recipeId]);
+  expect(await fix.correctEntry(admin, lime.id, { version: live.version, input: { ...live.input, title: "Nope" }, reason: "Fix" })).toMatchObject({ ok: false, error: { status: 409 } });
+});
+
+test("review and clearance steps still refuse published recipes", async () => {
+  const { admin, fix, lime, live } = await published();
+  expect(await fix.markImagesReviewed(admin, lime.id, live.version)).toMatchObject({ ok: false, error: { status: 409 } });
+  expect(await fix.clearSource(admin, lime.id, { version: live.version, note: "Cleared" })).toMatchObject({ ok: false, error: { status: 409 } });
+});
+
+test("a published recipe can't be corrected into something unpublishable", async () => {
+  const { admin, fix, lime, live, recipeId } = await published();
+  const before = (await pool.query("SELECT version,input FROM recipes WHERE id=$1", [recipeId])).rows[0];
+  const blank = await fix.correctEntry(admin, lime.id, { version: live.version, input: { ...live.input, title: "" }, reason: "Fix" });
+  expect(blank).toMatchObject({ ok: false, error: { status: 422 } });
+  const noPhotos = await fix.correctEntry(admin, lime.id, { version: live.version, input: { ...live.input, photos: [] }, reason: "Fix" });
+  expect(noPhotos).toMatchObject({ ok: false, error: { status: 422 } });
+  expect((await pool.query("SELECT version,input,state FROM recipes WHERE id=$1", [recipeId])).rows[0]).toEqual({ ...before, state: "published" });
+});
+
+test("a published recipe can't gain a photo that has no credit", async () => {
+  const { admin, fix, lime, live, recipeId } = await published();
+  const fresh = await asset(admin.id);
+  const before = (await pool.query("SELECT version,input FROM recipes WHERE id=$1", [recipeId])).rows[0];
+  const added = await fix.correctEntry(admin, lime.id, { version: live.version, input: { ...live.input, photos: [...live.input.photos, photo(fresh)] }, reason: "Add a photo" });
+  expect(added).toMatchObject({ ok: false, error: { status: 403 } });
+  const swapped = await fix.correctEntry(admin, lime.id, { version: live.version, input: { ...live.input, photos: [photo(fresh)] }, reason: "Swap the photo" });
+  expect(swapped).toMatchObject({ ok: false, error: { status: 403 } });
+  expect((await pool.query("SELECT version,input FROM recipes WHERE id=$1", [recipeId])).rows[0]).toEqual(before);
+  expect((await pool.query("SELECT 1 FROM media_references WHERE asset_id=$1 AND reference_id=$2", [fresh, recipeId])).rowCount).toBe(0);
+  // Editing a caption on a photo already on the recipe stays allowed.
+  const caption = await fix.correctEntry(admin, lime.id, { version: live.version, input: { ...live.input, photos: [{ ...live.input.photos[0], caption: "Agua de limón fría" }] }, reason: "Fix caption" });
+  expect(caption.ok).toBe(true);
+});
+
+test("a published text correction marks approved translations outdated", async () => {
+  const { admin, fix, lime, live, recipeId } = await published();
+  const { createTranslationService } = await import("../../src/features/translations/service");
+  const translations = createTranslationService({ pool });
+  const saved = await translations.saveTranslation(admin, recipeId, "es", live.version, {
+    title: "Agua de limón de ejemplo", story: "", notes: "", yieldText: "8 tazas",
+    ingredients: [{ name: "limones", notes: "", unit: "" }, { name: "azúcar", notes: "", unit: "" }],
+    instructions: [{ text: "Exprimir los limones." }], captions: ["Lemonade in a jar"],
+  });
+  if (!saved.ok) throw new Error(JSON.stringify(saved.error));
+  const approved = await translations.approveTranslations(admin, [{ id: saved.value.id, sourceVersion: live.version }]);
+  if (!approved.ok) throw new Error(JSON.stringify(approved.error));
+  expect((await pool.query("SELECT status FROM recipe_translations WHERE recipe_id=$1", [recipeId])).rows).toEqual([{ status: "approved" }]);
+  const fixed = await fix.correctEntry(admin, lime.id, { version: live.version, input: { ...live.input, title: "Sample Limewater Refresher" }, reason: "Fix the title" });
+  expect(fixed.ok).toBe(true);
+  expect((await pool.query("SELECT status FROM recipe_translations WHERE recipe_id=$1", [recipeId])).rows).toEqual([{ status: "outdated" }]);
+  expect(await translations.readerTranslation(recipeId, "es")).toBeNull();
 });
