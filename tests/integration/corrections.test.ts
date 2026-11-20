@@ -296,3 +296,37 @@ test("a published recipe can't be corrected into something unpublishable", async
   expect(noPhotos).toMatchObject({ ok: false, error: { status: 422 } });
   expect((await pool.query("SELECT version,input,state FROM recipes WHERE id=$1", [recipeId])).rows[0]).toEqual({ ...before, state: "published" });
 });
+
+test("a published recipe can't gain a photo that has no credit", async () => {
+  const { admin, fix, lime, live, recipeId } = await published();
+  const fresh = await asset(admin.id);
+  const before = (await pool.query("SELECT version,input FROM recipes WHERE id=$1", [recipeId])).rows[0];
+  const added = await fix.correctEntry(admin, lime.id, { version: live.version, input: { ...live.input, photos: [...live.input.photos, photo(fresh)] }, reason: "Add a photo" });
+  expect(added).toMatchObject({ ok: false, error: { status: 403 } });
+  const swapped = await fix.correctEntry(admin, lime.id, { version: live.version, input: { ...live.input, photos: [photo(fresh)] }, reason: "Swap the photo" });
+  expect(swapped).toMatchObject({ ok: false, error: { status: 403 } });
+  expect((await pool.query("SELECT version,input FROM recipes WHERE id=$1", [recipeId])).rows[0]).toEqual(before);
+  expect((await pool.query("SELECT 1 FROM media_references WHERE asset_id=$1 AND reference_id=$2", [fresh, recipeId])).rowCount).toBe(0);
+  // Editing a caption on a photo already on the recipe stays allowed.
+  const caption = await fix.correctEntry(admin, lime.id, { version: live.version, input: { ...live.input, photos: [{ ...live.input.photos[0], caption: "Agua de limón fría" }] }, reason: "Fix caption" });
+  expect(caption.ok).toBe(true);
+});
+
+test("a published text correction marks approved translations outdated", async () => {
+  const { admin, fix, lime, live, recipeId } = await published();
+  const { createTranslationService } = await import("../../src/features/translations/service");
+  const translations = createTranslationService({ pool });
+  const saved = await translations.saveTranslation(admin, recipeId, "es", live.version, {
+    title: "Agua de limón de ejemplo", story: "", notes: "", yieldText: "8 tazas",
+    ingredients: [{ name: "limones", notes: "", unit: "" }, { name: "azúcar", notes: "", unit: "" }],
+    instructions: [{ text: "Exprimir los limones." }], captions: ["Lemonade in a jar"],
+  });
+  if (!saved.ok) throw new Error(JSON.stringify(saved.error));
+  const approved = await translations.approveTranslations(admin, [{ id: saved.value.id, sourceVersion: live.version }]);
+  if (!approved.ok) throw new Error(JSON.stringify(approved.error));
+  expect((await pool.query("SELECT status FROM recipe_translations WHERE recipe_id=$1", [recipeId])).rows).toEqual([{ status: "approved" }]);
+  const fixed = await fix.correctEntry(admin, lime.id, { version: live.version, input: { ...live.input, title: "Sample Limewater Refresher" }, reason: "Fix the title" });
+  expect(fixed.ok).toBe(true);
+  expect((await pool.query("SELECT status FROM recipe_translations WHERE recipe_id=$1", [recipeId])).rows).toEqual([{ status: "outdated" }]);
+  expect(await translations.readerTranslation(recipeId, "es")).toBeNull();
+});

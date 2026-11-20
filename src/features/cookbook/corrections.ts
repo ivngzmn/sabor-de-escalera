@@ -52,9 +52,12 @@ export function createCookbookCorrections({ pool, dispose = async () => {} }: { 
       throw new QueueError(409, "This recipe changed since you opened it. Reload and try again.");
     return { ...row, recipeState: current.state };
   }
-  /** Keeps photos the entry already had; new ones must be this admin's own ready recipe uploads. */
-  async function attachPhotos(client: PoolClient, actor: Actor, row: EntryRow, input: RecipeInput) {
+  /** Keeps photos the entry already had; new ones must be this admin's own ready recipe uploads, and never on a published recipe. */
+  async function attachPhotos(client: PoolClient, actor: Actor, row: EntryRow, input: RecipeInput, published: boolean) {
     const before = new Set(row.input.photos.map((p) => p.assetId));
+    // A photo can only be credited once it is attached, so a new one would go live uncredited.
+    if (published && input.photos.some((p) => !before.has(p.assetId)))
+      throw new QueueError(403, "A published recipe can't gain new photos. Unpublish it first, or keep the photos it has.");
     for (const assetId of [...new Set(input.photos.map((p) => p.assetId))].sort()) {
       const a = (await client.query("SELECT owner_id,purpose,state,width,height FROM media_assets WHERE id=$1 FOR UPDATE", [assetId])).rows[0];
       if (!a || a.purpose !== "recipe" || a.state !== "ready" || (!before.has(assetId) && a.owner_id !== actor.id))
@@ -84,7 +87,7 @@ export function createCookbookCorrections({ pool, dispose = async () => {} }: { 
             throw new QueueError(422, "Choose an available origin.", [{ field: "origin", step: 0, message: "Choose an available origin." }]);
           if (!sameRows(row.input, input))
             throw new QueueError(422, "Corrections can fix wording but can't add, remove or change the kind of ingredient or step rows.");
-          const removed = await attachPhotos(client, actor!, row, input);
+          const removed = await attachPhotos(client, actor!, row, input, row.recipeState === "published");
           const changed = changedFields(row.input, input);
           if (!changed.length) throw new QueueError(422, "There are no changes to save.");
           const textReview: TextReview = changed.some((k) => k !== "photos") ? "pending" : row.text_review;
