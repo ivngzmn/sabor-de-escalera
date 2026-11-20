@@ -95,8 +95,9 @@ const flagStrings = row ? row.flags.map((f) => flagLabel(f)) : [];
               <RecipePreview client:load input={input} id={row.recipeId} origins={origins} spanish={input.language === 'es'} titleAs="h2" />
             </div>
           </section>
-          {row.state === 'draft' && (
-            <section class="rounded-2xl border border-border bg-card p-5 shadow-xs sm:p-8">
+          {(row.state === 'draft' || row.state === 'published') && (
+            <section class="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-xs sm:p-8">
+              {row.state === 'published' && <p class="m-0 text-sm text-muted-foreground">This recipe is published. Corrections go live as soon as you save them.</p>}
               <CookbookCorrectionForm client:load entryId={row.entryId} version={row.version} input={input} origins={origins} credits={credits?.ok ? credits.value : {}} mediaAvailable={mediaReadiness().enabled || isPreviewMode()} />
             </section>
           )}

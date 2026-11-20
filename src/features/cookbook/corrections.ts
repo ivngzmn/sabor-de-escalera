@@ -40,13 +40,14 @@ const changedFields = (before: RecipeInput, after: RecipeInput) =>
   (Object.keys(after) as (keyof RecipeInput)[]).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k])).sort();
 
 export function createCookbookCorrections({ pool, dispose = async () => {} }: { pool: Pool; dispose?: (assetId: string) => Promise<void> }) {
-  /** Locks the entry and its recipe, then checks it is still an unpublished draft at the version the admin saw. */
-  async function editable(client: PoolClient, actor: Actor | null, entryId: string, version: number) {
+  /** Locks the entry and its recipe, then checks it is still a draft (or published, when allowed) at the version the admin saw. */
+  async function editable(client: PoolClient, actor: Actor | null, entryId: string, version: number, { allowPublished = false } = {}) {
     await requireAdmin(client, actor);
     const row = await lockEntry(client, entryId);
     await client.query("SELECT 1 FROM recipes WHERE id=$1 FOR UPDATE", [row.recipe_id]);
     const current = (await client.query<{ version: number; state: string }>("SELECT version,state FROM recipes WHERE id=$1", [row.recipe_id])).rows[0];
-    if (current.state !== "draft") throw new QueueError(409, "Only unpublished cookbook entries can be changed here.");
+    if (current.state !== "draft" && !(allowPublished && current.state === "published"))
+      throw new QueueError(409, allowPublished ? "Only draft or published cookbook entries can be changed here." : "Only unpublished cookbook entries can be changed here.");
     if (!Number.isSafeInteger(version) || current.version !== version)
       throw new QueueError(409, "This recipe changed since you opened it. Reload and try again.");
     return row;
@@ -71,7 +72,7 @@ export function createCookbookCorrections({ pool, dispose = async () => {} }: { 
     correctEntry: (actor: Actor | null, entryId: string, change: { version: number; input: unknown; reason: unknown }) =>
       result(async () => {
         const outcome = await transaction(pool, async (client) => {
-          const row = await editable(client, actor, entryId, change.version);
+          const row = await editable(client, actor, entryId, change.version, { allowPublished: true });
           const reason = typeof change.reason === "string" ? change.reason.trim() : "";
           if (!reason || reason.length > 400)
             throw new QueueError(422, "Say why you made this correction (up to 400 characters).", [{ field: "reason", step: 0, message: "Add a reason." }]);
@@ -92,8 +93,9 @@ export function createCookbookCorrections({ pool, dispose = async () => {} }: { 
           ).rows[0].version;
           await client.query("UPDATE cookbook_entries SET text_review=$2,image_review=$3 WHERE id=$1", [entryId, textReview, imageReview]);
           // Approved translations (captions included) describe the old text; readers fall back to the original.
-          const outdated = await client.query("UPDATE recipe_translations SET status='outdated',updated_at=now() WHERE recipe_id=$1 AND status='approved'", [row.recipe_id]);
-          if (outdated.rowCount) await refreshCatalogRow(client, row.recipe_id);
+          await client.query("UPDATE recipe_translations SET status='outdated',updated_at=now() WHERE recipe_id=$1 AND status='approved'", [row.recipe_id]);
+          // The catalog row holds the title and searchable text, which a published recipe shows right away.
+          await refreshCatalogRow(client, row.recipe_id);
           await recordContentAudit(client, actor!.id, "cookbook_corrected", entryId, { version, reason, fields: changed.join(",") });
           return { value: { version, textReview, imageReview }, removed };
         });
@@ -104,7 +106,7 @@ export function createCookbookCorrections({ pool, dispose = async () => {} }: { 
     recordPhotoCredit: (actor: Actor | null, entryId: string, change: { version: number; assetId: string; credit: unknown }) =>
       result(() =>
         transaction(pool, async (client) => {
-          const row = await editable(client, actor, entryId, change.version);
+          const row = await editable(client, actor, entryId, change.version, { allowPublished: true });
           if (!row.input.photos.some((p) => p.assetId === change.assetId)) throw new QueueError(404, "That photo isn't on this recipe.");
           const parsed = creditSchema.safeParse(change.credit);
           if (!parsed.success)
