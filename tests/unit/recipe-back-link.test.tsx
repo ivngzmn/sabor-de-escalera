@@ -33,11 +33,11 @@ describe("backTarget", () => {
   });
 });
 
-test("the server renders a plain text link to Discover that works without JavaScript", () => {
+test("the server renders a ui-sdk text link to Discover, underlined only on hover, that works without JavaScript", () => {
   const html = renderToStaticMarkup(<RecipeBackLink language="en" />);
   expect(html).toMatch(/<a[^>]*href="\/discover"/);
-  // No data-slot, so it takes the app's underlined link style instead of a button's.
-  expect(html).not.toContain("data-slot");
+  expect(html).toContain('data-slot="button"');
+  expect(html).toContain("hover:underline");
   expect(html).toContain("Back to Discover");
   expect(html).not.toContain('role="button"');
 });
