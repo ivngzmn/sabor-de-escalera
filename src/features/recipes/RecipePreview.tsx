@@ -26,6 +26,7 @@ export default function RecipePreview({
   servings,
   credits = {},
   controls,
+  byline,
   titleAs: Title = "h1",
   checkedIngredients,
   onToggleIngredient,
@@ -44,6 +45,8 @@ export default function RecipePreview({
   credits?: Record<string, PhotoCredit>;
   /** Reader-only: rendered beside or above the ingredients. */
   controls?: ReactNode;
+  /** Reader-only: author, credit and dates shown under the title. */
+  byline?: ReactNode;
   /** h2 when the page already has its own h1, as on admin review pages. */
   titleAs?: "h1" | "h2";
   /** Optional controlled checked ingredient indices (synced with Cooking Mode). */
@@ -131,6 +134,8 @@ export default function RecipePreview({
       >
         {input.title || t("Untitled recipe", "Receta sin título")}
       </Title>
+
+      {byline}
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground tabular-nums">
         <span>

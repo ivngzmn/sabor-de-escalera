@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CopyIcon, ReaderIcon } from "@radix-ui/react-icons";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -78,6 +78,7 @@ export default function RecipeReader({
   translation,
   credits = {},
   favorite,
+  byline,
 }: {
   id: string;
   url: string;
@@ -88,6 +89,8 @@ export default function RecipeReader({
   credits?: Record<string, PhotoCredit>;
   /** The viewer's save state; omit to hide the Save button. */
   favorite?: { favorited: boolean; count: number; signedIn: boolean; signIn: string };
+  /** Server-rendered author, credit and dates (an Astro named slot) shown under the title. */
+  byline?: ReactNode;
 }) {
   const t = copy[language];
   const baseline = input.baselineConfirmed && input.baseline ? input.baseline : null;
@@ -261,6 +264,7 @@ export default function RecipeReader({
         credits={credits}
         onOpenPhoto={openPhoto}
         controls={controls}
+        byline={byline}
         servings={baseline ? { current: servings, original: baseline } : undefined}
         checkedIngredients={checkedIngredients}
         onToggleIngredient={toggleIngredient}
