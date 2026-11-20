@@ -34,6 +34,7 @@ export function isPreviewMode(): boolean {
   return !env.DATABASE_URL;
 }
 
+const PREVIEW_PAGE_SIZE = 12;
 export const PREVIEW_OWNER_ID = '11111111-1111-4111-8111-111111111111';
 const MEMBER_MATEO_ID = '22222222-2222-4222-8222-222222222222';
 const MEMBER_LUCIA_ID = '33333333-3333-4333-8333-333333333333';
@@ -934,6 +935,17 @@ export const previewCatalogService = {
       return (b.firstPublishedAt ?? '').localeCompare(a.firstPublishedAt ?? '') || b.id.localeCompare(a.id);
     });
 
+    // Pages like the database catalog (catalog.ts PAGE_SIZE; a value import would be circular).
+    let start = 0;
+    if (query.cursor !== undefined) {
+      const [cursorSort, afterId] = query.cursor.split(':');
+      start = cursorSort === sort ? items.findIndex((r) => r.id === afterId) + 1 : 0;
+      if (start === 0) return { ok: false, error: { status: 400, message: 'This list changed. Start again from the top.' } };
+    }
+    const more = items.length > start + PREVIEW_PAGE_SIZE;
+    items = items.slice(start, start + PREVIEW_PAGE_SIZE);
+    const nextCursor = more ? `${sort}:${items.at(-1)!.id}` : null;
+
     const cards: RecipeCard[] = items.map((r) => {
       const tr = approvedTranslationFor(r, query.language);
       const author = r.ownerId ? state.members.get(r.ownerId) : null;
@@ -959,7 +971,7 @@ export const previewCatalogService = {
       };
     });
 
-    return { ok: true, value: { items: cards, nextCursor: null } };
+    return { ok: true, value: { items: cards, nextCursor } };
   },
 };
 
