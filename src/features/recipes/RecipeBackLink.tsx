@@ -37,7 +37,7 @@ export default function RecipeBackLink({ language }: { language: "en" | "es" }) 
   };
 
   return (
-    <a href={target.href} onClick={goBack} data-back-place={target.place} className="mb-2 inline-flex items-center gap-1.5 self-start py-2 text-sm font-semibold underline decoration-1 underline-offset-4 hover:decoration-2">
+    <a href={target.href} onClick={goBack} data-back-place={target.place} className="mb-2 inline-flex items-center gap-1.5 self-start py-2 text-sm font-semibold no-underline">
       <ArrowLeftIcon aria-hidden="true" className="size-4 shrink-0" />
       {copy[language][target.place]}
     </a>
