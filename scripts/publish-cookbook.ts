@@ -7,7 +7,7 @@ import { clearanceFor, fillInput } from './cookbook-publish-values.ts';
 
 // Publishes the staged book drafts through the admin services. Dry run unless --apply.
 const apply = process.argv.includes('--apply');
-const REASON = 'Filled the yield, baseline, timing and origin the printed recipe leaves implied.';
+const REASON = 'Fill in book details for publishing';
 const pool = getPool();
 
 interface Draft {
