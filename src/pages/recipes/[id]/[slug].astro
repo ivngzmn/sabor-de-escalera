@@ -3,6 +3,7 @@ import AppLayout from '../../../layouts/AppLayout.astro';
 import { buttonVariants } from '../../../components/ui/button';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '../../../components/ui/empty';
 import RecipeReader from '../../../features/recipes/RecipeReader';
+import RecipeBackLink from '../../../features/recipes/RecipeBackLink';
 import '../../../features/recipes/editor.css';
 import { draftsService } from '../../../features/recipes/drafts';
 import { catalogService, type PhotoCredit } from '../../../features/recipes/catalog';
@@ -51,6 +52,7 @@ const t = spanish
 <AppLayout title={recipe?.input.title ?? (spanish ? 'Receta no disponible' : 'Recipe unavailable')}>
   {recipe ? (
     <>
+      <RecipeBackLink client:load language={language} />
       <RecipeReader client:load id={recipe.id} url={recipe.url!} input={recipe.input} origins={origins} language={language} translation={translation} credits={photoCredits} favorite={favorite} />
       <p class="m-0 mt-10 flex border-t border-border pt-4 flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
         {credit && <span>{t.cookbook}{credit.contributor && ` · ${t.contributed} ${credit.contributor}`}{credit.originalAuthor && ` · ${t.original} ${credit.originalAuthor}`}</span>}
