@@ -3,7 +3,7 @@ import { createCookbookCorrections } from '../src/features/cookbook/corrections.
 import { createCookbookQueue, needsSourceClearance } from '../src/features/cookbook/queue.ts';
 import { validatePublication, type RecipeInput } from '../src/features/recipes/validation.ts';
 import { getPool } from '../src/server/db.ts';
-import { clearanceFor, fillInput } from './cookbook-publish-values.ts';
+import { clearancePlan, fillInput } from './cookbook-publish-values.ts';
 
 // Publishes the staged book drafts through the admin services. Dry run unless --apply.
 const apply = process.argv.includes('--apply');
@@ -16,6 +16,7 @@ interface Draft {
   import_key: string;
   flags: string[];
   source_urls: string[];
+  source_clearance: string | null;
   input: RecipeInput;
 }
 
@@ -31,7 +32,7 @@ function dryRun(d: Draft) {
   const { input, missing } = fillInput(d.import_key, d.input);
   const reasons = [...missing];
   for (const f of validatePublication(input)) reasons.push(f.field.split('.')[0]);
-  if (needsSourceClearance(d.flags) && !clearanceFor(d.source_urls)) reasons.push('source clearance');
+  if (clearancePlan(needsSourceClearance(d.flags), d.source_clearance, d.source_urls).action === 'missing') reasons.push('source clearance');
   const unique = [...new Set(reasons)];
   if (unique.length) {
     console.log(`WOULD SKIP ${title}: ${unique.join(', ')}`);
@@ -54,13 +55,15 @@ async function publish(d: Draft, actor: Actor) {
   const { input, missing } = fillInput(d.import_key, d.input);
   if (missing.length) return fail(`missing ${missing.join(', ')}`);
 
+  // Decide on clearance before writing anything, so apply skips exactly what the dry run skips.
+  const plan = clearancePlan(needsSourceClearance(d.flags), d.source_clearance, d.source_urls);
+  if (plan.action === 'missing') return fail('source clearance note missing');
+
   const corrected = await corrections.correctEntry(actor, d.id, { version: await version(d.recipe_id), input, reason: REASON });
   if (!corrected.ok && corrected.error.message !== 'There are no changes to save.') return fail(corrected.error.message);
 
-  if (needsSourceClearance(d.flags)) {
-    const note = clearanceFor(d.source_urls);
-    if (!note) return fail('source clearance note missing');
-    const cleared = await corrections.clearSource(actor, d.id, { version: await version(d.recipe_id), note });
+  if (plan.action === 'write') {
+    const cleared = await corrections.clearSource(actor, d.id, { version: await version(d.recipe_id), note: plan.note });
     if (!cleared.ok) return fail(cleared.error.message);
   }
 
@@ -76,19 +79,37 @@ async function publish(d: Draft, actor: Actor) {
   published += 1;
 }
 
+function targetHost() {
+  try {
+    return new URL(process.env.DATABASE_URL ?? '').hostname || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+console.log(`${apply ? 'APPLY' : 'DRY RUN'} against database host: ${targetHost()}`);
+
 try {
   const owner = (await pool.query<{ id: string }>("SELECT id FROM members WHERE role='owner' LIMIT 1")).rows[0];
   if (!owner) throw new Error('No owner account exists yet.');
   const actor = { id: owner.id, role: 'owner', onboarded: true } as Actor;
   const drafts = (
     await pool.query<Draft>(
-      `SELECT e.id,e.recipe_id,e.import_key,e.flags,e.source_urls,r.input
+      `SELECT e.id,e.recipe_id,e.import_key,e.flags,e.source_urls,e.source_clearance,r.input
        FROM cookbook_entries e JOIN recipes r ON r.id=e.recipe_id
        WHERE r.state='draft' AND e.import_key NOT LIKE 'example-%'
        ORDER BY e.book_pages[1], e.import_key`,
     )
   ).rows;
-  for (const d of drafts) await (apply ? publish(d, actor) : Promise.resolve(dryRun(d)));
+  for (const d of drafts) {
+    try {
+      if (apply) await publish(d, actor);
+      else dryRun(d);
+    } catch (error) {
+      console.log(`SKIP ${d.input.title}: ${error instanceof Error ? error.message : String(error)}`);
+      skipped.push(d.input.title);
+    }
+  }
   console.log(`\n${apply ? 'Published' : 'Would publish'} ${published} of ${drafts.length}; skipped ${skipped.length}${apply ? '' : ' (dry run, nothing written; pass --apply to publish)'}.`);
   if (skipped.length) console.log(`Still drafts: ${skipped.join('; ')}`);
 } finally {

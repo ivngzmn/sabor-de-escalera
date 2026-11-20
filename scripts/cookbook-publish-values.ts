@@ -49,6 +49,9 @@ export const ORIGINS: Record<string, string> = {
 /** Clearance notes keyed by hostname without "www.". The owner supplies these verbatim. */
 export const CLEARANCE: Record<string, string> = {};
 
+/** Per-recipe values for what the book never printed. An override wins over the generic rules. */
+export const OVERRIDES: Record<string, { yieldText?: string; baseline?: number; total?: number }> = {};
+
 /** The low end of a yield such as "Serves 3-4 people", or null when it has no number. */
 export function lowServings(yieldText: string): number | null {
   const match = /\d+(?:\.\d+)?/.exec(yieldText);
@@ -69,7 +72,10 @@ export function fillInput(key: string, input: RecipeInput): { input: RecipeInput
 
   if (!out.origin && ORIGINS[key]) out.origin = ORIGINS[key];
 
-  const servings = lowServings(out.yieldText);
+  const override = OVERRIDES[key];
+  if (override?.yieldText !== undefined) out.yieldText = override.yieldText;
+
+  const servings = override?.baseline ?? lowServings(out.yieldText);
   if (!out.yieldText.trim()) missing.push('yieldText');
   if (servings === null) {
     missing.push('baseline');
@@ -80,7 +86,9 @@ export function fillInput(key: string, input: RecipeInput): { input: RecipeInput
 
   const t = out.timing;
   const hasParts = t.mode === 'parts' && (t.prep !== null || t.cook !== null);
-  if (!hasParts && t.total === null) {
+  if (!hasParts && override?.total !== undefined) {
+    t.total = override.total;
+  } else if (!hasParts && t.total === null) {
     const total = highMinutes(out.notes);
     if (total === null) missing.push('timing');
     else t.total = total;
@@ -108,4 +116,14 @@ export function clearanceFor(sourceUrls: string[]): string | null {
     if (!notes.includes(note)) notes.push(note);
   }
   return notes.join(' ');
+}
+
+export type ClearancePlan = { action: 'none' } | { action: 'done' } | { action: 'write'; note: string } | { action: 'missing' };
+
+/** What source clearance still needs doing: nothing, already done, write this note, or a note is missing. */
+export function clearancePlan(needsClearance: boolean, existing: string | null, sourceUrls: string[]): ClearancePlan {
+  if (!needsClearance) return { action: 'none' };
+  if (existing) return { action: 'done' };
+  const note = clearanceFor(sourceUrls);
+  return note ? { action: 'write', note } : { action: 'missing' };
 }

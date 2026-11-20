@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   CLEARANCE,
+  clearancePlan,
   ORIGINS,
+  OVERRIDES,
   clearanceFor,
   fillInput,
   highMinutes,
@@ -80,6 +82,33 @@ describe("fillInput", () => {
     expect(missing).not.toContain("timing");
   });
 
+  it("applies a per-recipe override before the generic rules", () => {
+    OVERRIDES["p08-chimichurri-sauce"] = { yieldText: "Serves 6", baseline: 6, total: 45 };
+    try {
+      const { input: out, missing } = fillInput("p08-chimichurri-sauce", base());
+      expect(out.yieldText).toBe("Serves 6");
+      expect(out.baseline).toBe(6);
+      expect(out.baselineConfirmed).toBe(true);
+      expect(out.timing.total).toBe(45);
+      expect(missing).toEqual([]);
+    } finally {
+      delete OVERRIDES["p08-chimichurri-sauce"];
+    }
+  });
+
+  it("lets an override fill a recipe the book left blank", () => {
+    OVERRIDES["p03-brendas-tomatillo-salsa"] = { yieldText: "Serves 4", baseline: 4, total: 20 };
+    try {
+      const { input: out, missing } = fillInput("p03-brendas-tomatillo-salsa", emptyRecipe());
+      expect(out.yieldText).toBe("Serves 4");
+      expect(out.baseline).toBe(4);
+      expect(out.timing.total).toBe(20);
+      expect(missing).toEqual([]);
+    } finally {
+      delete OVERRIDES["p03-brendas-tomatillo-salsa"];
+    }
+  });
+
   it("reports what it could not fill", () => {
     const { input: out, missing } = fillInput("p03-brendas-tomatillo-salsa", {
       ...emptyRecipe(),
@@ -104,5 +133,30 @@ describe("clearanceFor", () => {
     } finally {
       delete CLEARANCE["tasty.co"];
     }
+  });
+});
+
+describe("clearancePlan", () => {
+  const urls = ["https://www.tasty.co/x"];
+
+  it("needs nothing when the entry has no outside source", () => {
+    expect(clearancePlan(false, null, urls)).toEqual({ action: "none" });
+  });
+
+  it("keeps an existing clearance without needing a note", () => {
+    expect(clearancePlan(true, "Already cleared", [])).toEqual({ action: "done" });
+  });
+
+  it("writes the note when one covers every source", () => {
+    CLEARANCE["tasty.co"] = "note";
+    try {
+      expect(clearancePlan(true, null, urls)).toEqual({ action: "write", note: "note" });
+    } finally {
+      delete CLEARANCE["tasty.co"];
+    }
+  });
+
+  it("is missing when it needs clearance and no note covers it", () => {
+    expect(clearancePlan(true, null, urls)).toEqual({ action: "missing" });
   });
 });
