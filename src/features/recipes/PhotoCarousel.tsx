@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { ChevronLeftIcon, ChevronRightIcon, EnterFullScreenIcon } from "@radix-ui/react-icons";
 import {
   Carousel,
@@ -10,39 +10,26 @@ import {
   CarouselPrevious,
   CarouselViewport,
 } from "@ui-sdk/react/carousel";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonImage } from "@/components/ui/skeleton-image";
 import type { Photo } from "./validation";
 
 const glass =
   "flex size-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition-colors outline-none hover:bg-black/60 focus-visible:ring-2 focus-visible:ring-white [&_svg]:size-5";
 
 function SlidePhoto({ photo, url, eager }: { photo: Photo; url: string; eager: boolean }) {
-  const image = useRef<HTMLImageElement>(null);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    if (image.current?.complete) setReady(true);
-  }, []);
-
   return (
-    <>
-      {!ready && <Skeleton aria-hidden="true" className="absolute inset-0 rounded-none" />}
-      <img
-        ref={image}
-        onLoad={() => setReady(true)}
-        onError={() => setReady(true)}
-        src={url}
-        width={photo.width ?? 1200}
-        height={photo.height ?? 900}
-        alt={photo.alt || photo.caption}
-        loading={eager ? "eager" : "lazy"}
-        decoding="sync"
-        referrerPolicy="no-referrer"
-        draggable={false}
-        className={`size-full object-cover ${!ready ? "[@media(scripting:enabled)]:opacity-0" : ""}`}
-        style={{ objectPosition: `${photo.crop.x}% ${photo.crop.y}%`, scale: photo.crop.zoom }}
-      />
-    </>
+    <SkeletonImage
+      hold
+      src={url}
+      width={photo.width ?? 1200}
+      height={photo.height ?? 900}
+      alt={photo.alt || photo.caption}
+      loading={eager ? "eager" : "lazy"}
+      referrerPolicy="no-referrer"
+      draggable={false}
+      className="size-full object-cover"
+      style={{ objectPosition: `${photo.crop.x}% ${photo.crop.y}%`, scale: photo.crop.zoom }}
+    />
   );
 }
 

@@ -9,6 +9,7 @@ import { SearchField } from "@/components/ui/search-field";
 import type { CatalogPage, RecipeCard as CardData } from "./catalog";
 import { activeFilterCount, clearFilters, toDiscoverSearch, type DiscoverParams } from "./discover-state";
 import FilterPanel from "./FilterPanel";
+import { SENTINEL_MARGIN, appendPage, photoLoading, shouldAutoLoad, type FeedStatus, type PhotoLoading } from "./discover-paging";
 import { favoriteIntentFrom } from "./draft-intent";
 import { toast } from "@/components/ui/toaster";
 import { originLabel as labelFor } from "./origin-label";
@@ -104,7 +105,7 @@ interface Props {
   /** Same-origin sign-in URL used when a guest tries to save. */
   signInBase: string;
 }
-type Status = "idle" | "loading" | "error";
+type Status = FeedStatus;
 const grid = "m-0 grid list-none gap-6 p-0 sm:grid-cols-2 xl:grid-cols-3";
 interface Restore {
   pages: number;
@@ -168,6 +169,7 @@ export default function DiscoverFeed({
   const refreshRun = useRef(0);
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => setHydrated(true), []);
+  const [scrolled, setScrolled] = useState(false);
   const pages = useRef(1);
   const request = useRef<AbortController | null>(null);
   const sentinel = useRef<HTMLDivElement>(null);
@@ -241,7 +243,7 @@ export default function DiscoverFeed({
     const page = await fetchPage(params, cursor);
     if (!page) return;
     pages.current += 1;
-    setItems((current) => [...current, ...page.items.filter((i) => !current.some((c) => c.id === i.id))]);
+    setItems((current) => appendPage(current, page.items));
     setCursor(page.nextCursor);
     setAnnouncement(page.nextCursor ? t.added(page.items.length) : `${t.added(page.items.length)} ${t.end}`);
     remember({ pages: pages.current });
@@ -273,7 +275,7 @@ export default function DiscoverFeed({
       for (let n = 1; n < saved.pages && after; n++) {
         const page = await fetchPage(initialParams, after);
         if (!page) break;
-        restored = [...restored, ...page.items];
+        restored = appendPage(restored, page.items);
         after = page.nextCursor;
         pages.current = n + 1;
       }
@@ -300,12 +302,20 @@ export default function DiscoverFeed({
   }, [remember]);
 
   useEffect(() => {
+    if (scrolled) return;
+    const onScroll = () => window.scrollY > 0 && setScrolled(true);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [scrolled]);
+
+  useEffect(() => {
     const node = sentinel.current;
-    if (!node || !cursor || status !== "idle") return;
-    const observer = new IntersectionObserver((entries) => entries[0]?.isIntersecting && void loadMore(), { rootMargin: "600px" });
+    if (!node || !shouldAutoLoad({ cursor, status, scrolled }) || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => entries[0]?.isIntersecting && void loadMore(), { rootMargin: SENTINEL_MARGIN });
     observer.observe(node);
     return () => observer.disconnect();
-  }, [cursor, status, loadMore]);
+  }, [cursor, status, scrolled, loadMore]);
 
   const toggleFavorite = useCallback(
     async (card: CardData) => {
@@ -383,8 +393,11 @@ export default function DiscoverFeed({
   const shelfIds = new Set([featuredCard?.id, ...quickShelf.map((c) => c.id)].filter(Boolean));
   const remainingItems = showShelves ? items.filter((c) => !shelfIds.has(c.id)) : items;
 
+  const loadingFor = (card: CardData): PhotoLoading => photoLoading(items.indexOf(card), { shelves: showShelves });
   const renderCard = (card: CardData, featured = false) => (
     <RecipeCard
+      holdPhoto
+      photoLoading={loadingFor(card)}
       card={card}
       language={language}
       originLabel={originLabel(card.origin)}
@@ -588,7 +601,7 @@ export default function DiscoverFeed({
 
           <div ref={sentinel} aria-hidden="true" />
           {cursor && status !== "error" && (
-            <Button type="button" variant="outline" className="self-center" disabled={status === "loading"} onClick={() => loadMore()}>
+            <Button type="button" variant="outline" className="self-center" disabled={status === "loading"} focusableWhenDisabled onClick={() => loadMore()}>
               {t.loadMore}
             </Button>
           )}

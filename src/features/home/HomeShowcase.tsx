@@ -389,7 +389,7 @@ export default function HomeShowcase({
                               className="basis-[88%] sm:basis-[calc((100%-1.5rem)/2)] lg:basis-[calc((100%-3rem)/3)]"
                             >
                               <RecipeCard
-                                shelf
+                                holdPhoto
                                 card={card}
                                 language={language}
                                 originLabel={originLabel(card.origin)}
