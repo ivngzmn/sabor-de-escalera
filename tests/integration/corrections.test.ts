@@ -286,3 +286,13 @@ test("review and clearance steps still refuse published recipes", async () => {
   expect(await fix.markImagesReviewed(admin, lime.id, live.version)).toMatchObject({ ok: false, error: { status: 409 } });
   expect(await fix.clearSource(admin, lime.id, { version: live.version, note: "Cleared" })).toMatchObject({ ok: false, error: { status: 409 } });
 });
+
+test("a published recipe can't be corrected into something unpublishable", async () => {
+  const { admin, fix, lime, live, recipeId } = await published();
+  const before = (await pool.query("SELECT version,input FROM recipes WHERE id=$1", [recipeId])).rows[0];
+  const blank = await fix.correctEntry(admin, lime.id, { version: live.version, input: { ...live.input, title: "" }, reason: "Fix" });
+  expect(blank).toMatchObject({ ok: false, error: { status: 422 } });
+  const noPhotos = await fix.correctEntry(admin, lime.id, { version: live.version, input: { ...live.input, photos: [] }, reason: "Fix" });
+  expect(noPhotos).toMatchObject({ ok: false, error: { status: 422 } });
+  expect((await pool.query("SELECT version,input,state FROM recipes WHERE id=$1", [recipeId])).rows[0]).toEqual({ ...before, state: "published" });
+});

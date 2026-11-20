@@ -6,7 +6,7 @@ import { getPool, transaction } from "../../server/db";
 import { isPreviewMode, previewCookbookService } from "../../server/preview-store";
 import { disposeUnusedAsset } from "../media/service";
 import { refreshCatalogRow } from "../recipes/catalog";
-import { validateDraft, type RecipeInput } from "../recipes/validation";
+import { validateDraft, validatePublication, type RecipeInput } from "../recipes/validation";
 import { lockEntry, needsSourceClearance, QueueError, requireAdmin, result, type EntryRow } from "./queue";
 
 type ImageReview = EntryRow["image_review"];
@@ -50,7 +50,7 @@ export function createCookbookCorrections({ pool, dispose = async () => {} }: { 
       throw new QueueError(409, allowPublished ? "Only draft or published cookbook entries can be changed here." : "Only unpublished cookbook entries can be changed here.");
     if (!Number.isSafeInteger(version) || current.version !== version)
       throw new QueueError(409, "This recipe changed since you opened it. Reload and try again.");
-    return row;
+    return { ...row, recipeState: current.state };
   }
   /** Keeps photos the entry already had; new ones must be this admin's own ready recipe uploads. */
   async function attachPhotos(client: PoolClient, actor: Actor, row: EntryRow, input: RecipeInput) {
@@ -76,7 +76,8 @@ export function createCookbookCorrections({ pool, dispose = async () => {} }: { 
           const reason = typeof change.reason === "string" ? change.reason.trim() : "";
           if (!reason || reason.length > 400)
             throw new QueueError(422, "Say why you made this correction (up to 400 characters).", [{ field: "reason", step: 0, message: "Add a reason." }]);
-          const fields = validateDraft(change.input);
+          // A published recipe is live as soon as it saves, so it must stay publishable.
+          const fields = (row.recipeState === "published" ? validatePublication : validateDraft)(change.input);
           if (fields.length) throw new QueueError(422, "Check the highlighted fields.", fields);
           const input = structuredClone(change.input) as RecipeInput;
           if (input.origin && !(await client.query("SELECT 1 FROM recipe_origins WHERE id=$1 AND active", [input.origin])).rowCount)
