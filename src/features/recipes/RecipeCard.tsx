@@ -4,6 +4,7 @@ import { FavoriteHeart } from "@/components/ui/favorite-heart";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonImage } from "@/components/ui/skeleton-image";
 import { cn } from "@/lib/utils";
 import type { RecipeCard as CardData } from "./catalog";
 import { PHOTO_MARGIN, photoSources, type PhotoLoading } from "./discover-paging";
@@ -42,8 +43,8 @@ export interface RecipeCardProps {
   featured?: boolean;
   /** Shows the rating; off until members can rate recipes. */
   ratingsEnabled?: boolean;
-  /** Hold the Home shelf photo behind its skeleton until it loads. */
-  shelf?: boolean;
+  /** Keep the photo behind its skeleton until it loads, then fade it in. Only inside a hydrated island. */
+  holdPhoto?: boolean;
   /** "deferred" leaves the photo out until the card nears the viewport; defaults to eager when featured, else lazy. */
   photoLoading?: PhotoLoading;
 }
@@ -78,21 +79,13 @@ export default function RecipeCard({
   pending,
   featured,
   ratingsEnabled = false,
-  shelf = false,
+  holdPhoto = false,
   photoLoading = featured ? "eager" : "lazy",
 }: RecipeCardProps) {
   const t = copy[language];
-  const photo = useRef<HTMLImageElement>(null);
   const sources = photoSources(card, featured);
-  const coverUrl = sources?.src ?? null;
   const deferred = photoLoading === "deferred";
   const [frame, near] = useNearViewport(deferred && Boolean(sources));
-  const [settledPhoto, setSettledPhoto] = useState<string | null>(null);
-  const photoReady = settledPhoto === coverUrl;
-
-  useEffect(() => {
-    if (photo.current?.complete) setSettledPhoto(coverUrl);
-  }, [coverUrl, near]);
   const href = language === "es" ? `${card.url}?lang=es` : card.url;
   const originHref = card.origin
     ? `/discover?${new URLSearchParams({ origin: card.origin, ...(language === "es" ? { lang: "es" } : {}) })}`
@@ -113,13 +106,10 @@ export default function RecipeCard({
           featured && "md:aspect-auto md:min-h-[21rem]",
         )}
       >
-        {card.cover && !photoReady && <Skeleton aria-hidden="true" className="absolute inset-0 rounded-none" />}
         {card.cover && sources ? (
           near ? (
-          <img
-            ref={photo}
-            onLoad={() => setSettledPhoto(coverUrl)}
-            onError={() => setSettledPhoto(coverUrl)}
+          <SkeletonImage
+            hold={holdPhoto}
             src={sources.src}
             srcSet={sources.srcSet}
             sizes={sources.sizes}
@@ -128,11 +118,12 @@ export default function RecipeCard({
             height={card.cover.height}
             loading={photoLoading === "eager" ? "eager" : "lazy"}
             fetchPriority={photoLoading === "eager" && featured ? "high" : undefined}
-            decoding={shelf ? "sync" : "async"}
             referrerPolicy="no-referrer"
-            className={cn("absolute inset-0 size-full object-cover transition-transform duration-500 motion-safe:group-hover:scale-105", shelf && !photoReady && "[@media(scripting:enabled)]:opacity-0")}
+            className="absolute inset-0 size-full object-cover transition-[opacity,transform] duration-500 motion-safe:group-hover:scale-105"
           />
           ) : (
+            <>
+            <Skeleton aria-hidden="true" className="absolute inset-0 rounded-none" />
             <noscript>
               <img
                 src={sources.src}
@@ -147,6 +138,7 @@ export default function RecipeCard({
                 className="absolute inset-0 size-full object-cover"
               />
             </noscript>
+            </>
           )
         ) : (
           <div

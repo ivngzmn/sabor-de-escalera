@@ -396,6 +396,7 @@ export default function DiscoverFeed({
   const loadingFor = (card: CardData): PhotoLoading => photoLoading(items.indexOf(card), { shelves: showShelves });
   const renderCard = (card: CardData, featured = false) => (
     <RecipeCard
+      holdPhoto
       photoLoading={loadingFor(card)}
       card={card}
       language={language}
