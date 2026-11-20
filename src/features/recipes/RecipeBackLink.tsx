@@ -1,6 +1,5 @@
 import { useEffect, useState, type MouseEvent } from "react";
 import { ArrowLeftIcon } from "@radix-ui/react-icons";
-import { Button } from "@/components/ui/button";
 import { backTarget, type BackPlace, type BackTarget } from "./back-target";
 
 const copy: Record<"en" | "es", Record<BackPlace, string>> = {
@@ -38,14 +37,9 @@ export default function RecipeBackLink({ language }: { language: "en" | "es" }) 
   };
 
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      className="-ml-2.5 self-start text-muted-foreground hover:text-foreground"
-      render={<a href={target.href} onClick={goBack} data-back-place={target.place} />}
-    >
-      <ArrowLeftIcon aria-hidden="true" />
+    <a href={target.href} onClick={goBack} data-back-place={target.place} className="mb-2 inline-flex items-center gap-1.5 self-start py-2 text-sm font-semibold underline decoration-1 underline-offset-4 hover:decoration-2">
+      <ArrowLeftIcon aria-hidden="true" className="size-4 shrink-0" />
       {copy[language][target.place]}
-    </Button>
+    </a>
   );
 }
