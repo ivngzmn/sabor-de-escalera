@@ -6,6 +6,7 @@ import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/comp
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { RecipeCard as CardData } from "./catalog";
+import { PHOTO_MARGIN, photoSources, type PhotoLoading } from "./discover-paging";
 
 const copy = {
   en: {
@@ -43,6 +44,29 @@ export interface RecipeCardProps {
   ratingsEnabled?: boolean;
   /** Hold the Home shelf photo behind its skeleton until it loads. */
   shelf?: boolean;
+  /** "deferred" leaves the photo out until the card nears the viewport; defaults to eager when featured, else lazy. */
+  photoLoading?: PhotoLoading;
+}
+
+function useNearViewport(enabled: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [near, setNear] = useState(!enabled);
+  useEffect(() => {
+    const node = ref.current;
+    if (!enabled || !node) return;
+    if (typeof IntersectionObserver === "undefined") return setNear(true);
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        setNear(true);
+        observer.disconnect();
+      },
+      { rootMargin: PHOTO_MARGIN },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [enabled]);
+  return [ref, near] as const;
 }
 
 /** Scannable recipe card: 16:10 photo, floating quick-save button, unboxed typographic metadata, zero pill clutter. */
@@ -55,18 +79,20 @@ export default function RecipeCard({
   featured,
   ratingsEnabled = false,
   shelf = false,
+  photoLoading = featured ? "eager" : "lazy",
 }: RecipeCardProps) {
   const t = copy[language];
   const photo = useRef<HTMLImageElement>(null);
-  const coverUrl = card.cover
-    ? `/api/recipes/${card.id}/photos/${card.cover.assetId}?variant=${featured ? "gallery" : "card"}`
-    : null;
+  const sources = photoSources(card, featured);
+  const coverUrl = sources?.src ?? null;
+  const deferred = photoLoading === "deferred";
+  const [frame, near] = useNearViewport(deferred && Boolean(sources));
   const [settledPhoto, setSettledPhoto] = useState<string | null>(null);
   const photoReady = settledPhoto === coverUrl;
 
   useEffect(() => {
     if (photo.current?.complete) setSettledPhoto(coverUrl);
-  }, [coverUrl]);
+  }, [coverUrl, near]);
   const href = language === "es" ? `${card.url}?lang=es` : card.url;
   const originHref = card.origin
     ? `/discover?${new URLSearchParams({ origin: card.origin, ...(language === "es" ? { lang: "es" } : {}) })}`
@@ -81,26 +107,47 @@ export default function RecipeCard({
       data-recipe-card={card.id}
     >
       <div
+        ref={frame}
         className={cn(
           "relative aspect-[16/10] overflow-hidden bg-muted",
           featured && "md:aspect-auto md:min-h-[21rem]",
         )}
       >
         {card.cover && !photoReady && <Skeleton aria-hidden="true" className="absolute inset-0 rounded-none" />}
-        {card.cover ? (
+        {card.cover && sources ? (
+          near ? (
           <img
             ref={photo}
             onLoad={() => setSettledPhoto(coverUrl)}
             onError={() => setSettledPhoto(coverUrl)}
-            src={coverUrl ?? undefined}
+            src={sources.src}
+            srcSet={sources.srcSet}
+            sizes={sources.sizes}
             alt={card.cover.alt}
             width={card.cover.width}
             height={card.cover.height}
-            loading={featured ? "eager" : "lazy"}
+            loading={photoLoading === "eager" ? "eager" : "lazy"}
+            fetchPriority={photoLoading === "eager" && featured ? "high" : undefined}
             decoding={shelf ? "sync" : "async"}
             referrerPolicy="no-referrer"
             className={cn("absolute inset-0 size-full object-cover transition-transform duration-500 motion-safe:group-hover:scale-105", shelf && !photoReady && "[@media(scripting:enabled)]:opacity-0")}
           />
+          ) : (
+            <noscript>
+              <img
+                src={sources.src}
+                srcSet={sources.srcSet}
+                sizes={sources.sizes}
+                alt={card.cover.alt}
+                width={card.cover.width}
+                height={card.cover.height}
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+                className="absolute inset-0 size-full object-cover"
+              />
+            </noscript>
+          )
         ) : (
           <div
             aria-hidden="true"
