@@ -11,30 +11,16 @@ function BrandMark({
     "svg",
     {
       "data-slot": "brand-mark",
-      viewBox: "28 26 72 72",
+      viewBox: "50 44 168 168",
       fill: "none",
       "aria-hidden": true,
       focusable: false,
       className: cn("size-8 shrink-0", className),
       children: (
-        <>
-          <path
-            d="M51.5 37c0-11 25-11 25 0"
-            stroke="var(--brand-mark-accent, #c84b31)"
-            strokeWidth="5"
-            strokeLinecap="round"
-          />
-          <path
-            d="M50 36h28l16 23-5 37H39l-5-37z"
-            fill="var(--brand-mark-body, #1c1917)"
-          />
-          <path
-            d="M53.5 72h21"
-            stroke="var(--brand-mark-accent, #c84b31)"
-            strokeWidth="4"
-            strokeLinecap="round"
-          />
-        </>
+        <g fill="var(--brand-mark-color, #1c1917)" stroke="var(--brand-mark-color, #1c1917)">
+          <path d="M86 202 132 122" strokeWidth="14" strokeLinecap="round" />
+          <ellipse cx="150" cy="89" rx="48" ry="37" transform="rotate(-60 150 89)" stroke="none" />
+        </g>
       ),
       ...props,
     },

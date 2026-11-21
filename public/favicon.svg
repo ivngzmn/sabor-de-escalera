@@ -1,16 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
   <style>
-    .tile { fill: #fff8f5; stroke: #f3e7e1; }
-    .body { fill: #1c1917; }
-    .accent { stroke: #c84b31; }
+    .tile { fill: #fff8f5; stroke: #e6d7cd; }
+    .spoon { fill: #1c1917; stroke: #1c1917; }
     @media (prefers-color-scheme: dark) {
       .tile { fill: #1c1917; stroke: #1c1917; }
-      .body { fill: #faf7f2; }
-      .accent { stroke: #e05338; }
+      .spoon { fill: #faf7f2; stroke: #faf7f2; }
     }
   </style>
-  <rect class="tile" x="1.5" y="1.5" width="125" height="125" rx="28" stroke-width="3"/>
-  <path class="accent" d="M51.5 37c0-11 25-11 25 0" fill="none" stroke-width="5" stroke-linecap="round"/>
-  <path class="body" d="M50 36h28l16 23-5 37H39l-5-37z"/>
-  <path class="accent" d="M53.5 72h21" fill="none" stroke-width="4" stroke-linecap="round"/>
+  <rect class="tile" x="1.5" y="1.5" width="253" height="253" rx="56" stroke-width="3"/>
+  <g class="spoon">
+    <path d="M89 195 130 124" stroke-width="11" stroke-linecap="round"/>
+    <ellipse cx="151" cy="86" rx="40" ry="31" transform="rotate(-60 151 86)" stroke="none"/>
+  </g>
 </svg>
