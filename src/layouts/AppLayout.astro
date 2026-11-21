@@ -7,6 +7,7 @@ import bodyStrongFont from '@fontsource/dm-sans/files/dm-sans-latin-600-normal.w
 import ConsentBanner from '../features/consent/ConsentBanner';
 import { Cross1Icon, HamburgerMenuIcon } from '@radix-ui/react-icons';
 import { buttonVariants } from '../components/ui/button';
+import { BrandMark } from '../components/ui/brand-mark';
 import { readServerConfig } from '../server/config';
 import { accountConfiguration } from '../server/clerk';
 import { hasSessionHint, readHeaderIdentity } from '../server/header-identity';
@@ -42,6 +43,10 @@ const initialMe = showAccount && (sessionHint || previewMode) ? await readHeader
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={copy.footer} />
     <meta name="theme-color" content="#fbf8f3" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-light.png" type="image/png" sizes="64x64" media="(prefers-color-scheme: light)" />
+    <link rel="icon" href="/favicon-dark.png" type="image/png" sizes="64x64" media="(prefers-color-scheme: dark)" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     {[headingFont, bodyFont, bodyStrongFont].map((href) => (
       <link rel="preload" href={href} as="font" type="font/woff2" crossorigin="anonymous" />
     ))}
@@ -53,7 +58,7 @@ const initialMe = showAccount && (sessionHint || previewMode) ? await readHeader
     <a href="#main-content" class="skip-link" data-en="Skip to content" data-es="Saltar al contenido">{copy.skip}</a>
     <header class="site-header">
       <div class="container header-inner">
-        <a class="brand" href={href('/')}>Sabor de Escalera</a>
+        <a class="brand" href={href('/')}><BrandMark />Sabor de Escalera</a>
         <div id="site-menu" class="site-menu">
           <nav class="site-nav" aria-label={language === 'es' ? 'Navegación principal' : 'Main navigation'}>
             <a href={href('/')} aria-current={Astro.url.pathname === '/' ? 'page' : undefined} data-en="Home" data-es="Inicio">{copy.home}</a>
@@ -107,7 +112,7 @@ const initialMe = showAccount && (sessionHint || previewMode) ? await readHeader
       <div class="container">
         <div class="footer-inner">
           <div class="footer-brand">
-            <p class="brand">Sabor de Escalera</p>
+            <p class="brand"><BrandMark className="size-6" />Sabor de Escalera</p>
             <p class="footer-copy">{copy.footer}</p>
           </div>
           <nav class="footer-nav" aria-label={language === 'es' ? 'Navegación del pie de página' : 'Footer navigation'}>

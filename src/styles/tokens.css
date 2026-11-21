@@ -148,6 +148,7 @@
   text-decoration: none;
   white-space: nowrap;
   letter-spacing: -0.02em;
+  gap: .5rem;
 }
 a.brand:not([data-slot]) { color: var(--color-sage-hover); }
 
