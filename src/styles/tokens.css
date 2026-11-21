@@ -260,6 +260,19 @@ main { flex: 1 0 auto; padding-block: clamp(1.75rem, 4vw, 3.25rem); }
   border-top: 1px solid var(--color-border);
   color: var(--color-text-muted);
   font-size: .8125rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: .25rem 1.5rem;
+}
+.footer-legal p { margin: 0; }
+.footer-credit { display: inline-flex; align-items: center; gap: .35rem; }
+.site-footer .footer-credit a:not([data-slot]) {
+  min-height: 0;
+  padding: .5rem .125rem;
+  font-size: inherit;
+  color: var(--color-sage-hover);
 }
 
 @media (max-width: 1023px) {

@@ -118,7 +118,18 @@ const initialMe = showAccount && (sessionHint || previewMode) ? await readHeader
             <a href={href('/add-recipe')} data-en="Add Recipe" data-es="Añadir receta">{copy.add}</a>
           </nav>
         </div>
-        <p class="footer-legal">© {new Date().getFullYear()} Sabor de Escalera</p>
+        <div class="footer-legal">
+          <p>© {new Date().getFullYear()} Sabor de Escalera</p>
+          <p class="footer-credit">
+            <span aria-hidden="true">🌶️</span> Hecho con sazón por{' '}
+            <a
+              href="https://www.ivanguzman.dev/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={language === 'es' ? 'Ivan Guzman (se abre en una pestaña nueva)' : 'Ivan Guzman (opens in a new tab)'}
+            >Ivan Guzman</a>
+          </p>
+        </div>
       </div>
     </footer>
   </body>
