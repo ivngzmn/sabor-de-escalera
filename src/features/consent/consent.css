@@ -20,7 +20,7 @@
   );
   overflow-y: auto;
   overscroll-behavior: contain;
-  z-index: 30;
+  z-index: 50;
 }
 .privacy-panel-reopened {
   bottom: calc(5rem + env(safe-area-inset-bottom));
