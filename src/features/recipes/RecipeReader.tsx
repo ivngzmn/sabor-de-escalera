@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { CopyIcon, ReaderIcon } from "@radix-ui/react-icons";
+import { ReaderIcon } from "@radix-ui/react-icons";
+import { CopyButton } from "@/components/ui/copy-button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FavoriteHeart } from "@/components/ui/favorite-heart";
@@ -31,8 +32,8 @@ const copy = {
     reset: "Reset to original",
     scaledNote: "Amounts are adjusted. Times, temperatures and “to taste” amounts stay as written.",
     copy: "Copy link",
-    copied: "Link copied",
-    copiedDetail: "Share it with anyone who loves to cook.",
+    copiedShort: "Copied",
+    copiedAnnouncement: "Link copied",
     save: "Save to favorites",
     saved: "Saved",
     savedToast: "Saved to favorites",
@@ -52,8 +53,8 @@ const copy = {
     reset: "Volver a la original",
     scaledNote: "Las cantidades están ajustadas. Los tiempos, temperaturas y cantidades «al gusto» se mantienen.",
     copy: "Copiar enlace",
-    copied: "Enlace copiado",
-    copiedDetail: "Compártelo con quien ame cocinar.",
+    copiedShort: "Copiado",
+    copiedAnnouncement: "Enlace copiado",
     save: "Guardar en favoritos",
     saved: "Guardada",
     savedToast: "Guardada en favoritos",
@@ -129,14 +130,6 @@ export default function RecipeReader({
     });
   };
 
-  async function copyLink() {
-    try {
-      await navigator.clipboard.writeText(new URL(url, window.location.origin).href);
-      toast.success(t.copied, { description: t.copiedDetail });
-    } catch {
-      toast.error(t.copyFailed);
-    }
-  }
   async function setFavorite(next: boolean) {
     if (!favorite || saving) return;
     setSaving(true);
@@ -229,10 +222,13 @@ export default function RecipeReader({
               {saved ? t.saved : t.save}
             </Button>
           )}
-          <Button type="button" variant="outline" onClick={copyLink}>
-            <CopyIcon aria-hidden="true" />
-            {t.copy}
-          </Button>
+          <CopyButton
+            getText={() => new URL(url, window.location.origin).href}
+            label={t.copy}
+            copiedLabel={t.copiedShort}
+            announcement={t.copiedAnnouncement}
+            onError={() => toast.error(t.copyFailed)}
+          />
           <Button type="button" variant="outline" onClick={() => window.print()}>
             {t.print}
           </Button>
