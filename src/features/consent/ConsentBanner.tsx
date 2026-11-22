@@ -18,6 +18,7 @@ import {
   FieldDescription,
 } from "@/components/ui/field";
 import { CheckIcon, CookieIcon, Cross2Icon, MixerHorizontalIcon, MinusCircledIcon } from "@radix-ui/react-icons";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -192,25 +193,32 @@ export default function ConsentBanner({
         {message}
       </p>
       {!settings && ready && decided && (
-        <Button
-          ref={launcher}
-          type="button"
-          variant="outline"
-          className="privacy-launcher"
-          aria-expanded={visible}
-          aria-controls={panelId}
-          onClick={() => {
-            if (visible) close();
-            else {
-              setChoices(readConsent());
-              setCustomize(true);
-              setVisible(true);
+        <Tooltip type="label" delay={150}>
+          <TooltipTrigger
+            render={
+              <Button
+                ref={launcher}
+                type="button"
+                variant="outline"
+                size="icon"
+                className="privacy-launcher rounded-full"
+                aria-expanded={visible}
+                aria-controls={panelId}
+                onClick={() => {
+                  if (visible) close();
+                  else {
+                    setChoices(readConsent());
+                    setCustomize(true);
+                    setVisible(true);
+                  }
+                }}
+              />
             }
-          }}
-        >
-          <CookieIcon data-icon="inline-start" aria-hidden="true" />
-          {copy.launcher}
-        </Button>
+          >
+            <CookieIcon className="privacy-launcher-icon size-5" aria-hidden="true" />
+          </TooltipTrigger>
+          <TooltipContent side="right">{copy.launcher}</TooltipContent>
+        </Tooltip>
       )}
       {visible && (
         <Card
