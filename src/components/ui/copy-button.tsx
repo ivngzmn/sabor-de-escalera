@@ -44,7 +44,7 @@ function CopyButton({
         variant="outline"
         data-copied={copied ? "" : undefined}
         className={cn(
-          "group/copy transition-[color,background-color,border-color,box-shadow,scale] active:scale-[0.98] data-copied:border-primary/40 data-copied:text-primary-ink",
+          "group/copy transition-[color,background-color,border-color,box-shadow,scale] active:scale-[0.98] data-copied:border-primary data-copied:bg-primary data-copied:text-primary-foreground data-copied:hover:bg-primary data-copied:hover:text-primary-foreground",
           ease,
           className
         )}
