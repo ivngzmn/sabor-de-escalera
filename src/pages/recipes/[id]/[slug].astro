@@ -44,12 +44,21 @@ if (recipe) {
     catalog.photoCredits(recipe.id),
   ]);
 }
+// Share card: the recipe's cover photo and the opening of its story, trimmed on a word boundary.
+const cover = recipe?.input.photos[0];
+const shareImage = recipe && cover ? {
+  src: `/api/recipes/${recipe.id}/photos/${cover.assetId}?variant=gallery`,
+  alt: cover.alt || cover.caption || recipe.input.title,
+  type: 'image/webp',
+} : undefined;
+const story = recipe?.input.story.replace(/\s+/g, ' ').trim() ?? '';
+const shareDescription = story.length > 160 ? `${story.slice(0, 157).replace(/\s+\S*$/, '')}…` : story || undefined;
 const date = (iso: string) => new Intl.DateTimeFormat(language, { dateStyle: 'long' }).format(new Date(iso));
 const t = spanish
   ? { cookbook: 'Del recetario Escalera', contributed: 'Aportada por', original: 'Receta original de', by: 'Por', published: 'Publicada', updated: 'Actualizada', gone: 'Uy, esta receta se ha ido de la mesa.', explore: 'Explorar recetas', unavailable: 'No pudimos cargar esta receta. Inténtalo de nuevo en un momento.' }
   : { cookbook: 'From the Escalera cookbook', contributed: 'Contributed by', original: 'Original recipe by', by: 'By', published: 'Published', updated: 'Updated', gone: 'Oops—this recipe has left the table.', explore: 'Explore Recipes', unavailable: 'We couldn’t load this recipe. Please try again in a moment.' };
 ---
-<AppLayout title={recipe?.input.title ?? (spanish ? 'Receta no disponible' : 'Recipe unavailable')}>
+<AppLayout title={recipe?.input.title ?? (spanish ? 'Receta no disponible' : 'Recipe unavailable')} description={shareDescription} image={shareImage} ogType={recipe ? 'article' : 'website'}>
   {recipe ? (
     <>
       <RecipeBackLink client:load language={language} />
