@@ -821,6 +821,11 @@ function buildSearchBlob(recipe: StoredRecipe): string {
 }
 
 export const previewCatalogService = {
+  async sitemapEntries() {
+    return [...getPreviewState().recipes.values()]
+      .filter((r) => r.state === 'published' && r.slug)
+      .map((r) => ({ path: `/recipes/${r.id}/${r.slug}`, lastModified: r.updatedAt }));
+  },
   async readerTranslation(recipeId: string, language: 'en' | 'es'): Promise<TranslatableText | null> {
     const r = getPreviewState().recipes.get(recipeId);
     if (!r) return null;

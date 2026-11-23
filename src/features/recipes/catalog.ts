@@ -191,6 +191,13 @@ export function createCatalogService({ pool }: { pool: Pool }) {
       const site = (url: string | null) => (url ? (/pexels\.com$/.test(new URL(url).hostname) ? "Pexels" : /unsplash\.com$/.test(new URL(url).hostname) ? "Unsplash" : null) : null);
       return Object.fromEntries(rows.map((r) => [r.asset_id, { kind: r.kind, photographer: r.photographer, site: site(r.source_url), label: r.label }]));
     },
+    /** Published recipe URLs for the sitemap, newest change first. */
+    async sitemapEntries(): Promise<{ path: string; lastModified: string }[]> {
+      const { rows } = await pool.query<{ id: string; slug: string; updated_at: Date }>(
+        "SELECT id,slug,updated_at FROM recipes WHERE state='published' AND slug IS NOT NULL ORDER BY updated_at DESC,id LIMIT 45000",
+      );
+      return rows.map((r) => ({ path: `/recipes/${r.id}/${r.slug}`, lastModified: r.updated_at.toISOString() }));
+    },
     /** Display name for a recipe's author, or null for ownerless cookbook recipes. */
     async authorName(memberId: string | null): Promise<string | null> {
       if (!memberId || !isId(memberId)) return null;
