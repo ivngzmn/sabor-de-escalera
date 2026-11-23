@@ -5,6 +5,8 @@ export const variants: Record<Variant, string> = {
   thumb: 'w-320,h-240,c-at_least,cm-extract,f-webp,q-80',
   card: 'w-640,h-480,c-at_least,cm-extract,f-webp,q-80',
   gallery: 'w-1600,h-1600,c-at_max,f-webp,q-85',
+  // 1.91:1 social share card (Open Graph / X summary_large_image).
+  share: 'w-1200,h-630,c-at_least,cm-extract,f-webp,q-85',
   avatar: 'w-256,h-256,c-at_least,cm-extract,f-webp,q-80',
 };
 // These are provisional bounds, not an assertion of acceptable visual quality.

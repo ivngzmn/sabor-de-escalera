@@ -1,5 +1,5 @@
 export type Purpose = 'recipe' | 'cooking' | 'avatar';
-export type Variant = 'thumb' | 'card' | 'gallery' | 'avatar';
+export type Variant = 'thumb' | 'card' | 'gallery' | 'share' | 'avatar';
 export interface AssetRef { id: string; width: number; height: number; }
 export interface UploadGrant { endpoint: string; fields: Record<string, unknown>; token: string; }
 export interface UploadIntent { id: string; path: string; expiresAt: number; grant: UploadGrant; }

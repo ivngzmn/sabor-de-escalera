@@ -181,7 +181,7 @@ export function createMediaService({ pool, provider, ready }: Options) {
     readRecipeDerivative(recipeId: string, assetId: string, variant: string): Promise<Result<Buffer>> {
       return result(async () => {
         available();
-        if (!isId(recipeId) || !isId(assetId) || !['thumb','card','gallery'].includes(variant)) throw new MediaError(404, 'Photo not found.');
+        if (!isId(recipeId) || !isId(assetId) || !['thumb','card','gallery','share'].includes(variant)) throw new MediaError(404, 'Photo not found.');
         const visible = async () => {
           const asset = (await pool.query<AssetRow>(`SELECT a.* FROM media_assets a
             JOIN media_references ref ON ref.asset_id=a.id AND ref.kind='recipe' AND ref.reference_id=$1
