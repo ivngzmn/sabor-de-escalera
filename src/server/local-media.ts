@@ -15,6 +15,7 @@ const sizes: Record<Variant, { width: number; height: number; fit: 'cover' | 'in
   thumb: { width: 320, height: 240, fit: 'cover', quality: 80 },
   card: { width: 640, height: 480, fit: 'cover', quality: 80 },
   gallery: { width: 1600, height: 1600, fit: 'inside', quality: 85 },
+  share: { width: 1200, height: 630, fit: 'cover', quality: 85 },
   avatar: { width: 256, height: 256, fit: 'cover', quality: 80 },
 };
 // One secret per server process: grants are five-minute tokens and never outlive a dev server restart by much.

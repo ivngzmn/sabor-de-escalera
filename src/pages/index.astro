@@ -58,7 +58,12 @@ try {
 
 const signInBase = signInHref(`${Astro.url.pathname}${Astro.url.search}`, accountConfiguration()?.origin ?? Astro.url.origin);
 ---
-<AppLayout title={spanish ? 'Inicio' : 'Home'}>
+<AppLayout
+  title={spanish ? 'Recetas, historias y sabores para compartir' : 'Recipes, stories, and flavors to share'}
+  description={spanish
+    ? 'Recetas caseras y las historias familiares detrás de ellas, de pupusas y birria a alfajores. Cocina, guarda y comparte.'
+    : 'Home-cooked recipes and the family stories behind them, from pupusas and birria to alfajores. Cook, save and share your own.'}
+>
   <HomeShowcase
     client:load
     language={language}

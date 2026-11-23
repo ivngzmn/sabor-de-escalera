@@ -1256,6 +1256,7 @@ const VARIANT_DIMS = {
   thumb: { width: 320, height: 240 },
   card: { width: 640, height: 400 },
   gallery: { width: 1200, height: 900 },
+  share: { width: 1200, height: 630 },
   avatar: { width: 256, height: 256 },
 } as const;
 
