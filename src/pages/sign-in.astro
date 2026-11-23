@@ -7,7 +7,7 @@ import { Card, CardContent } from '../components/ui/card';
 import { accountConfiguration, ClerkResponseError } from '../server/clerk';
 import { isPreviewMode } from '../server/preview-store';
 import { requireActor } from '../features/accounts/service';
-import { AccountError, safeReturnTo } from '../features/accounts/permissions';
+import { AccountError, returningMemberTarget, safeReturnTo } from '../features/accounts/permissions';
 const spanish = Astro.url.searchParams.get('lang') === 'es';
 const config = accountConfiguration();
 const previewMode = !config && isPreviewMode();
@@ -17,7 +17,7 @@ let available = Boolean(config);
 if (config) {
   try {
     const actor = await requireActor(Astro.request);
-    return Astro.redirect(actor.onboarded ? target : onboarding, 303);
+    return Astro.redirect(actor.onboarded ? returningMemberTarget(target, config.origin) : onboarding, 303);
   } catch (error) { if (error instanceof ClerkResponseError) return error.response; if (!(error instanceof AccountError && error.status === 401)) available = false; }
 }
 if (!available && !previewMode) Astro.response.status = 503;
