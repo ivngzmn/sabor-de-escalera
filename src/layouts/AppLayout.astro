@@ -15,7 +15,15 @@ import { isPreviewMode } from '../server/preview-store';
 import AccountMenu from '../features/accounts/AccountMenu';
 import { signInHref } from '../features/accounts/permissions';
 
-interface Props { title: string; privacySettings?: boolean; }
+interface Props {
+  title: string;
+  privacySettings?: boolean;
+  /** Share-card summary; defaults to the site tagline. */
+  description?: string;
+  /** Share-card image as a site path or absolute URL; defaults to the home hero crop. */
+  image?: { src: string; alt: string; width?: number; height?: number; type?: string };
+  ogType?: 'website' | 'article';
+}
 const { title } = Astro.props;
 const { languageSwitchEnabled, gtmContainerId, posthog } = readServerConfig();
 const language = Astro.url.searchParams.get('lang') === 'es' ? 'es' : 'en';
@@ -35,14 +43,47 @@ const accountHref = signInHref(`${Astro.url.pathname}${Astro.url.search}`, Astro
 const showAccount = !/^\/(?:sign-in|onboarding)(?:\/|$)/.test(Astro.url.pathname);
 const sessionHint = authEnabled && hasSessionHint(Astro.request);
 const initialMe = showAccount && (sessionHint || previewMode) ? await readHeaderIdentity(Astro.request) : null;
+// Social crawlers need absolute URLs; prefer the configured public origin over the request host.
+const siteOrigin = accountConfiguration()?.origin ?? Astro.url.origin;
+const siteName = 'Sabor de Escalera';
+const pageTitle = `${title} · ${siteName}`;
+const description = Astro.props.description?.trim() || copy.footer;
+const canonicalUrl = new URL(`${Astro.url.pathname}${language === 'es' ? '?lang=es' : ''}`, siteOrigin).href;
+const shareImage = Astro.props.image ?? {
+  src: '/og-image.jpg',
+  alt: language === 'es' ? 'Una mesa compartida con pupusas, birria, tortillas y alfajores' : 'A shared table set with pupusas, birria, tortillas and alfajores',
+  width: 1200,
+  height: 630,
+  type: 'image/jpeg',
+};
+const shareImageUrl = new URL(shareImage.src, siteOrigin).href;
 ---
 <!doctype html>
 <html lang={language}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content={copy.footer} />
+    <meta name="description" content={description} />
     <meta name="theme-color" content="#fbf8f3" />
+    <link rel="canonical" href={canonicalUrl} />
+    <meta property="og:site_name" content={siteName} />
+    <meta property="og:type" content={Astro.props.ogType ?? 'website'} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:locale" content={language === 'es' ? 'es_US' : 'en_US'} />
+    <meta property="og:locale:alternate" content={language === 'es' ? 'en_US' : 'es_US'} />
+    <meta property="og:image" content={shareImageUrl} />
+    {shareImageUrl.startsWith('https:') && <meta property="og:image:secure_url" content={shareImageUrl} />}
+    {shareImage.type && <meta property="og:image:type" content={shareImage.type} />}
+    {shareImage.width && <meta property="og:image:width" content={String(shareImage.width)} />}
+    {shareImage.height && <meta property="og:image:height" content={String(shareImage.height)} />}
+    <meta property="og:image:alt" content={shareImage.alt} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={shareImageUrl} />
+    <meta name="twitter:image:alt" content={shareImage.alt} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon-light.png" type="image/png" sizes="64x64" media="(prefers-color-scheme: light)" />
     <link rel="icon" href="/favicon-dark.png" type="image/png" sizes="64x64" media="(prefers-color-scheme: dark)" />
@@ -50,7 +91,7 @@ const initialMe = showAccount && (sessionHint || previewMode) ? await readHeader
     {[headingFont, bodyFont, bodyStrongFont].map((href) => (
       <link rel="preload" href={href} as="font" type="font/woff2" crossorigin="anonymous" />
     ))}
-    <title>{title} · Sabor de Escalera</title>
+    <title>{pageTitle}</title>
     {gtmContainerId && <meta name="escalera:gtm" content={gtmContainerId} />}
     {posthog && <meta name="escalera:posthog" content={JSON.stringify({ ...posthog, person: initialMe ? { id: initialMe.id, role: initialMe.role, onboarded: initialMe.onboarded } : null })} />}
   </head>
