@@ -36,6 +36,13 @@ export function safeReturnTo(value: string | null | undefined, origin: string): 
     return `${url.pathname}${url.search}${url.hash}`;
   } catch { return '/'; }
 }
+/** Where a member who already finished onboarding goes after signing in: their profile, unless they were headed somewhere specific. */
+export function returningMemberTarget(returnTo: string, origin: string): string {
+  const target = safeReturnTo(returnTo, origin);
+  const url = new URL(target, origin);
+  if (url.pathname !== '/') return target;
+  return url.searchParams.get('lang') === 'es' ? '/profile?lang=es' : '/profile';
+}
 export function signInHref(returnTo: string, origin: string, admin = false) {
   const target = safeReturnTo(returnTo, origin);
   const query = new URLSearchParams({ returnTo: target });

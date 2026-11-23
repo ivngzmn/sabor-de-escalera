@@ -9,7 +9,7 @@ import { isPreviewMode } from '../server/preview-store';
 import AppLayout from '../layouts/AppLayout.astro';
 import { accountConfiguration } from '../server/clerk';
 import { accounts, type Actor } from '../features/accounts/service';
-import { AccountError, assertSameOriginWrite, safeReturnTo, signInHref } from '../features/accounts/permissions';
+import { AccountError, assertSameOriginWrite, returningMemberTarget, safeReturnTo, signInHref } from '../features/accounts/permissions';
 import { accountFailure } from '../features/accounts/routes';
 const spanish = Astro.url.searchParams.get('lang') === 'es';
 const origin = accountConfiguration()?.origin ?? Astro.url.origin;
@@ -34,6 +34,8 @@ catch (error) {
   if (error instanceof AccountError && error.status === 401) return Astro.redirect(signInHref(target, origin), 303);
   return accountFailure(error);
 }
+// Clerk sends every sign-in here; members who already chose a display name skip setup.
+if (actor.onboarded) return Astro.redirect(returningMemberTarget(target, origin), 303);
 ---
 <AppLayout title={spanish ? 'Tu perfil' : 'Your profile'}>
   <div class="flex max-w-3xl flex-col items-start gap-1.5">
